@@ -1,0 +1,10 @@
+{
+    "extension_name": {
+        "message": "Wormhole",
+        "description": "The display name for the extension."
+    },
+    "extension_description": {
+        "message": "Open at:// links or active tab URL in various BlueSky tools.",
+        "description": "Description of what the extension does."
+    }
+}
