@@ -3,11 +3,12 @@ const { parseInput, resolveHandle } = require("./transform.js");
 const assert = require("assert").strict;
 
 function mockFetchResponse(data = {}, isOk = true, httpStatus = 200) {
-  return () => Promise.resolve({
-    ok: isOk,
-    status: httpStatus,
-    json: () => Promise.resolve(data),
-  });
+  return () =>
+    Promise.resolve({
+      ok: isOk,
+      status: httpStatus,
+      json: () => Promise.resolve(data),
+    });
 }
 
 const fetchMockConfigs = [
@@ -25,27 +26,26 @@ const fetchMockConfigs = [
       "@context": [
         "https://www.w3.org/ns/did/v1",
         "https://w3id.org/security/multikey/v1",
-        "https://w3id.org/security/suites/secp256k1-2019/v1"
+        "https://w3id.org/security/suites/secp256k1-2019/v1",
       ],
-      "id": "did:web:didweb.watch",
-      "alsoKnownAs": [
-        "at://didweb.watch"
-      ],
-      "verificationMethod": [
+      id: "did:web:didweb.watch",
+      alsoKnownAs: ["at://didweb.watch"],
+      verificationMethod: [
         {
-          "id": "did:web:didweb.watch#atproto",
-          "type": "Multikey",
-          "controller": "did:web:didweb.watch",
-          "publicKeyMultibase": "zQ3shPLyZu2EbgJ75P61bMZP4yvBwmtd22ph5sEnY6oLz4YLo"
-        }
+          id: "did:web:didweb.watch#atproto",
+          type: "Multikey",
+          controller: "did:web:didweb.watch",
+          publicKeyMultibase:
+            "zQ3shPLyZu2EbgJ75P61bMZP4yvBwmtd22ph5sEnY6oLz4YLo",
+        },
       ],
-      "service": [
+      service: [
         {
-          "id": "#atproto_pds",
-          "type": "AtprotoPersonalDataServer",
-          "serviceEndpoint": "https://zio.blue"
-        }
-      ]
+          id: "#atproto_pds",
+          type: "AtprotoPersonalDataServer",
+          serviceEndpoint: "https://zio.blue",
+        },
+      ],
     }),
   },
   {
@@ -59,12 +59,16 @@ const fetchMockConfigs = [
 ];
 
 global.fetch = (url) => {
-  const mock = fetchMockConfigs.find(m => m.condition(url));
+  const mock = fetchMockConfigs.find((m) => m.condition(url));
   if (mock) {
     return mock.response();
   }
   console.warn(`Unhandled fetch mock for URL: ${url}`);
-  return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
+  return Promise.resolve({
+    ok: false,
+    status: 500,
+    json: () => Promise.resolve({}),
+  });
 };
 
 async function run() {
@@ -89,7 +93,8 @@ async function run() {
       name: "parseInput/feed/cozy",
       input: "https://deer.social/profile/why.bsky.team/feed/cozy",
       expected: {
-        atUri: "at://did:plc:vpkhqolt662uhesyj6nxm7ys/app.bsky.feed.generator/cozy",
+        atUri:
+          "at://did:plc:vpkhqolt662uhesyj6nxm7ys/app.bsky.feed.generator/cozy",
         did: "did:plc:vpkhqolt662uhesyj6nxm7ys",
         handle: "why.bsky.team",
         rkey: "cozy",
@@ -99,21 +104,26 @@ async function run() {
     },
     {
       name: "parseInput/feed.post",
-      input: "https://deer.social/profile/did:plc:kkkcb7sys7623hcf7oefcffg/post/3lpe6ek6xhs2n",
+      input:
+        "https://deer.social/profile/did:plc:kkkcb7sys7623hcf7oefcffg/post/3lpe6ek6xhs2n",
       expected: {
-        atUri: "at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lpe6ek6xhs2n",
+        atUri:
+          "at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lpe6ek6xhs2n",
         did: "did:plc:kkkcb7sys7623hcf7oefcffg",
         handle: null,
         rkey: "3lpe6ek6xhs2n",
         nsid: "app.bsky.feed.post",
-        bskyAppPath: "/profile/did:plc:kkkcb7sys7623hcf7oefcffg/post/3lpe6ek6xhs2n",
+        bskyAppPath:
+          "/profile/did:plc:kkkcb7sys7623hcf7oefcffg/post/3lpe6ek6xhs2n",
       },
     },
     {
       name: "parseInput/lists",
-      input: "https://deer.social/profile/alice.mosphere.at/lists/3l7vfhhfqcz2u",
+      input:
+        "https://deer.social/profile/alice.mosphere.at/lists/3l7vfhhfqcz2u",
       expected: {
-        atUri: "at://did:plc:by3jhwdqgbtrcc7q4tkkv3cf/app.bsky.graph.list/3l7vfhhfqcz2u",
+        atUri:
+          "at://did:plc:by3jhwdqgbtrcc7q4tkkv3cf/app.bsky.graph.list/3l7vfhhfqcz2u",
         did: "did:plc:by3jhwdqgbtrcc7q4tkkv3cf",
         handle: "alice.mosphere.at",
         rkey: "3l7vfhhfqcz2u",
@@ -135,7 +145,8 @@ async function run() {
     },
     {
       name: "parseInput/did:web/post",
-      input: "https://deer.social/profile/did:web:didweb.watch/post/3lpaioe62qk2j",
+      input:
+        "https://deer.social/profile/did:web:didweb.watch/post/3lpaioe62qk2j",
       expected: {
         atUri: "at://did:web:didweb.watch/app.bsky.feed.post/3lpaioe62qk2j",
         did: "did:web:didweb.watch",
@@ -143,6 +154,19 @@ async function run() {
         rkey: "3lpaioe62qk2j",
         nsid: "app.bsky.feed.post",
         bskyAppPath: "/profile/did:web:didweb.watch/post/3lpaioe62qk2j",
+      },
+    },
+    {
+      name: "parseInput/queryParam/did",
+      input:
+        "https://boat.kelinci.net/plc-oplogs?q=did:plc:5sk4eqsu7byvwokfcnfgywxg",
+      expected: {
+        atUri: "at://did:plc:5sk4eqsu7byvwokfcnfgywxg",
+        did: "did:plc:5sk4eqsu7byvwokfcnfgywxg",
+        handle: null,
+        nsid: undefined,
+        rkey: undefined,
+        bskyAppPath: "/profile/did:plc:5sk4eqsu7byvwokfcnfgywxg",
       },
     },
   ];

@@ -17,11 +17,16 @@
     "permissions": [
         "activeTab",
         "contextMenus",
-        "tabs"
+        "tabs",
+        "storage"
     ],
     "host_permissions": [
       "<all_urls>"
     ],
+
+    "background": {
+      "service_worker": "service-worker.js"
+    },
 
     "action": {
       "default_popup": "popup.html",
