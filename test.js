@@ -1,42 +1,95 @@
 // Minimal test file for transform.js
 const { parseInput, resolveHandle } = require("./transform.js");
+const assert = require("assert").strict;
 
-function deepEqual(a, b) {
-  if (a === b) return true;
-  if (typeof a !== typeof b) return false;
-  if (a && b && typeof a === "object") {
-    const aKeys = Object.keys(a);
-    const bKeys = Object.keys(b);
-    if (aKeys.length !== bKeys.length) return false;
-    for (const k of aKeys) {
-      if (!deepEqual(a[k], b[k])) return false;
-    }
-    return true;
-  }
-  return false;
+function mockFetchResponse(data = {}, isOk = true, httpStatus = 200) {
+  return () => Promise.resolve({
+    ok: isOk,
+    status: httpStatus,
+    json: () => Promise.resolve(data),
+  });
 }
+
+const fetchMockConfigs = [
+  {
+    condition: (url) => url.includes("resolveHandle?handle=why.bsky.team"),
+    response: mockFetchResponse({ did: "did:plc:vpkhqolt662uhesyj6nxm7ys" }),
+  },
+  {
+    condition: (url) => url.includes("resolveHandle?handle=alice.mosphere.at"),
+    response: mockFetchResponse({ did: "did:plc:by3jhwdqgbtrcc7q4tkkv3cf" }),
+  },
+  {
+    condition: (url) => url === "https://didweb.watch/.well-known/did.json",
+    response: mockFetchResponse({
+      "@context": [
+        "https://www.w3.org/ns/did/v1",
+        "https://w3id.org/security/multikey/v1",
+        "https://w3id.org/security/suites/secp256k1-2019/v1"
+      ],
+      "id": "did:web:didweb.watch",
+      "alsoKnownAs": [
+        "at://didweb.watch"
+      ],
+      "verificationMethod": [
+        {
+          "id": "did:web:didweb.watch#atproto",
+          "type": "Multikey",
+          "controller": "did:web:didweb.watch",
+          "publicKeyMultibase": "zQ3shPLyZu2EbgJ75P61bMZP4yvBwmtd22ph5sEnY6oLz4YLo"
+        }
+      ],
+      "service": [
+        {
+          "id": "#atproto_pds",
+          "type": "AtprotoPersonalDataServer",
+          "serviceEndpoint": "https://zio.blue"
+        }
+      ]
+    }),
+  },
+  {
+    condition: (url) => url === "https://fail-did-web.com/.well-known/did.json",
+    response: mockFetchResponse({}, false, 404),
+  },
+  {
+    condition: (url) => url.includes("resolveHandle?handle=bob.test"),
+    response: mockFetchResponse({ did: "did:plc:bobtestdid" }),
+  },
+];
+
+global.fetch = (url) => {
+  const mock = fetchMockConfigs.find(m => m.condition(url));
+  if (mock) {
+    return mock.response();
+  }
+  console.warn(`Unhandled fetch mock for URL: ${url}`);
+  return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
+};
 
 async function run() {
   let passed = 0,
     failed = 0;
   function check(name, actual, expected) {
-    if (deepEqual(actual, expected)) {
+    try {
+      assert.deepStrictEqual(actual, expected);
       console.log(`PASS: ${name}`);
       passed++;
-    } else {
+    } catch (err) {
       console.log(`FAIL: ${name}\nExpected:`, expected, "\nGot:     ", actual);
+      // Log the full error for debugging if needed, especially for assert failures
+      // console.error(err);
       failed++;
     }
   }
 
   // Test cases for parseInput
-  const tests = [
+  const parseInputTests = [
     {
       name: "parseInput/feed/cozy",
       input: "https://deer.social/profile/why.bsky.team/feed/cozy",
       expected: {
-        atUri:
-          "at://did:plc:vpkhqolt662uhesyj6nxm7ys/app.bsky.feed.generator/cozy",
+        atUri: "at://did:plc:vpkhqolt662uhesyj6nxm7ys/app.bsky.feed.generator/cozy",
         did: "did:plc:vpkhqolt662uhesyj6nxm7ys",
         handle: "why.bsky.team",
         rkey: "cozy",
@@ -46,26 +99,21 @@ async function run() {
     },
     {
       name: "parseInput/feed.post",
-      input:
-        "https://deer.social/profile/did:plc:kkkcb7sys7623hcf7oefcffg/post/3lpe6ek6xhs2n",
+      input: "https://deer.social/profile/did:plc:kkkcb7sys7623hcf7oefcffg/post/3lpe6ek6xhs2n",
       expected: {
-        atUri:
-          "at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lpe6ek6xhs2n",
+        atUri: "at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lpe6ek6xhs2n",
         did: "did:plc:kkkcb7sys7623hcf7oefcffg",
         handle: null,
         rkey: "3lpe6ek6xhs2n",
         nsid: "app.bsky.feed.post",
-        bskyAppPath:
-          "/profile/did:plc:kkkcb7sys7623hcf7oefcffg/post/3lpe6ek6xhs2n",
+        bskyAppPath: "/profile/did:plc:kkkcb7sys7623hcf7oefcffg/post/3lpe6ek6xhs2n",
       },
     },
     {
       name: "parseInput/lists",
-      input:
-        "https://deer.social/profile/alice.mosphere.at/lists/3l7vfhhfqcz2u",
+      input: "https://deer.social/profile/alice.mosphere.at/lists/3l7vfhhfqcz2u",
       expected: {
-        atUri:
-          "at://did:plc:by3jhwdqgbtrcc7q4tkkv3cf/app.bsky.graph.list/3l7vfhhfqcz2u",
+        atUri: "at://did:plc:by3jhwdqgbtrcc7q4tkkv3cf/app.bsky.graph.list/3l7vfhhfqcz2u",
         did: "did:plc:by3jhwdqgbtrcc7q4tkkv3cf",
         handle: "alice.mosphere.at",
         rkey: "3l7vfhhfqcz2u",
@@ -87,8 +135,7 @@ async function run() {
     },
     {
       name: "parseInput/did:web/post",
-      input:
-        "https://deer.social/profile/did:web:didweb.watch/post/3lpaioe62qk2j",
+      input: "https://deer.social/profile/did:web:didweb.watch/post/3lpaioe62qk2j",
       expected: {
         atUri: "at://did:web:didweb.watch/app.bsky.feed.post/3lpaioe62qk2j",
         did: "did:web:didweb.watch",
@@ -99,7 +146,7 @@ async function run() {
       },
     },
   ];
-  for (const test of tests) {
+  for (const test of parseInputTests) {
     try {
       const out = await parseInput(test.input);
       check(test.name, out, test.expected);
@@ -109,15 +156,38 @@ async function run() {
     }
   }
 
-  // Test case for resolveHandle
-  try {
-    const handle = "alice.mosphere.at";
-    const expectedDid = "did:plc:by3jhwdqgbtrcc7q4tkkv3cf";
-    const out = await resolveHandle(handle);
-    check("resolveHandle", out, expectedDid);
-  } catch (e) {
-    console.log("FAIL: resolveHandle (exception)", e);
-    failed++;
+  // Test cases for resolveHandle
+  const resolveHandleTests = [
+    {
+      name: "resolveHandle/plc/alice",
+      input: "alice.mosphere.at",
+      expected: "did:plc:by3jhwdqgbtrcc7q4tkkv3cf",
+    },
+    {
+      name: "resolveHandle/plc/bob",
+      input: "bob.test",
+      expected: "did:plc:bobtestdid",
+    },
+    {
+      name: "resolveHandle/did-web/success",
+      input: "did:web:didweb.watch",
+      expected: "did:web:didweb.watch",
+    },
+    {
+      name: "resolveHandle/did-web/failure",
+      input: "did:web:fail-did-web.com",
+      expected: "did:web:fail-did-web.com",
+    },
+  ];
+
+  for (const test of resolveHandleTests) {
+    try {
+      const out = await resolveHandle(test.input);
+      check(test.name, out, test.expected);
+    } catch (e) {
+      console.log(`FAIL: ${test.name} (exception)`, e);
+      failed++;
+    }
   }
 
   console.log(`\nTest results: ${passed} passed, ${failed} failed.`);
