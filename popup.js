@@ -29,28 +29,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     return; // Exit if no relevant data
   }
 
-  let ds = window.WormholeTransform.buildDestinations(info);
-  render(ds);
+  let ds = window.WormholeTransform.buildDestinations(info); // Initial build (might be without handle)
+  render(ds); // Initial render
 
   if (info.did && !info.handle) {
+    let handleToUse = null;
+    let errorStatusWasSet = false; // Flag to track if an error message was shown
     const { didHandleCache = {} } = await chrome.storage.local.get('didHandleCache');
     const cachedHandleValue = didHandleCache[info.did];
 
     if (typeof cachedHandleValue === 'string') {
-      // Cached handle is a string, use it
-      info.handle = cachedHandleValue;
-      ds = window.WormholeTransform.buildDestinations(info); // Re-build ds with the handle
-      render(ds); // Re-render
+      handleToUse = cachedHandleValue;
     } else {
-      // Handle is not in cache as a string (either undefined or a non-string type)
+      // Not a string in cache (or not present)
       if (cachedHandleValue !== undefined) {
-        // It existed but was not a string, log it.
         console.warn('Cached handle for DID', info.did, 'was not a string, re-fetching. Value:', cachedHandleValue);
       }
 
-      // Show "Resolving..." if list is empty OR if we are about to overwrite a bad/missing cache entry
-      // The condition `!ds.length` comes from the original code structure.
-      // The condition `cachedHandleValue !== undefined` ensures "Resolving..." is shown if we just invalidated a non-string cache entry.
+      // Show "Resolving..." status only if necessary. 
+      // (`!ds.length` implies nothing was renderable initially, `cachedHandleValue !== undefined` implies we are re-fetching a bad cache entry)
       if (!ds.length || cachedHandleValue !== undefined) {
         showStatus('Resolving...');
       }
@@ -58,22 +55,35 @@ document.addEventListener('DOMContentLoaded', async () => {
       try {
         if (typeof window.WormholeTransform.resolveDidToHandle !== 'function') {
           showStatus('Error: resolve fn missing');
+          errorStatusWasSet = true; // Set flag
+          // handleToUse remains null
         } else {
-          const freshHandle = await window.WormholeTransform.resolveDidToHandle(info.did); // freshHandle is a string
+          const freshHandle = await window.WormholeTransform.resolveDidToHandle(info.did);
           if (freshHandle) {
-            info.handle = freshHandle;
-            ds = window.WormholeTransform.buildDestinations(info); // Re-build ds
-            render(ds); // Re-render
-            // Store the correct string format in cache, potentially overwriting a bad entry
+            handleToUse = freshHandle;
+            // Update cache with the correct string format
             await chrome.storage.local.set({ didHandleCache: { ...didHandleCache, [info.did]: freshHandle } });
-          } else if (!ds.length) {
-            // Only show "No actions" if list is still empty after failed fetch
-            showStatus('No actions available');
           }
+          // If freshHandle is null, handleToUse remains null (no specific error, just no handle found for DID)
         }
       } catch (err) {
         console.error('Error resolving DID to handle:', err);
-        showStatus('Error resolving'); // Show error status
+        showStatus('Error resolving');
+        errorStatusWasSet = true; // Set flag
+        // handleToUse remains null due to error
+      }
+    }
+
+    // After attempting to get handle from cache or by fetching:
+    if (handleToUse) {
+      info.handle = handleToUse;
+      ds = window.WormholeTransform.buildDestinations(info); // Re-build destinations with the handle
+      render(ds); // Re-render the list
+    } else {
+      // Handle was not obtained. An error status might have already been set.
+      // If the list is still empty and no explicit error status was set, show "No actions available".
+      if (!ds.length && !errorStatusWasSet) {
+        showStatus('No actions available');
       }
     }
   }
@@ -88,7 +98,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       emptyBtn.disabled = true;
 
       try {
-        await chrome.storage.local.remove('didHandleCache'); // Old key
+        await chrome.storage.local.remove('didHandleCache');
 
         await new Promise((resolve, reject) => {
           chrome.runtime.sendMessage({ type: 'CLEAR_CACHE' }, (msgResponse) => {
