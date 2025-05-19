@@ -124,7 +124,7 @@ async function clearOldCacheEntries(ratio = 0.5) {
 }
 
 // Initialize the cache when the service worker starts
-loadCache().catch(console.error);
+const cacheLoaded = loadCache().catch(console.error);
 
 // Handle messages from the popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -136,6 +136,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse({ success: false, error: error.message });
       });
     return true; // Indicates async response
+  }
+  // Provide handle for popup: return cached or resolve if missing
+  if (request.type === 'GET_HANDLE' && request.did) {
+    (async () => {
+      await cacheLoaded;
+      try {
+        let entry = cache.get(request.did);
+        if (entry) {
+          entry.lastAccessed = Date.now();
+          saveCache().catch(console.error);
+          sendResponse({ handle: entry.handle });
+          return;
+        }
+        const h = await resolveDidToHandle(request.did);
+        if (h) await updateCache(request.did, h);
+        sendResponse({ handle: h || null });
+      } catch (e) {
+        console.error('GET_HANDLE error', e);
+        sendResponse({ handle: null });
+      }
+    })();
+    return true;
   }
   if (request.type === 'CLEAR_CACHE') {
     // Clear the in-memory cache

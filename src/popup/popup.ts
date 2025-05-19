@@ -39,35 +39,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
   if (info.did && !info.handle) {
-    let handleToUse = null;
+    let handleToUse: string | null = null;
     let errorStatusWasSet = false; // Flag to track if an error message was shown
 
-    const { didHandleCache = {} } = await chrome.storage.local.get('didHandleCache');
-    const cacheEntry = didHandleCache[info.did];
-    if (cacheEntry) {
-      // Use the new object format from storage
-      handleToUse = cacheEntry.handle;
-      // Refresh lastAccessed in the SW cache
-      await chrome.runtime.sendMessage({ type: 'UPDATE_CACHE', did: info.did, handle: handleToUse });
-    } else {
-      // No cache entry: resolve DID via transform
-      showStatus('Resolving...');
-      try {
-        if (typeof window.WormholeTransform.resolveDidToHandle !== 'function') {
-          showStatus('Error: resolve fn missing');
-          errorStatusWasSet = true;
-        } else {
-          const freshHandle = await window.WormholeTransform.resolveDidToHandle(info.did);
-          if (freshHandle) {
-            handleToUse = freshHandle;
-            await chrome.runtime.sendMessage({ type: 'UPDATE_CACHE', did: info.did, handle: freshHandle });
-          }
-        }
-      } catch (err) {
-        console.error('Error resolving DID to handle:', err);
-        showStatus('Error resolving');
-        errorStatusWasSet = true;
-      }
+    // Ask SW for a handle (from cache or resolved)
+    showStatus('Resolving...');
+    try {
+      const response: { handle: string | null } = await new Promise((resolve) =>
+        chrome.runtime.sendMessage({ type: 'GET_HANDLE', did: info.did }, resolve)
+      );
+      handleToUse = response.handle;
+    } catch (err) {
+      console.error('GET_HANDLE error', err);
+      showStatus('Error resolving');
+      errorStatusWasSet = true;
     }
 
     // After attempting to get handle from cache or by fetching:
