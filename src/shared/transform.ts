@@ -32,6 +32,13 @@ export async function parseInput(raw: string): Promise<any> {
       }
     }
 
+    if (url.hostname === 'tangled.sh' && url.pathname.length > 1) {
+      const handle = url.pathname.slice(1).replace(/^@/, '');
+      if (handle) {
+        return await canonicalize(handle);
+      }
+    }
+
     const qParam = url.searchParams.get('q');
     if (qParam && qParam.startsWith('did:')) {
       return await canonicalize(qParam);

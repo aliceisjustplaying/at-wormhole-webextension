@@ -21,7 +21,11 @@ async function loadCache() {
   try {
     const result = await chrome.storage.local.get(DID_HANDLE_CACHE_KEY);
     const stored = result[DID_HANDLE_CACHE_KEY] || {};
-    cache = new Map(Object.entries(stored));
+    // Keep only object-format entries (legacy strings are discarded)
+    const entries = Object.entries(stored).filter(
+      ([, entry]) => entry && typeof entry === 'object'
+    );
+    cache = new Map(entries);
   } catch (error) {
     console.error('Failed to load cache:', error);
   }
@@ -124,6 +128,15 @@ loadCache().catch(console.error);
 
 // Handle messages from the popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'UPDATE_CACHE' && request.did && request.handle) {
+    updateCache(request.did, request.handle)
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => {
+        console.error('Failed to update cache via message:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // Indicates async response
+  }
   if (request.type === 'CLEAR_CACHE') {
     // Clear the in-memory cache
     cache.clear();

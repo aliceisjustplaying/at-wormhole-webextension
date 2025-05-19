@@ -37,45 +37,36 @@ document.addEventListener('DOMContentLoaded', async () => {
   let ds = window.WormholeTransform.buildDestinations(info); // Initial build (might be without handle)
   render(ds); // Initial render
 
+
   if (info.did && !info.handle) {
     let handleToUse = null;
     let errorStatusWasSet = false; // Flag to track if an error message was shown
+
     const { didHandleCache = {} } = await chrome.storage.local.get('didHandleCache');
-    const cachedHandleValue = didHandleCache[info.did];
-
-    if (typeof cachedHandleValue === 'string') {
-      handleToUse = cachedHandleValue;
+    const cacheEntry = didHandleCache[info.did];
+    if (cacheEntry) {
+      // Use the new object format from storage
+      handleToUse = cacheEntry.handle;
+      // Refresh lastAccessed in the SW cache
+      await chrome.runtime.sendMessage({ type: 'UPDATE_CACHE', did: info.did, handle: handleToUse });
     } else {
-      // Not a string in cache (or not present)
-      if (cachedHandleValue !== undefined) {
-        console.warn('Cached handle for DID', info.did, 'was not a string, re-fetching. Value:', cachedHandleValue);
-      }
-
-      // Show "Resolving..." status only if necessary.
-      // (`!ds.length` implies nothing was renderable initially, `cachedHandleValue !== undefined` implies we are re-fetching a bad cache entry)
-      if (!ds.length || cachedHandleValue !== undefined) {
-        showStatus('Resolving...');
-      }
-
+      // No cache entry: resolve DID via transform
+      showStatus('Resolving...');
       try {
         if (typeof window.WormholeTransform.resolveDidToHandle !== 'function') {
           showStatus('Error: resolve fn missing');
-          errorStatusWasSet = true; // Set flag
-          // handleToUse remains null
+          errorStatusWasSet = true;
         } else {
           const freshHandle = await window.WormholeTransform.resolveDidToHandle(info.did);
           if (freshHandle) {
             handleToUse = freshHandle;
-            // Update cache with the correct string format
-            await chrome.storage.local.set({ didHandleCache: { ...didHandleCache, [info.did]: freshHandle } });
+            await chrome.runtime.sendMessage({ type: 'UPDATE_CACHE', did: info.did, handle: freshHandle });
           }
-          // If freshHandle is null, handleToUse remains null (no specific error, just no handle found for DID)
         }
       } catch (err) {
         console.error('Error resolving DID to handle:', err);
         showStatus('Error resolving');
-        errorStatusWasSet = true; // Set flag
-        // handleToUse remains null due to error
+        errorStatusWasSet = true;
       }
     }
 
