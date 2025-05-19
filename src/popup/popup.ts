@@ -1,5 +1,10 @@
-/* global chrome */
+import '../shared/transform';
+// @ts-nocheck
+// TODO: Use 'browser' API with polyfill for cross-browser support
 
+/**
+ * Main entry for popup script. Runs on DOMContentLoaded.
+ */
 document.addEventListener('DOMContentLoaded', async () => {
   const list = document.getElementById('dest');
   const emptyBtn = document.getElementById('emptyCacheBtn');
@@ -46,7 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn('Cached handle for DID', info.did, 'was not a string, re-fetching. Value:', cachedHandleValue);
       }
 
-      // Show "Resolving..." status only if necessary. 
+      // Show "Resolving..." status only if necessary.
       // (`!ds.length` implies nothing was renderable initially, `cachedHandleValue !== undefined` implies we are re-fetching a bad cache entry)
       if (!ds.length || cachedHandleValue !== undefined) {
         showStatus('Resolving...');

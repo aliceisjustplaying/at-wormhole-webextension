@@ -2,18 +2,24 @@
   "name": "at-wormhole-chrome",
   "private": true,
   "scripts": {
-    "lint": "bunx eslint .",
-    "lint:fix": "bunx eslint . --fix",
+    "lint": "bunx eslint . --ignore-pattern 'dist/**/*'",
     "format": "bunx prettier --ignore-unknown --write .",
-    "test": "bun run test.js"
+    "test": "bunx tsx tests/transform.test.ts",
+    "dev": "bunx vite",
+    "build": "bunx vite build",
+    "typecheck": "bunx tsc --noEmit"
   },
   "devDependencies": {
+    "@crxjs/vite-plugin": "latest",
     "@eslint/js": "^9.27.0",
     "@types/bun": "latest",
     "@types/chrome": "latest",
     "@types/node": "latest",
     "eslint": "^9.27.0",
     "globals": "^16.1.0",
-    "prettier": "latest"
+    "prettier": "latest",
+    "typescript": "latest",
+    "typescript-eslint": "^8.32.1",
+    "vite": "latest"
   }
 }

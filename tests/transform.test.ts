@@ -1,5 +1,5 @@
-const { parseInput, resolveHandleToDid } = require('./transform.js');
-const assert = require('assert').strict;
+import assert from 'assert';
+import { parseInput, resolveHandleToDid } from '../src/shared/transform';
 
 function mockFetchResponse(data = {}, isOk = true, httpStatus = 200) {
   return () =>
@@ -12,15 +12,15 @@ function mockFetchResponse(data = {}, isOk = true, httpStatus = 200) {
 
 const fetchMockConfigs = [
   {
-    condition: (url) => url.includes('resolveHandle?handle=why.bsky.team'),
+    condition: (url: string) => url.includes('resolveHandle?handle=why.bsky.team'),
     response: mockFetchResponse({ did: 'did:plc:vpkhqolt662uhesyj6nxm7ys' }),
   },
   {
-    condition: (url) => url.includes('resolveHandle?handle=alice.mosphere.at'),
+    condition: (url: string) => url.includes('resolveHandle?handle=alice.mosphere.at'),
     response: mockFetchResponse({ did: 'did:plc:by3jhwdqgbtrcc7q4tkkv3cf' }),
   },
   {
-    condition: (url) => url === 'https://didweb.watch/.well-known/did.json',
+    condition: (url: string) => url === 'https://didweb.watch/.well-known/did.json',
     response: mockFetchResponse({
       '@context': [
         'https://www.w3.org/ns/did/v1',
@@ -47,39 +47,46 @@ const fetchMockConfigs = [
     }),
   },
   {
-    condition: (url) => url === 'https://fail-did-web.com/.well-known/did.json',
+    condition: (url: string) => url === 'https://fail-did-web.com/.well-known/did.json',
     response: mockFetchResponse({}, false, 404),
   },
   {
-    condition: (url) => url.includes('resolveHandle?handle=bob.test'),
+    condition: (url: string) => url.includes('resolveHandle?handle=bob.test'),
     response: mockFetchResponse({ did: 'did:plc:bobtestdid' }),
   },
 ];
 
-global.fetch = (url) => {
-  const mock = fetchMockConfigs.find((m) => m.condition(url));
+// Patch fetch with preconnect property to satisfy Bun's global type
+const fetchWithPreconnect = (url: URL | RequestInfo) => {
+  const mock = fetchMockConfigs.find((m) => m.condition(url.toString()));
   if (mock) {
     return mock.response();
   }
   console.warn(`Unhandled fetch mock for URL: ${url}`);
-  return Promise.resolve({
-    ok: false,
-    status: 500,
-    json: () => Promise.resolve({}),
-  });
+  return Promise.resolve(
+    new Response(JSON.stringify({}), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  );
 };
+(fetchWithPreconnect as any).preconnect = () => {};
+// Use 'any' to satisfy Bun's global.fetch type
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(global as any).fetch = fetchWithPreconnect;
 
 async function run() {
   let passed = 0,
     failed = 0;
-  function check(name, actual, expected) {
+
+  function check(name: string, actual: unknown, expected: unknown) {
     try {
       assert.deepStrictEqual(actual, expected);
       console.log(`PASS: ${name}`);
       passed++;
       // eslint-disable-next-line no-unused-vars
     } catch (e) {
-      console.log(`FAIL: ${name}\nExpected:`, expected, '\nGot:     ', actual);
+      console.error(`FAIL: ${name}`);
       failed++;
     }
   }

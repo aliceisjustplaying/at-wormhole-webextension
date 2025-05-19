@@ -1,0 +1,39 @@
+body {
+  font-family: -apple-system, sans-serif;
+  margin: 0;
+  padding: 10px;
+  width: 280px;
+}
+ul {
+  list-style: none;
+  padding: 0;
+}
+li {
+  margin: 4px 0;
+}
+button {
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fafafa;
+  font-size: 14px;
+}
+button:hover {
+  background: #eee;
+}
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #222;
+    color: #eee;
+  }
+  button {
+    background: #333;
+    color: #eee;
+    border-color: #555;
+  }
+  button:hover {
+    background: #444;
+  }
+}

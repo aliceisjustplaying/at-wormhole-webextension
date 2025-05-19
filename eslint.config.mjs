@@ -1,9 +1,26 @@
-import js from '@eslint/js';
-import globals from 'globals';
-import { defineConfig } from 'eslint/config';
+import eslint from '@eslint/js';
+import tseslint from 'typescript-eslint';
 
-export default defineConfig([
-  { files: ['**/*.{js,mjs,cjs}'], plugins: { js }, extends: ['js/recommended'] },
-  { files: ['**/*.js'], languageOptions: { sourceType: 'commonjs' } },
-  { files: ['**/*.{js,mjs,cjs}'], languageOptions: { globals: { ...globals.browser, ...globals.node } } },
-]);
+export default tseslint.config(
+  eslint.configs.recommended,
+  ...tseslint.configs.strictTypeChecked,
+  ...tseslint.configs.stylisticTypeChecked,
+  {
+    languageOptions: {
+      parserOptions: {
+        projectService: {
+          allowDefaultProject: ['*.js'],
+          defaultProject: 'tsconfig.json',
+        },
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/restrict-template-expressions': 'off',
+    },
+  },
+  {
+    files: ['eslint.config.mjs'],
+    extends: [tseslint.configs.disableTypeChecked],
+  },
+);

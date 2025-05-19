@@ -1,10 +1,6 @@
-/* globals chrome, importScripts, parseInput, resolveDidToHandle */
-
-try {
-  importScripts('transform.js');
-} catch (e) {
-  console.error('SW import fail', e);
-}
+// @ts-nocheck
+// TODO: Use 'browser' API with polyfill for cross-browser support
+import { parseInput, resolveDidToHandle } from '../shared/transform';
 
 const DID_HANDLE_CACHE_KEY = 'didHandleCache';
 const MAX_CACHE_ENTRIES = 1000; // Maximum number of entries to keep in the cache

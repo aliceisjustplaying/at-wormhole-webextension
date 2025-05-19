@@ -1,10 +1,16 @@
-const NSID_SHORTCUTS = {
+/**
+ * Shortcuts for NSIDs used in Bluesky/AT-Proto
+ */
+export const NSID_SHORTCUTS: Record<string, string> = {
   post: 'app.bsky.feed.post',
   feed: 'app.bsky.feed.generator',
   lists: 'app.bsky.graph.list',
 };
 
-async function parseInput(raw) {
+/**
+ * Parses a raw input string (URL, DID, handle) and returns canonical info.
+ */
+export async function parseInput(raw: string): Promise<any> {
   if (!raw) return null;
   let str = decodeURIComponent(raw.trim());
   if (!str.startsWith('http')) {
@@ -46,7 +52,10 @@ async function parseInput(raw) {
   return null;
 }
 
-async function canonicalize(fragment) {
+/**
+ * Canonicalizes an input fragment into a standard info object.
+ */
+export async function canonicalize(fragment: string): Promise<any> {
   let f = fragment.replace(/^at:\/([^/])/, 'at://$1');
   if (!f.startsWith('at://')) f = 'at://' + f;
   const [, idAndRest] = f.split('at://');
@@ -90,7 +99,10 @@ async function canonicalize(fragment) {
   };
 }
 
-async function resolveHandleToDid(handle) {
+/**
+ * Resolves a handle to a DID, using the Bluesky API or did:web.
+ */
+export async function resolveHandleToDid(handle: string): Promise<string | null> {
   if (typeof handle === 'string' && handle.startsWith('did:web:')) {
     const parts = handle.split(':');
     if (parts.length === 3) {
@@ -121,7 +133,10 @@ async function resolveHandleToDid(handle) {
   return null;
 }
 
-function _extractHandleFromAlsoKnownAs(alsoKnownAs) {
+/**
+ * Extracts a handle from an alsoKnownAs array (used in did:web).
+ */
+function _extractHandleFromAlsoKnownAs(alsoKnownAs: any): string | null {
   if (Array.isArray(alsoKnownAs)) {
     for (const aka of alsoKnownAs) {
       if (typeof aka === 'string' && aka.startsWith('at://')) {
@@ -135,7 +150,10 @@ function _extractHandleFromAlsoKnownAs(alsoKnownAs) {
   return null;
 }
 
-function _getDidWebWellKnownUrl(did) {
+/**
+ * Gets the well-known URL for a did:web DID.
+ */
+function _getDidWebWellKnownUrl(did: string): string {
   const methodSpecificId = decodeURIComponent(did.substring('did:web:'.length).split('#')[0]);
   const parts = methodSpecificId.split(':');
   const hostAndPort = parts[0];
@@ -149,7 +167,10 @@ function _getDidWebWellKnownUrl(did) {
   return `https://${hostAndPort}${path}/.well-known/did.json`;
 }
 
-async function resolveDidToHandle(did) {
+/**
+ * Resolves a DID to its handle, if possible.
+ */
+export async function resolveDidToHandle(did: string): Promise<string | null> {
   if (!did || typeof did !== 'string') return null;
   if (did.startsWith('did:plc:')) {
     try {
@@ -203,7 +224,10 @@ async function resolveDidToHandle(did) {
   return null;
 }
 
-function buildDestinations(info) {
+/**
+ * Builds a list of destination link objects from canonical info.
+ */
+export function buildDestinations(info: any): Array<{ label: string; url: string }> {
   const { atUri, did, handle, rkey, bskyAppPath } = info;
   const isDidWeb = did && did.startsWith('did:web:');
   return [
@@ -260,17 +284,9 @@ function buildDestinations(info) {
   ].filter((d) => !!d && !!d.url);
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    NSID_SHORTCUTS,
-    parseInput,
-    canonicalize,
-    resolveHandleToDid,
-    resolveDidToHandle,
-    buildDestinations,
-  };
-} else if (typeof window !== 'undefined') {
-  window.WormholeTransform = {
+// Attach to window for popup usage (browser only)
+if (typeof window !== 'undefined') {
+  (window as any).WormholeTransform = {
     parseInput,
     canonicalize,
     resolveHandleToDid,

@@ -31,11 +31,11 @@
   ],
 
   "background": {
-    "service_worker": "service-worker.js"
+    "service_worker": "src/background/service-worker.ts"
   },
 
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "src/popup/popup.html",
     "default_icon": {
       "16": "images/icon_16.png",
       "19": "images/icon_19.png",
