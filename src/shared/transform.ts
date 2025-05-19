@@ -4,16 +4,28 @@
 import { NSID_SHORTCUTS } from './constants';
 
 /**
+ * Standardized info returned from transform functions.
+ */
+export interface TransformInfo {
+  atUri: string;
+  did: string;
+  handle: string | null;
+  rkey?: string;
+  nsid?: string;
+  bskyAppPath: string;
+}
+
+/**
  * Parses a raw input string (URL, DID, handle) and returns canonical info.
  */
-export async function parseInput(raw: string): Promise<any> {
+export async function parseInput(raw: string): Promise<TransformInfo | null> {
   if (!raw) return null;
-  let str = decodeURIComponent(raw.trim());
+  const str = decodeURIComponent(raw.trim());
   if (!str.startsWith('http')) {
     return await canonicalize(str);
   }
 
-  const atMatch = str.match(/at:\/\/[\w:.\-/]+/);
+  const atMatch = /at:\/\/[\w:.\-/]+/.exec(str);
   if (atMatch) {
     return await canonicalize(atMatch[0]);
   }
@@ -36,16 +48,18 @@ export async function parseInput(raw: string): Promise<any> {
     }
 
     const qParam = url.searchParams.get('q');
-    if (qParam && qParam.startsWith('did:')) {
+    if (qParam?.startsWith('did:')) {
       return await canonicalize(qParam);
     }
 
     const parts = str.split(/[/?#]/);
     for (let i = 0; i < parts.length; i++) {
       const p = parts[i];
-      if (p.startsWith('did:') || (p.includes('.') && parts[i - 1] === 'profile')) {
+      if (p.startsWith('did:') || (p.includes('.') && parts[i - 1]?.toLowerCase() === 'profile')) {
         const rest = parts.slice(i + 1).join('/');
-        return await canonicalize(p + (rest ? '/' + rest : ''));
+        // Include slash before rest path
+        const fragment = rest ? `${p}/${rest}` : p;
+        return await canonicalize(fragment);
       }
     }
   } catch (error) {
@@ -58,8 +72,8 @@ export async function parseInput(raw: string): Promise<any> {
 /**
  * Canonicalizes an input fragment into a standard info object.
  */
-export async function canonicalize(fragment: string): Promise<any> {
-  let f = fragment.replace(/^at:\/([^/])/, 'at://$1');
+export async function canonicalize(fragment: string): Promise<TransformInfo | null> {
+  let f = fragment.replace(/^at:\/\/([^/])/, 'at://$1');
   if (!f.startsWith('at://')) f = 'at://' + f;
   const [, idAndRest] = f.split('at://');
   const [idPart, ...restParts] = idAndRest.split('/');
@@ -79,7 +93,7 @@ export async function canonicalize(fragment: string): Promise<any> {
   const [nsid, rkey] = pathRest.split('/').filter(Boolean);
 
   let bskyAppPath = '';
-  const acct = handle || did;
+  const acct = handle ?? did;
   if (acct) {
     bskyAppPath = `/profile/${acct}`;
     if (nsid && rkey) {
@@ -93,7 +107,7 @@ export async function canonicalize(fragment: string): Promise<any> {
   if (!did) return null;
 
   return {
-    atUri: 'at://' + (did || handle) + (pathRest ? '/' + pathRest : ''),
+    atUri: `at://${did}${pathRest ? `/${pathRest}` : ''}`,
     did,
     handle,
     rkey,
@@ -102,23 +116,32 @@ export async function canonicalize(fragment: string): Promise<any> {
   };
 }
 
+// Type guard for JSON
+function isRecord(x: unknown): x is Record<string, unknown> {
+  return typeof x === 'object' && x !== null;
+}
+
+// Safely parse JSON and ensure it's an object
+async function safeJson<T extends Record<string, unknown>>(resp: Response): Promise<T | null> {
+  if (!resp.ok) return null;
+  const raw = (await resp.json()) as unknown;
+  return isRecord(raw) ? (raw as T) : null;
+}
+
 /**
  * Resolves a handle to a DID, using the Bluesky API or did:web.
  */
 export async function resolveHandleToDid(handle: string): Promise<string | null> {
-  if (typeof handle === 'string' && handle.startsWith('did:web:')) {
+  if (handle.startsWith('did:web:')) {
     const parts = handle.split(':');
     if (parts.length === 3) {
       try {
         const resp = await fetch(`https://${parts[2]}/.well-known/did.json`);
-        if (resp?.ok) {
-          const { id } = await resp.json();
-          return id || handle;
-        }
+        const data = await safeJson<{ id?: string }>(resp);
+        return data?.id ?? handle;
       } catch {
         /* ignore */
       }
-      return handle;
     }
     return handle;
   }
@@ -126,10 +149,8 @@ export async function resolveHandleToDid(handle: string): Promise<string | null>
     const resp = await fetch(
       `https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`,
     );
-    if (resp.ok) {
-      const { did: resolved } = await resp.json();
-      return resolved || null;
-    }
+    const data = await safeJson<{ did?: string }>(resp);
+    return data?.did ?? null;
   } catch {
     /* ignore */
   }
@@ -137,9 +158,41 @@ export async function resolveHandleToDid(handle: string): Promise<string | null>
 }
 
 /**
+ * Resolves a DID to its handle, if possible.
+ */
+export async function resolveDidToHandle(did: string): Promise<string | null> {
+  if (!did) return null;
+  if (did.startsWith('did:plc:')) {
+    try {
+      const resp = await fetch(`https://plc.directory/${encodeURIComponent(did)}`);
+      const data = await safeJson<{ alsoKnownAs?: unknown }>(resp);
+      const h = data ? _extractHandleFromAlsoKnownAs(data.alsoKnownAs) : null;
+      if (h) return h;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (did.startsWith('did:web:')) {
+    const url = _getDidWebWellKnownUrl(did);
+    try {
+      const resp = await fetch(url);
+      const data = await safeJson<{ alsoKnownAs?: unknown }>(resp);
+      const h = data ? _extractHandleFromAlsoKnownAs(data.alsoKnownAs) : null;
+      if (h) return h;
+    } catch {
+      /* ignore */
+    }
+
+    return decodeURIComponent(did.substring('did:web:'.length).split('#')[0]);
+  }
+  return null;
+}
+
+/**
  * Extracts a handle from an alsoKnownAs array (used in did:web).
  */
-function _extractHandleFromAlsoKnownAs(alsoKnownAs: any): string | null {
+function _extractHandleFromAlsoKnownAs(alsoKnownAs: unknown): string | null {
   if (Array.isArray(alsoKnownAs)) {
     for (const aka of alsoKnownAs) {
       if (typeof aka === 'string' && aka.startsWith('at://')) {
@@ -164,75 +217,18 @@ function _getDidWebWellKnownUrl(did: string): string {
   if (parts.length > 1) {
     path = '/' + parts.slice(1).join('/');
   }
-  if (path && path.endsWith('/')) {
+  if (path.endsWith('/')) {
     path = path.slice(0, -1);
   }
   return `https://${hostAndPort}${path}/.well-known/did.json`;
 }
 
 /**
- * Resolves a DID to its handle, if possible.
- */
-export async function resolveDidToHandle(did: string): Promise<string | null> {
-  if (!did || typeof did !== 'string') return null;
-  if (did.startsWith('did:plc:')) {
-    try {
-      const resp = await fetch(`https://plc.directory/${encodeURIComponent(did)}`);
-      if (resp.ok) {
-        const { alsoKnownAs } = await resp.json();
-        const h = _extractHandleFromAlsoKnownAs(alsoKnownAs);
-        if (h) return h;
-      }
-    } catch {
-      /* ignore */
-    }
-    try {
-      const resp = await fetch(
-        `https://public.api.bsky.app/xrpc/com.atproto.repo.describeRepo?repo=${encodeURIComponent(did)}`,
-      );
-      if (resp.ok) {
-        const { handle } = await resp.json();
-        if (handle) return handle;
-      }
-    } catch {
-      /* ignore */
-    }
-    return null;
-  }
-  if (did.startsWith('did:web:')) {
-    const url = _getDidWebWellKnownUrl(did);
-    try {
-      const resp = await fetch(url);
-      if (resp.ok) {
-        const { alsoKnownAs } = await resp.json();
-        const h = _extractHandleFromAlsoKnownAs(alsoKnownAs);
-        if (h) return h;
-      }
-    } catch {
-      /* ignore */
-    }
-    try {
-      const resp = await fetch(
-        `https://public.api.bsky.app/xrpc/com.atproto.repo.describeRepo?repo=${encodeURIComponent(did)}`,
-      );
-      if (resp.ok) {
-        const { handle } = await resp.json();
-        if (handle) return handle;
-      }
-    } catch {
-      /* ignore */
-    }
-    return decodeURIComponent(did.substring('did:web:'.length).split('#')[0]);
-  }
-  return null;
-}
-
-/**
  * Builds a list of destination link objects from canonical info.
  */
-export function buildDestinations(info: any): Array<{ label: string; url: string }> {
+export function buildDestinations(info: TransformInfo): { label: string; url: string }[] {
   const { atUri, did, handle, rkey, bskyAppPath } = info;
-  const isDidWeb = did && did.startsWith('did:web:');
+  const isDidWeb = did.startsWith('did:web:');
   return [
     { label: '🦌 deer.social', url: `https://deer.social${bskyAppPath}` },
     { label: '🦋 bsky.app', url: `https://bsky.app${bskyAppPath}` },
@@ -284,16 +280,5 @@ export function buildDestinations(info: any): Array<{ label: string; url: string
         },
       ]
     : []),
-  ].filter((d) => !!d && !!d.url);
-}
-
-// Attach to window for popup usage (browser only)
-if (typeof window !== 'undefined') {
-  (window as any).WormholeTransform = {
-    parseInput,
-    canonicalize,
-    resolveHandleToDid,
-    resolveDidToHandle,
-    buildDestinations,
-  };
+  ].filter((d) => Boolean(d.url));
 }

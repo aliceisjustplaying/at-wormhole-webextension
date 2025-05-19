@@ -1,87 +1,105 @@
-import '../shared/transform';
-// @ts-nocheck
-// TODO: Use 'browser' API with polyfill for cross-browser support
+import { parseInput, buildDestinations, TransformInfo } from '../shared/transform';
+
+// Local type for list items
+interface Destination {
+  url: string;
+  label: string;
+}
 
 /**
  * Main entry for popup script. Runs on DOMContentLoaded.
  */
-document.addEventListener('DOMContentLoaded', async () => {
-  const list = document.getElementById('dest');
-  const emptyBtn = document.getElementById('emptyCacheBtn');
+document.addEventListener('DOMContentLoaded', () => {
+  void (async () => {
+    const list = document.getElementById('dest') as HTMLUListElement;
+    const emptyBtn = document.getElementById('emptyCacheBtn') as HTMLButtonElement;
 
-  // Close popup when a destination link is clicked (Firefox MV3 does not auto-close)
-  list?.addEventListener('click', (e) => {
-    const anchor = (e.target as HTMLElement).closest('a');
-    if (anchor && 'href' in anchor) {
-      e.preventDefault();
-      e.stopPropagation();
-      chrome.tabs.create({ url: anchor.href });
-      window.close();
-    }
-  });
+    // Close popup when a destination link is clicked (Firefox MV3 does not auto-close)
+    list.addEventListener('click', (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement).closest('a');
+      if (anchor?.href) {
+        e.preventDefault();
+        e.stopPropagation();
+        void chrome.tabs.create({ url: anchor.href });
+        window.close();
+      }
+    });
 
-  const showStatus = (msg) => (list.innerHTML = `<li>${msg}</li>`);
-  const createItem = ({ url, label }) => `
+    const showStatus = (msg: string): void => {
+      list.innerHTML = `<li>${msg}</li>`;
+    };
+    const createItem = ({ url, label }: Destination): string => `
     <li>
       <a href="${url}" target="_blank" rel="noopener noreferrer"
          style="display:block;padding:6px 8px;border:1px solid #ccc;border-radius:6px;background:#fafafa;text-decoration:none;color:inherit;font-size:14px;">
         ${label}
       </a>
     </li>`;
-  const render = (ds) =>
-    ds && ds.length ? (list.innerHTML = ds.map(createItem).join('')) : showStatus('No actions available');
-
-  const rawParam = new URLSearchParams(location.search).get('payload');
-  let raw = rawParam || (await chrome.tabs.query({ active: true, currentWindow: true }))[0].url;
-
-  if (!window.WormholeTransform?.parseInput) {
-    showStatus('Error: transform not loaded');
-    return; // Exit if critical component is missing
-  }
-
-  const info = await window.WormholeTransform.parseInput(raw);
-  if (!info?.did && !info?.atUri) {
-    showStatus('No DID or at:// found');
-    return; // Exit if no relevant data
-  }
-
-  let ds = window.WormholeTransform.buildDestinations(info); // Initial build (might be without handle)
-  render(ds); // Initial render
-
-
-  if (info.did && !info.handle) {
-    let handleToUse: string | null = null;
-    let errorStatusWasSet = false; // Flag to track if an error message was shown
-
-    // Ask SW for a handle (from cache or resolved)
-    showStatus('Resolving...');
-    try {
-      const response: { handle: string | null } = await new Promise((resolve) =>
-        chrome.runtime.sendMessage({ type: 'GET_HANDLE', did: info.did }, resolve)
-      );
-      handleToUse = response.handle;
-    } catch (err) {
-      console.error('GET_HANDLE error', err);
-      showStatus('Error resolving');
-      errorStatusWasSet = true;
-    }
-
-    // After attempting to get handle from cache or by fetching:
-    if (handleToUse) {
-      info.handle = handleToUse;
-      ds = window.WormholeTransform.buildDestinations(info); // Re-build destinations with the handle
-      render(ds); // Re-render the list
-    } else {
-      // Handle was not obtained. An error status might have already been set.
-      // If the list is still empty and no explicit error status was set, show "No actions available".
-      if (!ds.length && !errorStatusWasSet) {
+    const render = (ds: Destination[]): void => {
+      if (ds.length) {
+        list.innerHTML = ds.map(createItem).join('');
+      } else {
         showStatus('No actions available');
       }
-    }
-  }
+    };
 
-  if (emptyBtn) {
-    emptyBtn.addEventListener('click', async (e) => {
+    // Determine input: payload param or active tab URL
+    const payload = new URLSearchParams(location.search).get('payload');
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const activeUrl = tabs[0]?.url ?? '';
+    const raw: string = payload ?? activeUrl;
+    if (!raw) {
+      showStatus('No URL or payload provided');
+      return;
+    }
+
+    const info: TransformInfo | null = await parseInput(raw);
+    if (!info?.did && !info?.atUri) {
+      showStatus('No DID or at:// found');
+      return; // Exit if no relevant data
+    }
+
+    let ds = buildDestinations(info); // Initial build
+    render(ds); // Initial render
+
+    if (info.did && !info.handle) {
+      let handleToUse: string | null = null;
+      let errorStatusWasSet = false; // Flag to track if an error message was shown
+
+      // Ask SW for a handle (from cache or resolved)
+      showStatus('Resolving...');
+      try {
+        const response = await new Promise<{ handle: string | null }>((resolve, reject) => {
+          chrome.runtime.sendMessage({ type: 'GET_HANDLE', did: info.did }, (res) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(res as { handle: string | null });
+            }
+          });
+        });
+        handleToUse = response.handle;
+      } catch (err: unknown) {
+        console.error('GET_HANDLE error', err);
+        showStatus('Error resolving');
+        errorStatusWasSet = true;
+      }
+
+      // After attempting to get handle from cache or by fetching:
+      if (handleToUse) {
+        info.handle = handleToUse;
+        ds = buildDestinations(info); // Re-build destinations with the handle
+        render(ds); // Re-render the list
+      } else {
+        // Handle was not obtained. An error status might have already been set.
+        // If the list is still empty and no explicit error status was set, show "No actions available".
+        if (!ds.length && !errorStatusWasSet) {
+          showStatus('No actions available');
+        }
+      }
+    }
+
+    emptyBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
 
@@ -89,36 +107,38 @@ document.addEventListener('DOMContentLoaded', async () => {
       emptyBtn.textContent = 'Working...';
       emptyBtn.disabled = true;
 
-      try {
+      void (async () => {
         await chrome.storage.local.remove('didHandleCache');
 
-        await new Promise((resolve, reject) => {
-          chrome.runtime.sendMessage({ type: 'CLEAR_CACHE' }, (msgResponse) => {
+        await new Promise<void>((resolve, reject) => {
+          chrome.runtime.sendMessage({ type: 'CLEAR_CACHE' }, (rawRes: unknown) => {
+            const res = rawRes as { success: boolean; error?: string };
             if (chrome.runtime.lastError) {
               console.error('Runtime error sending message:', chrome.runtime.lastError);
-              return reject(new Error(chrome.runtime.lastError.message));
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
             }
-            if (msgResponse && msgResponse.success) {
-              resolve(msgResponse);
+            if (res.success) {
+              resolve();
             } else {
-              reject(new Error(msgResponse?.error || 'Unknown error from service worker'));
+              reject(new Error(res.error ?? 'Unknown error from service worker'));
             }
           });
         });
         emptyBtn.textContent = 'Cleared';
-      } catch (error) {
-        console.error('Failed to clear cache:', error);
-        emptyBtn.textContent = 'Error';
-      } finally {
-        setTimeout(() => {
-          emptyBtn.textContent = originalText;
-          emptyBtn.disabled = false;
-        }, 1500);
-      }
+      })()
+        .catch((error: unknown) => {
+          console.error('Failed to clear cache:', error);
+          emptyBtn.textContent = 'Error';
+        })
+        .finally(() => {
+          setTimeout(() => {
+            emptyBtn.textContent = originalText;
+            emptyBtn.disabled = false;
+          }, 1500);
+        });
     });
-  } else {
-    console.error('emptyCacheBtn NOT FOUND even within DOMContentLoaded.');
-  }
+  })();
 });
 
 console.log('popup.js script finished initial global execution.');

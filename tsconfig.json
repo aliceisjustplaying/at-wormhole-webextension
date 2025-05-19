@@ -20,6 +20,6 @@
       "@background/*": ["src/background/*"]
     }
   },
-  "include": ["src", "tests"],
+  "include": ["src", "tests", "vite.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

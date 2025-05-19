@@ -1,10 +1,14 @@
-// @ts-nocheck
-// TODO: Use 'browser' API with polyfill for cross-browser support
 import { parseInput, resolveDidToHandle } from '../shared/transform';
 
 const DID_HANDLE_CACHE_KEY = 'didHandleCache';
 const MAX_CACHE_ENTRIES = 1000; // Maximum number of entries to keep in the cache
 const CLEANUP_THRESHOLD = 1.2 * MAX_CACHE_ENTRIES; // Start cleanup when we're 20% over limit
+
+// Type definitions for cache entries
+interface CacheEntry {
+  handle: string;
+  lastAccessed: number;
+}
 
 // Structure: { [did]: { handle: string, lastAccessed: number } }
 
@@ -12,55 +16,68 @@ const CLEANUP_THRESHOLD = 1.2 * MAX_CACHE_ENTRIES; // Start cleanup when we're 2
  * Updates the cache with a new entry and ensures it doesn't exceed the maximum size
  */
 // Use a simple LRU cache with Map for better performance
-let cache = new Map();
+let cache = new Map<string, CacheEntry>();
 let isCacheDirty = false;
 let cleanupScheduled = false;
 
 // Load cache from storage on startup
-async function loadCache() {
+async function loadCache(): Promise<void> {
   try {
-    const result = await chrome.storage.local.get(DID_HANDLE_CACHE_KEY);
-    const stored = result[DID_HANDLE_CACHE_KEY] || {};
-    // Keep only object-format entries (legacy strings are discarded)
-    const entries = Object.entries(stored).filter(
-      ([, entry]) => entry && typeof entry === 'object'
-    );
-    cache = new Map(entries);
-  } catch (error) {
+    const result = await chrome.storage.local.get<Record<string, unknown>>(DID_HANDLE_CACHE_KEY);
+    const stored = result[DID_HANDLE_CACHE_KEY];
+    const rawEntries =
+      typeof stored === 'object' && stored != null ? Object.entries(stored as Record<string, unknown>) : [];
+    const validEntries: [string, CacheEntry][] = [];
+    for (const [key, val] of rawEntries) {
+      if (typeof val === 'object' && val != null) {
+        const e = val as Record<string, unknown>;
+        if (typeof e.handle === 'string' && typeof e.lastAccessed === 'number') {
+          validEntries.push([key, { handle: e.handle, lastAccessed: e.lastAccessed }]);
+        }
+      }
+    }
+    cache = new Map(validEntries);
+  } catch (error: unknown) {
     console.error('Failed to load cache:', error);
   }
 }
 
 // Save cache to storage, but debounce to prevent frequent writes
-let saveTimeout = null;
-async function saveCache() {
-  isCacheDirty = true;
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  if (saveTimeout) clearTimeout(saveTimeout);
-
-  // Debounce saves to prevent excessive writes
-  return new Promise((resolve) => {
-    saveTimeout = setTimeout(async () => {
-      if (isCacheDirty) {
-        try {
-          await chrome.storage.local.set({
-            [DID_HANDLE_CACHE_KEY]: Object.fromEntries(cache),
-          });
-          isCacheDirty = false;
-        } catch (error) {
-          console.error('Failed to save cache:', error);
-          if (error.message.includes('QUOTA_BYTES')) {
-            await clearOldCacheEntries(0.5);
-            return saveCache().then(resolve);
-          }
-        }
+/**
+ * Performs the actual save and cache-quota handling
+ */
+async function _doSave(resolve: () => void): Promise<void> {
+  if (isCacheDirty) {
+    try {
+      await chrome.storage.local.set({
+        [DID_HANDLE_CACHE_KEY]: Object.fromEntries(cache),
+      });
+      isCacheDirty = false;
+    } catch (error: unknown) {
+      console.error('Failed to save cache:', error);
+      if (error instanceof Error && error.message.includes('QUOTA_BYTES')) {
+        await clearOldCacheEntries(0.5);
+        void saveCache().then(resolve);
+        return;
       }
-      resolve();
-    }, 1000); // 1s debounce
+    }
+  }
+  resolve();
+}
+
+async function saveCache(): Promise<void> {
+  isCacheDirty = true;
+  if (saveTimeout) clearTimeout(saveTimeout);
+  return new Promise<void>((resolve) => {
+    saveTimeout = setTimeout(() => {
+      void _doSave(resolve);
+    }, 1000); // debounce
   });
 }
 
-async function updateCache(did, handle) {
+async function updateCache(did: string, handle: string): Promise<void> {
   try {
     // Update the in-memory cache
     cache.set(did, { handle, lastAccessed: Date.now() });
@@ -70,7 +87,7 @@ async function updateCache(did, handle) {
       cleanupScheduled = true;
       // Run cleanup on the next tick to avoid blocking the UI
       setTimeout(() => {
-        cleanupCache().finally(() => {
+        void cleanupCache().finally(() => {
           cleanupScheduled = false;
         });
       }, 0);
@@ -78,7 +95,7 @@ async function updateCache(did, handle) {
 
     // Schedule a save to storage
     await saveCache();
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Failed to update cache:', error);
   }
 }
@@ -87,7 +104,7 @@ async function updateCache(did, handle) {
  * Clears the oldest entries from the cache
  * @param {number} ratio - Fraction of the cache to clear (0-1)
  */
-async function cleanupCache() {
+async function cleanupCache(): Promise<void> {
   if (cache.size <= MAX_CACHE_ENTRIES) return;
 
   try {
@@ -102,13 +119,13 @@ async function cleanupCache() {
 
     // Save the cleaned-up cache
     await saveCache();
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Failed to clean up cache:', error);
   }
 }
 
 // For backward compatibility with the existing code
-async function clearOldCacheEntries(ratio = 0.5) {
+async function clearOldCacheEntries(ratio = 0.5): Promise<void> {
   if (cache.size === 0) return;
 
   try {
@@ -118,7 +135,7 @@ async function clearOldCacheEntries(ratio = 0.5) {
 
     cache = new Map(toKeep);
     await saveCache();
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Failed to clear old cache entries:', error);
   }
 }
@@ -126,54 +143,61 @@ async function clearOldCacheEntries(ratio = 0.5) {
 // Initialize the cache when the service worker starts
 const cacheLoaded = loadCache().catch(console.error);
 
+// Message types for service worker comms
+type SWMessage =
+  | { type: 'UPDATE_CACHE'; did: string; handle: string }
+  | { type: 'GET_HANDLE'; did: string }
+  | { type: 'CLEAR_CACHE' };
+
 // Handle messages from the popup
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === 'UPDATE_CACHE' && request.did && request.handle) {
-    updateCache(request.did, request.handle)
-      .then(() => sendResponse({ success: true }))
-      .catch((error) => {
+chrome.runtime.onMessage.addListener((request: SWMessage, sender, sendResponse): boolean => {
+  // UPDATE_CACHE
+  if (request.type === 'UPDATE_CACHE' && typeof request.did === 'string' && typeof request.handle === 'string') {
+    void updateCache(request.did, request.handle)
+      .then(() => {
+        sendResponse({ success: true });
+      })
+      .catch((error: unknown) => {
         console.error('Failed to update cache via message:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: error instanceof Error ? error.message : String(error) });
       });
     return true; // Indicates async response
   }
-  // Provide handle for popup: return cached or resolve if missing
-  if (request.type === 'GET_HANDLE' && request.did) {
-    (async () => {
+  // GET_HANDLE
+  if (request.type === 'GET_HANDLE' && typeof request.did === 'string') {
+    void (async () => {
       await cacheLoaded;
       try {
-        let entry = cache.get(request.did);
+        const entry = cache.get(request.did);
         if (entry) {
           entry.lastAccessed = Date.now();
-          saveCache().catch(console.error);
+          void saveCache().catch(console.error);
           sendResponse({ handle: entry.handle });
           return;
         }
         const h = await resolveDidToHandle(request.did);
         if (h) await updateCache(request.did, h);
-        sendResponse({ handle: h || null });
-      } catch (e) {
+        sendResponse({ handle: h ?? null });
+      } catch (e: unknown) {
         console.error('GET_HANDLE error', e);
         sendResponse({ handle: null });
       }
     })();
     return true;
   }
+  // CLEAR_CACHE
   if (request.type === 'CLEAR_CACHE') {
     // Clear the in-memory cache
     cache.clear();
     // Clear the storage
-    chrome.storage.local
+    void chrome.storage.local
       .remove(DID_HANDLE_CACHE_KEY)
       .then(() => {
         sendResponse({ success: true });
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error('Failed to clear storage cache:', error);
-        sendResponse({
-          success: false,
-          error: error.message,
-        });
+        sendResponse({ success: false, error: error instanceof Error ? error.message : String(error) });
       });
 
     return true; // Keep the message channel open for the async response
@@ -183,28 +207,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return false;
 });
 
-chrome.tabs.onUpdated.addListener(async (_, info, tab) => {
+chrome.tabs.onUpdated.addListener((_tabId, info, tab) => {
   if (info.status !== 'complete' || !tab.url) return;
+  void (async () => {
+    try {
+      const data = await parseInput(tab.url!);
+      if (!data?.did || data.handle) return;
 
-  try {
-    const data = await parseInput(tab.url);
-    if (!data?.did || data.handle) return;
+      const cached = cache.get(data.did);
+      if (cached) {
+        cached.lastAccessed = Date.now();
+        void saveCache().catch(console.error);
+        return;
+      }
 
-    // Check in-memory cache first
-    const cached = cache.get(data.did);
-    if (cached) {
-      // Update lastAccessed in memory and schedule a save
-      cached.lastAccessed = Date.now();
-      saveCache().catch(console.error);
-      return;
+      const h = await resolveDidToHandle(data.did);
+      if (h) await updateCache(data.did, h);
+    } catch (error: unknown) {
+      console.error('SW error', error);
     }
-
-    // Not in cache, resolve and add to cache
-    const h = await resolveDidToHandle(data.did);
-    if (h) {
-      await updateCache(data.did, h);
-    }
-  } catch (e) {
-    console.error('SW error', e);
-  }
+  })();
 });

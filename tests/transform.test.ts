@@ -56,24 +56,30 @@ const fetchMockConfigs = [
   },
 ];
 
-// Patch fetch with preconnect property to satisfy Bun's global type
-const fetchWithPreconnect = (url: URL | RequestInfo) => {
-  const mock = fetchMockConfigs.find((m) => m.condition(url.toString()));
+// Define typed fetch mock with preconnect
+type FetchFn = ((url: URL | RequestInfo) => Promise<Response>) & { preconnect: () => void };
+const fetchWithPreconnect = ((url: URL | RequestInfo) => {
+  // Normalize URL to string
+  const urlStr =
+    typeof url === 'string' ? url
+    : url instanceof URL ? url.href
+    : '';
+  const mock = fetchMockConfigs.find((m) => m.condition(urlStr));
   if (mock) {
     return mock.response();
   }
-  console.warn(`Unhandled fetch mock for URL: ${url}`);
+  console.warn('Unhandled fetch mock for URL: ' + urlStr);
   return Promise.resolve(
     new Response(JSON.stringify({}), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     }),
   );
+}) as FetchFn;
+fetchWithPreconnect.preconnect = () => {
+  /* no-op */
 };
-(fetchWithPreconnect as any).preconnect = () => {};
-// Use 'any' to satisfy Bun's global.fetch type
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(global as any).fetch = fetchWithPreconnect;
+globalThis.fetch = fetchWithPreconnect;
 
 async function run() {
   let passed = 0,
@@ -84,9 +90,10 @@ async function run() {
       assert.deepStrictEqual(actual, expected);
       console.log(`PASS: ${name}`);
       passed++;
-      // eslint-disable-next-line no-unused-vars
-    } catch (e) {
+    } catch {
       console.error(`FAIL: ${name}`);
+      console.log(`EXPECTED: ${JSON.stringify(expected, null, 2)}`);
+      console.log(`ACTUAL: ${JSON.stringify(actual, null, 2)}`);
       failed++;
     }
   }
@@ -170,8 +177,8 @@ async function run() {
     try {
       const out = await parseInput(test.input);
       check(test.name, out, test.expected);
-    } catch (e) {
-      console.log(`FAIL: ${test.name} (exception)`, e);
+    } catch {
+      console.log(`FAIL: ${test.name} (exception)`);
       failed++;
     }
   }
@@ -204,8 +211,8 @@ async function run() {
     try {
       const out = await resolveHandleToDid(test.input);
       check(test.name, out, test.expected);
-    } catch (e) {
-      console.log(`FAIL: ${test.name} (exception)`, e);
+    } catch {
+      console.log(`FAIL: ${test.name} (exception)`);
       failed++;
     }
   }
@@ -214,4 +221,4 @@ async function run() {
   process.exit(failed ? 1 : 0);
 }
 
-run();
+void run();
