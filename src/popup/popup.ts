@@ -9,6 +9,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const list = document.getElementById('dest');
   const emptyBtn = document.getElementById('emptyCacheBtn');
 
+  // Close popup when a destination link is clicked (Firefox MV3 does not auto-close)
+  list?.addEventListener('click', (e) => {
+    const anchor = (e.target as HTMLElement).closest('a');
+    if (anchor && 'href' in anchor) {
+      e.preventDefault();
+      e.stopPropagation();
+      chrome.tabs.create({ url: anchor.href });
+      window.close();
+    }
+  });
+
   const showStatus = (msg) => (list.innerHTML = `<li>${msg}</li>`);
   const createItem = ({ url, label }) => `
     <li>

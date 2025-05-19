@@ -54,9 +54,12 @@ Steps:
 - Add `short_name`, `author`, `homepage_url`, `version_name`.
 - Replace `"tabs"` permission with `"activeTab"` unless (see §popup) we truly require `tabs`.
 - Consider `host_permissions` wildcard `https://*/*` vs enumerating – keep explicit list for privacy.
-- Add `optional_host_permissions` for rarely-used sites.
 - Add `action.default_title`.
 - Add `browser_specific_settings` block for Firefox with `gecko.id`.
+- ~~Add `optional_host_permissions` for rarely-used sites.~~ **(Skipped: declaring all hosts upfront in `host_permissions` for simplicity)**
+- Add a Firefox MV2 fallback manifest (`manifest.firefox.json`) with `background.scripts` registering our service worker loader. (Firefox currently disables `service_worker` in MV3.)
+- ⚠️ Chrome MV3 rejects `background.scripts`; will need a Chrome-only build to remove it for final release.
+- ~~Implement separate Chrome/Firefox builds (output to `dist/chrome` and `dist/firefox` via `build:chrome`/`build:firefox` scripts).~~ **(Done)**
 
 ## 5 · Source-Code Clean-up
 

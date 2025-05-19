@@ -1,10 +1,12 @@
 {
   "manifest_version": 3,
   "default_locale": "en",
-
   "name": "__MSG_extension_name__",
+  "short_name": "Wormhole",
+  "version": "1.0.0",
+  "author": "aliceisjustplaying",
+  "homepage_url": "https://github.com/aliceisjustplaying/at-wormhole-webextension",
   "description": "__MSG_extension_description__",
-  "version": "1.0",
 
   "icons": {
     "48": "images/icon_48.png",
@@ -14,7 +16,7 @@
     "512": "images/icon_512.png"
   },
 
-  "permissions": ["activeTab", "contextMenus", "tabs", "storage"],
+  "permissions": ["activeTab", "contextMenus", "storage"],
   "host_permissions": [
     "https://public.api.bsky.app/*",
     "https://plc.directory/*",
@@ -31,16 +33,23 @@
   ],
 
   "background": {
-    "service_worker": "src/background/service-worker.ts"
+    "service_worker": "src/background/service-worker.ts",
+    "scripts": ["src/background/service-worker.ts"]
   },
 
   "action": {
+    "default_title": "Wormhole",
     "default_popup": "src/popup/popup.html",
     "default_icon": {
       "16": "images/icon_16.png",
       "19": "images/icon_19.png",
       "48": "images/icon_48.png",
       "96": "images/icon_96.png"
+    }
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "at-wormhole-chrome@mozilla.org"
     }
   }
 }
