@@ -183,6 +183,24 @@ async function run() {
     }
   }
 
+  try {
+    const out = await parseInput(
+      'https://blue.mackuba.eu/skythread/?author=did:plc:2p6idfgjfe3easltiwmnofw6&post=3lpjntj43rs23'
+    );
+    check('parseInput/skythread', out, {
+      atUri:
+        'at://did:plc:2p6idfgjfe3easltiwmnofw6/app.bsky.feed.post/3lpjntj43rs23',
+      did: 'did:plc:2p6idfgjfe3easltiwmnofw6',
+      handle: null,
+      rkey: '3lpjntj43rs23',
+      nsid: 'app.bsky.feed.post',
+      bskyAppPath: '/profile/did:plc:2p6idfgjfe3easltiwmnofw6/post/3lpjntj43rs23',
+    });
+  } catch {
+    console.log('FAIL: parseInput/skythread (exception)');
+    failed++;
+  }
+
   // Test cases for resolveHandle
   const resolveHandleTests = [
     {

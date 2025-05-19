@@ -1,4 +1,4 @@
-import { parseInput, resolveDidToHandle } from '../shared/transform';
+import { parseInput, resolveDidToHandle, resolveHandleToDid } from '../shared/transform';
 
 const DID_HANDLE_CACHE_KEY = 'didHandleCache';
 const MAX_CACHE_ENTRIES = 1000; // Maximum number of entries to keep in the cache
@@ -16,7 +16,8 @@ interface CacheEntry {
  * Updates the cache with a new entry and ensures it doesn't exceed the maximum size
  */
 // Use a simple LRU cache with Map for better performance
-let cache = new Map<string, CacheEntry>();
+let didToHandle = new Map<string, CacheEntry>();
+const handleToDid = new Map<string, string>();
 let isCacheDirty = false;
 let cleanupScheduled = false;
 
@@ -36,7 +37,12 @@ async function loadCache(): Promise<void> {
         }
       }
     }
-    cache = new Map(validEntries);
+    didToHandle = new Map(validEntries);
+    // Populate reverse map
+    handleToDid.clear();
+    for (const [did, entry] of didToHandle) {
+      handleToDid.set(entry.handle, did);
+    }
   } catch (error: unknown) {
     console.error('Failed to load cache:', error);
   }
@@ -52,7 +58,7 @@ async function _doSave(resolve: () => void): Promise<void> {
   if (isCacheDirty) {
     try {
       await chrome.storage.local.set({
-        [DID_HANDLE_CACHE_KEY]: Object.fromEntries(cache),
+        [DID_HANDLE_CACHE_KEY]: Object.fromEntries(didToHandle),
       });
       isCacheDirty = false;
     } catch (error: unknown) {
@@ -80,10 +86,12 @@ async function saveCache(): Promise<void> {
 async function updateCache(did: string, handle: string): Promise<void> {
   try {
     // Update the in-memory cache
-    cache.set(did, { handle, lastAccessed: Date.now() });
+    didToHandle.set(did, { handle, lastAccessed: Date.now() });
+    // Update reverse cache
+    handleToDid.set(handle, did);
 
     // Schedule a cleanup if needed
-    if (cache.size > CLEANUP_THRESHOLD && !cleanupScheduled) {
+    if (didToHandle.size > CLEANUP_THRESHOLD && !cleanupScheduled) {
       cleanupScheduled = true;
       // Run cleanup on the next tick to avoid blocking the UI
       setTimeout(() => {
@@ -104,39 +112,50 @@ async function updateCache(did: string, handle: string): Promise<void> {
  * Clears the oldest entries from the cache
  * @param {number} ratio - Fraction of the cache to clear (0-1)
  */
+async function clearOldCacheEntries(ratio = 0.5): Promise<void> {
+  if (didToHandle.size === 0) return;
+
+  try {
+    const entries = Array.from(didToHandle.entries());
+    const sorted = entries.sort((a, b) => a[1].lastAccessed - b[1].lastAccessed);
+    const toKeep = sorted.slice(-Math.floor(entries.length * (1 - ratio)));
+
+    didToHandle = new Map(toKeep);
+    // Rebuild reverse handle->did map
+    handleToDid.clear();
+    for (const [d, e] of didToHandle) {
+      handleToDid.set(e.handle, d);
+    }
+    await saveCache();
+  } catch (error: unknown) {
+    console.error('Failed to clear old cache entries:', error);
+  }
+}
+
+/**
+ * Clears the oldest entries from the cache if over limit
+ */
 async function cleanupCache(): Promise<void> {
-  if (cache.size <= MAX_CACHE_ENTRIES) return;
+  if (didToHandle.size <= MAX_CACHE_ENTRIES) return;
 
   try {
     // Convert to array, sort, and keep only the most recent entries
-    const sorted = Array.from(cache.entries()).sort((a, b) => a[1].lastAccessed - b[1].lastAccessed);
+    const sorted = Array.from(didToHandle.entries()).sort((a, b) => a[1].lastAccessed - b[1].lastAccessed);
 
     // Keep only the most recent MAX_CACHE_ENTRIES
     const toKeep = sorted.slice(-MAX_CACHE_ENTRIES);
 
-    // Update the cache
-    cache = new Map(toKeep);
+    didToHandle = new Map(toKeep);
+    // Rebuild reverse handle->did map
+    handleToDid.clear();
+    for (const [d, e] of didToHandle) {
+      handleToDid.set(e.handle, d);
+    }
 
     // Save the cleaned-up cache
     await saveCache();
   } catch (error: unknown) {
     console.error('Failed to clean up cache:', error);
-  }
-}
-
-// For backward compatibility with the existing code
-async function clearOldCacheEntries(ratio = 0.5): Promise<void> {
-  if (cache.size === 0) return;
-
-  try {
-    const entries = Array.from(cache.entries());
-    const sorted = entries.sort((a, b) => a[1].lastAccessed - b[1].lastAccessed);
-    const toKeep = sorted.slice(-Math.floor(entries.length * (1 - ratio)));
-
-    cache = new Map(toKeep);
-    await saveCache();
-  } catch (error: unknown) {
-    console.error('Failed to clear old cache entries:', error);
   }
 }
 
@@ -147,6 +166,7 @@ const cacheLoaded = loadCache().catch(console.error);
 type SWMessage =
   | { type: 'UPDATE_CACHE'; did: string; handle: string }
   | { type: 'GET_HANDLE'; did: string }
+  | { type: 'GET_DID'; handle: string }
   | { type: 'CLEAR_CACHE' };
 
 // Handle messages from the popup
@@ -168,7 +188,7 @@ chrome.runtime.onMessage.addListener((request: SWMessage, sender, sendResponse):
     void (async () => {
       await cacheLoaded;
       try {
-        const entry = cache.get(request.did);
+        const entry = didToHandle.get(request.did);
         if (entry) {
           entry.lastAccessed = Date.now();
           void saveCache().catch(console.error);
@@ -185,10 +205,35 @@ chrome.runtime.onMessage.addListener((request: SWMessage, sender, sendResponse):
     })();
     return true;
   }
+  // GET_DID
+  if (request.type === 'GET_DID' && typeof request.handle === 'string') {
+    void (async () => {
+      await cacheLoaded;
+      try {
+        const d = handleToDid.get(request.handle);
+        if (d) {
+          const entry = didToHandle.get(d);
+          if (entry) {
+            entry.lastAccessed = Date.now();
+            void saveCache().catch(console.error);
+          }
+          sendResponse({ did: d });
+          return;
+        }
+        const dd = await resolveHandleToDid(request.handle);
+        if (dd) await updateCache(dd, request.handle);
+        sendResponse({ did: dd ?? null });
+      } catch {
+        sendResponse({ did: null });
+      }
+    })();
+    return true;
+  }
   // CLEAR_CACHE
   if (request.type === 'CLEAR_CACHE') {
     // Clear the in-memory cache
-    cache.clear();
+    didToHandle.clear();
+    handleToDid.clear();
     // Clear the storage
     void chrome.storage.local
       .remove(DID_HANDLE_CACHE_KEY)
@@ -208,13 +253,19 @@ chrome.runtime.onMessage.addListener((request: SWMessage, sender, sendResponse):
 });
 
 chrome.tabs.onUpdated.addListener((_tabId, info, tab) => {
-  if (info.status !== 'complete' || !tab.url) return;
   void (async () => {
+    await cacheLoaded;
     try {
-      const data = await parseInput(tab.url!);
-      if (!data?.did || data.handle) return;
+      if (info.status !== 'complete' || !tab.url) return;
+      const data = await parseInput(tab.url);
+      if (!data?.did) return;
+      // If URL had a handle, cache the pair
+      if (data.handle) {
+        await updateCache(data.did, data.handle);
+        return;
+      }
 
-      const cached = cache.get(data.did);
+      const cached = didToHandle.get(data.did);
       if (cached) {
         cached.lastAccessed = Date.now();
         void saveCache().catch(console.error);

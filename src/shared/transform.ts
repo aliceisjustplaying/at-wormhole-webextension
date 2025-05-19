@@ -47,6 +47,15 @@ export async function parseInput(raw: string): Promise<TransformInfo | null> {
       }
     }
 
+    if (url.hostname === 'blue.mackuba.eu' && url.pathname.startsWith('/skythread')) {
+      const author = url.searchParams.get('author');
+      const post = url.searchParams.get('post');
+      if (author?.startsWith('did:') && post) {
+        // Use explicit NSID for posts
+        return await canonicalize(`${author}/app.bsky.feed.post/${post}`);
+      }
+    }
+
     const qParam = url.searchParams.get('q');
     if (qParam?.startsWith('did:')) {
       return await canonicalize(qParam);

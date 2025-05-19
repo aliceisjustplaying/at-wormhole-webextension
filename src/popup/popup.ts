@@ -99,6 +99,36 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    // If we have a handle but no did, resolve DID via SW
+    if (info.handle && !info.did) {
+      let didToUse: string | null = null;
+      let errorStatusWasSet = false;
+      showStatus('Resolving...');
+      try {
+        const response = await new Promise<{ did: string | null }>((resolve, reject) => {
+          chrome.runtime.sendMessage({ type: 'GET_DID', handle: info.handle! }, (res) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(res as { did: string | null });
+            }
+          });
+        });
+        didToUse = response.did;
+      } catch (err: unknown) {
+        console.error('GET_DID error', err);
+        showStatus('Error resolving');
+        errorStatusWasSet = true;
+      }
+      if (didToUse) {
+        info.did = didToUse;
+        ds = buildDestinations(info);
+        render(ds);
+      } else if (!ds.length && !errorStatusWasSet) {
+        showStatus('No actions available');
+      }
+    }
+
     emptyBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
