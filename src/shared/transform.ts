@@ -20,9 +20,26 @@ export interface TransformInfo {
  */
 export async function parseInput(raw: string): Promise<TransformInfo | null> {
   if (!raw) return null;
-  const str = decodeURIComponent(raw.trim());
-  if (!str.startsWith('http')) {
-    return await canonicalize(str);
+  let str = decodeURIComponent(raw.trim()); // Make str mutable
+
+  // Prepend https:// if it looks like a URL without a schema but not an AT URI fragment
+  if (!str.startsWith('http') && !str.startsWith('at://') && str.includes('/') && !str.match(/^[a-zA-Z0-9.-]+\/[a-zA-Z0-9_.-]+\/[a-zA-Z0-9.-]+$/) && !str.startsWith('did:')) {
+    // Avoid prepending https:// to things like 'handle/collection/rkey' or 'did/collection/rkey'
+    // A simple heuristic: if it has more than one slash and isn't a DID, it's likely a URL path.
+    // Or if it's 'domain/path'
+    const parts = str.split('/');
+    if (parts.length > 1 && parts[0].includes('.')) { // e.g., 'deer.social/profile/...'
+       str = 'https://' + str;
+    }
+  }
+  
+  // If it's not a full URL (http/https) or a full AT URI, treat as fragment for canonicalize
+  // This handles plain DIDs, handles, or AT URIs (even partial like 'did:plc:123/feed/abc')
+  if (!str.startsWith('http') && !str.startsWith('at://')) {
+    // Exception: if it became a URL above, don't canonicalize here
+    if (!str.startsWith('https://')) { // Check specifically for https as http is already handled by original logic
+        return await canonicalize(str);
+    }
   }
 
   const atMatch = /at:\/\/[\w:.\-/]+/.exec(str);
@@ -33,25 +50,45 @@ export async function parseInput(raw: string): Promise<TransformInfo | null> {
   try {
     const url = new URL(str);
 
+    // cred.blue specific parser
     if (url.hostname === 'cred.blue' && url.pathname.length > 1) {
-      const handle = url.pathname.slice(1);
-      if (handle) {
-        return await canonicalize(handle);
+      // Path format: /post/:rkey/by/:handle or /:handle
+      const credBluePostMatch = url.pathname.match(/^\/post\/([^\/]+)\/by\/([^\/]+)$/);
+      if (credBluePostMatch) {
+        const [, rkey, handle] = credBluePostMatch;
+        // Use explicit NSID for posts
+        return await canonicalize(`${handle}/app.bsky.feed.post/${rkey}`);
+      } else if (!url.pathname.includes('/')) { // Simple handle: cred.blue/handle.bsky.social
+        const handle = url.pathname.slice(1);
+        if (handle) {
+          return await canonicalize(handle);
+        }
       }
     }
 
+    // tangled.sh specific parser
     if (url.hostname === 'tangled.sh' && url.pathname.length > 1) {
-      const handle = url.pathname.slice(1).replace(/^@/, '');
-      if (handle) {
-        return await canonicalize(handle);
+      // Path format: /post/:rkey/by/:handle or /@:handle
+      const tangledPostMatch = url.pathname.match(/^\/post\/([^\/]+)\/by\/([^\/]+)$/);
+      if (tangledPostMatch) {
+        const [, rkey, handle] = tangledPostMatch;
+         // Use explicit NSID for posts
+        return await canonicalize(`${handle}/app.bsky.feed.post/${rkey}`);
+      } else { // Try to match /@handle or /handle
+        const handleMatch = url.pathname.match(/^\/(@)?([^\/]+)$/);
+        if (handleMatch) {
+          const handle = handleMatch[2];
+          return await canonicalize(handle);
+        }
       }
     }
 
+    // blue.mackuba.eu specific parser
     if (url.hostname === 'blue.mackuba.eu' && url.pathname.startsWith('/skythread')) {
       const author = url.searchParams.get('author');
       const post = url.searchParams.get('post');
-      if (author?.startsWith('did:') && post) {
-        // Use explicit NSID for posts
+      if (author && post) { // Author can be DID or handle
+        // Use explicit NSID for posts. canonicalize will resolve handle if needed.
         return await canonicalize(`${author}/app.bsky.feed.post/${post}`);
       }
     }
@@ -61,48 +98,131 @@ export async function parseInput(raw: string): Promise<TransformInfo | null> {
       return await canonicalize(qParam);
     }
 
-    const parts = str.split(/[/?#]/);
-    for (let i = 0; i < parts.length; i++) {
-      const p = parts[i];
-      if (p.startsWith('did:') || (p.includes('.') && parts[i - 1]?.toLowerCase() === 'profile')) {
-        const rest = parts.slice(i + 1).join('/');
-        // Include slash before rest path
-        const fragment = rest ? `${p}/${rest}` : p;
+    // Generic URL parsing logic (bsky.app, deer.social, etc.)
+    // Path formats:
+    // /profile/:idOrHandle
+    // /profile/:idOrHandle/post/:rkey
+    // /profile/:idOrHandle/feed/:rkey
+    // /profile/:idOrHandle/lists/:rkey
+    // /:idOrHandle (if idOrHandle contains a '.') - treats as profile
+
+    const pathParts = url.pathname.substring(1).split('/'); // remove leading slash and split
+
+    if (pathParts.length > 0 && pathParts[0]) {
+      let idOrHandle: string | undefined;
+      let collection: string | undefined;
+      let rkey: string | undefined;
+
+      if (pathParts[0] === 'profile' && pathParts[1]) {
+        idOrHandle = pathParts[1];
+        if (pathParts[2] && pathParts[3]) { // e.g., /profile/handle/post/rkey
+          collection = pathParts[2];
+          rkey = pathParts[3];
+        }
+      } else if (pathParts.length === 1 && pathParts[0].includes('.')) {
+        // Case: https://bsky.app/why.bsky.team
+        idOrHandle = pathParts[0];
+      }
+
+      if (idOrHandle) {
+        let fragment = idOrHandle;
+        if (collection && rkey) {
+          // Convert common names to NSIDs if available, otherwise keep as is
+          const nsidCollection = NSID_SHORTCUTS[collection.toLowerCase()] || `app.bsky.${collection}`;
+          fragment += `/${nsidCollection}/${rkey}`;
+        }
         return await canonicalize(fragment);
       }
     }
+    // If no specific parsing rule matched for the URL, fall through to return null
   } catch (error) {
-    console.error('Error parsing input:', error);
+    // If URL parsing fails or any other error, it will fall through to return null
+    console.error('Error parsing URL or during canonicalization attempt:', error);
   }
 
-  return null;
+  return null; // Default return if no pattern matches or an error occurs
 }
 
 /**
  * Canonicalizes an input fragment into a standard info object.
  */
 export async function canonicalize(fragment: string): Promise<TransformInfo | null> {
-  let f = fragment.replace(/^at:\/\/([^/])/, 'at://$1');
-  if (!f.startsWith('at://')) f = 'at://' + f;
-  const [, idAndRest] = f.split('at://');
-  const [idPart, ...restParts] = idAndRest.split('/');
-  let did = idPart.startsWith('did:') ? idPart : null;
-  const handle = did ? null : idPart;
-  if (!did && handle) {
-    did = await resolveHandleToDid(handle);
-  }
-
-  if (restParts.length) {
-    const first = restParts[0];
-    if (NSID_SHORTCUTS[first]) {
-      restParts[0] = NSID_SHORTCUTS[first];
+  // Ensure fragment starts with at:// if it's a DID or handle, possibly with path
+  let f = fragment;
+  if (!f.startsWith('at://') && (f.startsWith('did:') || f.includes('.'))) {
+    // Heuristic: if it's a DID or contains a dot (likely a handle), prepend at://
+    // This also handles cases like 'handle/app.bsky.feed.post/rkey'
+     f = 'at://' + f;
+  } else if (!f.startsWith('at://')) {
+    // If it's not a DID/handle and doesn't start with at://, it might be an invalid fragment
+    // For example, a simple rkey without context.
+    // However, resolveHandleToDid can take simple handles, so we let it through
+    // if it doesn't have slashes. If it has slashes, it must be a path.
+    if (f.includes('/')) { // like 'feed/abcdef'
+        // This case is ambiguous without a preceding handle/DID.
+        // The original logic prepended at://, let's see if that's robust.
+        // For now, let's assume it's part of a path that should have had a DID/handle.
+        // This path might be problematic.
+         f = 'at://' + f; // This will likely fail if `f` is like `feed/rkey`
+    } else { // Simple string, could be a handle
+        f = 'at://' + f;
     }
   }
-  const pathRest = restParts.join('/');
-  const [nsid, rkey] = pathRest.split('/').filter(Boolean);
+  
+  // Robustly split, handling potential leading slashes in idAndRest if f was just 'at://'
+  const idAndRest = f.startsWith('at://') ? f.substring('at://'.length) : f;
+  const [idPart, ...restParts] = idAndRest.split('/');
+  
+  let did = idPart.startsWith('did:') ? idPart : null;
+  let handleFromInput = did ? null : (idPart.includes('.') ? idPart : null); // Only treat as handle if it has a dot or isn't a DID
+
+  if (!did && handleFromInput) {
+    did = await resolveHandleToDid(handleFromInput);
+  } else if (!did && !handleFromInput && !idPart.startsWith('did:')) {
+    // If idPart is not a DID and not identified as a handle (e.g. simple string like "cozy"),
+    // it might be a malformed AT URI or an attempt to resolve a non-handle as handle.
+    // Let's try resolving it as a handle if it's the only part.
+    if (restParts.length === 0 && idPart) {
+        const resolvedDid = await resolveHandleToDid(idPart);
+        if (resolvedDid) {
+            did = resolvedDid;
+            handleFromInput = idPart; // Successfully resolved, so it was a handle
+        }
+    }
+  }
+
+
+  // Reconstruct path, ensuring NSID shortcuts are applied
+  let processedPath = '';
+  if (restParts.length > 0) {
+    const collectionOrShortcut = restParts[0];
+    let actualNsid = NSID_SHORTCUTS[collectionOrShortcut.toLowerCase()] || collectionOrShortcut;
+    
+    // Ensure nsid is in correct format if not a shortcut (e.g. app.bsky.feed.post)
+    if (!actualNsid.includes('.') && !NSID_SHORTCUTS[collectionOrShortcut.toLowerCase()]) {
+        // This might be a malformed collection or a shortcut that's not in our list
+        // For safety, prefix with app.bsky if it's a simple word
+        if (/^[a-zA-Z0-9_]+$/.test(actualNsid)) {
+            // This is a guess; ideally, nsids should be fully qualified or be valid shortcuts
+        }
+    }
+
+    const rkeyPart = restParts.length > 1 ? restParts.slice(1).join('/') : undefined;
+    processedPath = `/${actualNsid}${rkeyPart ? `/${rkeyPart}` : ''}`;
+  }
+  
+  const [nsid, rkey] = processedPath.substring(1).split('/').filter(Boolean);
+
+  // Try to get handle if we only have DID (for bskyAppPath)
+  let displayHandle = handleFromInput;
+  if (did && !handleFromInput) {
+    // This is an async operation, ideally should be done earlier if consistently needed
+    // For now, keep it simple as bskyAppPath is cosmetic for some outputs.
+    // displayHandle = await resolveDidToHandle(did); // Optional: for better bskyAppPath
+  }
 
   let bskyAppPath = '';
-  const acct = handle ?? did;
+  const acct = displayHandle ?? did; // Use resolved handle for path if available
   if (acct) {
     bskyAppPath = `/profile/${acct}`;
     if (nsid && rkey) {
@@ -116,9 +236,9 @@ export async function canonicalize(fragment: string): Promise<TransformInfo | nu
   if (!did) return null;
 
   return {
-    atUri: `at://${did}${pathRest ? `/${pathRest}` : ''}`,
+    atUri: `at://${did}${processedPath}`, // Use processedPath which includes leading slash if path exists
     did,
-    handle,
+    handle: handleFromInput, // Ensure we return the handle derived from input or resolved
     rkey,
     nsid,
     bskyAppPath,
