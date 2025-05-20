@@ -6,7 +6,8 @@
     "format": "bunx prettier --ignore-unknown --write .",
     "test": "bunx tsx tests/transform.test.ts",
     "dev": "bunx vite",
-    "build": "bunx vite build",
+    "build:chrome": "bunx vite build",
+    "build:dev": "bunx vite build --mode development",
     "typecheck": "bunx tsc --noEmit"
   },
   "devDependencies": {
