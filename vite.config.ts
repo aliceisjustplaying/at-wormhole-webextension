@@ -57,7 +57,7 @@ export default defineConfig(({ mode }) => {
                   const zipPath = path.resolve(process.cwd(), zipName);
                   if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
                   // Zip only the contents of dist, placing manifest.json at root of the archive
-                  execSync(`zip -r ../${zipName} .`, { cwd: path.resolve(process.cwd(), 'dist') });
+                  execSync(`zip -r ../${zipName} . -x '*.DS_Store'`, { cwd: path.resolve(process.cwd(), 'dist') });
                   console.log(`✔️ Created ${zipName}`);
                 },
               },
@@ -72,7 +72,7 @@ export default defineConfig(({ mode }) => {
                   if (fs.existsSync(zipPath)) {
                     fs.unlinkSync(zipPath);
                   }
-                  execSync(`zip -r ../${zipName} .`, { cwd: path.resolve(process.cwd(), 'dist') });
+                  execSync(`zip -r ../${zipName} . -x '*.DS_Store'`, { cwd: path.resolve(process.cwd(), 'dist') });
                   console.log(`✔️ Created ${zipName}`);
                 },
               },

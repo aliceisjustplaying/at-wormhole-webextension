@@ -7,6 +7,7 @@
     "test": "bunx tsx tests/transform.test.ts",
     "dev": "bunx vite",
     "build:chrome": "bunx vite build",
+    "build:firefox": "bunx vite build --mode firefox",
     "build:dev": "bunx vite build --mode development",
     "typecheck": "bunx tsc --noEmit"
   },
