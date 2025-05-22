@@ -58,6 +58,7 @@ export default defineConfig(({ mode }) => {
             if (fs.existsSync(mf)) {
               const m = JSON.parse(fs.readFileSync(mf, 'utf-8')) as ModifiableManifest;
               m.permissions = m.permissions?.filter((p) => p !== 'theme');
+              delete m.browser_specific_settings;
               fs.writeFileSync(mf, JSON.stringify(m, null, 2));
               console.log('✔️ Stripped `theme` permission from manifest for Chrome build');
             }
