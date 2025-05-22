@@ -71,7 +71,7 @@ jobs:
           fi
 
       - name: Upload ${{ matrix.mode }}-build
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.mode }}-build
           path: ${{ matrix.mode == 'development' && 'dist' || github.workspace }}/${{ matrix.mode == 'firefox' && 'firefox-extension.zip' || 'chrome-extension.zip' }}
