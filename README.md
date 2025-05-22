@@ -22,4 +22,4 @@ If you'd like to add support for another service, please open an issue or submit
 
 ## Installation
 
-You can install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/wormhole/aihndpeeoneojofmliffjknbegmipbim) or from [Firefox Add-ons](https://addons.mozilla.org/en-GB/firefox/addon/at-wormhole/). 
+You can install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/wormhole/aihndpeeoneojofmliffjknbegmipbim) or ~~from [Firefox Add-ons](https://addons.mozilla.org/en-GB/firefox/addon/at-wormhole/)~~ (still under review; install the `.xpi` manually from [here](https://github.com/aliceisjustplaying/at-wormhole-webextension/releases/download/1.1.2/at_wormhole-1.1.2.xpi)).
