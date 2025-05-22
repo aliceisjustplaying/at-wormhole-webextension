@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   lint:
@@ -51,7 +51,7 @@ jobs:
     needs: test
     strategy:
       matrix:
-        mode: [ chrome, firefox, development ]
+        mode: [chrome, firefox, development]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Bun
@@ -63,7 +63,7 @@ jobs:
       - name: Build (${{ matrix.mode }})
         run: |
           if [ "${{ matrix.mode }}" = "chrome" ]; then
-            bunx vite build
+            bunx vite build --mode chrome
           elif [ "${{ matrix.mode }}" = "firefox" ]; then
             bunx vite build --mode firefox
           else

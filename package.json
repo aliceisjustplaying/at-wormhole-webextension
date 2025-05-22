@@ -6,7 +6,7 @@
     "format": "bunx prettier --ignore-unknown --write .",
     "test": "bunx tsx tests/transform.test.ts",
     "dev": "bunx vite",
-    "build:chrome": "bunx vite build",
+    "build:chrome": "bunx vite build --mode chrome",
     "build:firefox": "bunx vite build --mode firefox",
     "build:dev": "bunx vite build --mode development",
     "typecheck": "bunx tsc --noEmit"
@@ -15,7 +15,7 @@
     "@crxjs/vite-plugin": "latest",
     "@eslint/js": "latest",
     "@types/bun": "latest",
-    "@types/chrome": "latest",
+    "@types/chrome": "^0.0.323",
     "@types/node": "latest",
     "eslint": "latest",
     "globals": "latest",

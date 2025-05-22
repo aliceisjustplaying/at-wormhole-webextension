@@ -1,4 +1,5 @@
 import { parseInput, resolveDidToHandle, resolveHandleToDid } from '../shared/transform';
+import Debug from '../shared/debug';
 
 const DID_HANDLE_CACHE_KEY = 'didHandleCache';
 const MAX_CACHE_ENTRIES = 1000; // Maximum number of entries to keep in the cache
@@ -85,6 +86,7 @@ async function saveCache(): Promise<void> {
 
 async function updateCache(did: string, handle: string): Promise<void> {
   try {
+    Debug.cache('Updating cache:', { did, handle });
     // Update the in-memory cache
     didToHandle.set(did, { handle, lastAccessed: Date.now() });
     // Update reverse cache
@@ -160,14 +162,22 @@ async function cleanupCache(): Promise<void> {
 }
 
 // Initialize the cache when the service worker starts
-const cacheLoaded = loadCache().catch(console.error);
+const cacheLoaded = (async () => {
+  await Debug.loadRuntimeConfig();
+  Debug.serviceWorker('Service worker starting, loading cache...');
+  await loadCache();
+  Debug.serviceWorker('Cache loaded successfully');
+})().catch((error: unknown) => {
+  Debug.error('serviceWorker', 'Failed to initialize:', error);
+});
 
 // Message types for service worker comms
 type SWMessage =
   | { type: 'UPDATE_CACHE'; did: string; handle: string }
   | { type: 'GET_HANDLE'; did: string }
   | { type: 'GET_DID'; handle: string }
-  | { type: 'CLEAR_CACHE' };
+  | { type: 'CLEAR_CACHE' }
+  | { type: 'DEBUG_LOG'; message: string };
 
 // Handle messages from the popup
 chrome.runtime.onMessage.addListener((request: SWMessage, sender, sendResponse): boolean => {
@@ -227,6 +237,12 @@ chrome.runtime.onMessage.addListener((request: SWMessage, sender, sendResponse):
         sendResponse({ did: null });
       }
     })();
+    return true;
+  }
+  // DEBUG_LOG
+  if (request.type === 'DEBUG_LOG' && typeof request.message === 'string') {
+    Debug.popup('Popup message:', request.message);
+    sendResponse({ success: true });
     return true;
   }
   // CLEAR_CACHE

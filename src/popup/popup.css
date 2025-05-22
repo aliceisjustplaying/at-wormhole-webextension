@@ -1,7 +1,27 @@
+:root {
+  --fallback-bg: #fff;
+  --fallback-text: #000;
+  --fallback-button-bg: #fafafa;
+  --fallback-button-text: #000;
+  --fallback-border: #ccc;
+  --fallback-hover-bg: #eee;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fallback-bg: #222;
+    --fallback-text: #eee;
+    --fallback-button-bg: #333;
+    --fallback-button-text: #eee;
+    --fallback-border: #555;
+    --fallback-hover-bg: #444;
+  }
+}
+
 body {
   font-family: -apple-system, sans-serif;
   margin: 0;
-  padding: 10px;
+  padding: 0px 10px 10px 10px;
   width: 280px;
 }
 ul {
@@ -24,9 +44,8 @@ button:hover {
   background: #eee;
 }
 
-/* Styles for dynamically added links to look like buttons */
 ul#dest a {
-  display: block; /* Make them block-level to fill width */
+  display: block;
   width: 100%;
   text-align: left;
   padding: 6px 8px;
@@ -34,25 +53,25 @@ ul#dest a {
   border-radius: 6px;
   background: #fafafa;
   font-size: 14px;
-  color: inherit; /* Use inherited color, overridden in dark mode */
-  text-decoration: none; /* Remove underline */
-  box-sizing: border-box; /* Ensure padding and border are included in width */
+  color: inherit;
+  text-decoration: none;
+  box-sizing: border-box;
 }
 
 ul#dest a:hover {
   background: #eee;
-  text-decoration: none; /* Ensure underline doesn't reappear on hover */
+  text-decoration: none;
 }
 
 hr {
   border: 0;
   height: 1px;
-  background-color: #ccc; /* Light mode HR color */
+  background-color: #ccc;
 }
 
 #emptyCacheBtn {
-  width: auto; /* Override general button width */
-  text-align: center; /* Center text for this specific button */
+  width: auto;
+  text-align: center;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -60,16 +79,15 @@ hr {
     background: #222;
     color: #eee;
   }
-  body button { /* Increased specificity */
+  body button {
     background: #333;
     color: #eee;
     border-color: #555;
   }
-  body button:hover { /* Increased specificity */
+  body button:hover {
     background: #444;
   }
 
-  /* Dark mode for dynamically added links */
   body ul#dest a {
     background: #333;
     color: #eee;
@@ -81,6 +99,6 @@ hr {
   }
 
   hr {
-    background-color: #555; /* Dark mode HR color */
+    background-color: #555;
   }
 }

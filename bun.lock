@@ -7,7 +7,7 @@
         "@crxjs/vite-plugin": "latest",
         "@eslint/js": "latest",
         "@types/bun": "latest",
-        "@types/chrome": "latest",
+        "@types/chrome": "^0.0.323",
         "@types/node": "latest",
         "eslint": "latest",
         "globals": "latest",
