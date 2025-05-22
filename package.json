@@ -1,5 +1,5 @@
 {
-  "name": "at-wormhole-chrome",
+  "name": "at-wormhole-webextension",
   "private": true,
   "scripts": {
     "lint": "bunx eslint . --ignore-pattern 'dist/**/*'",

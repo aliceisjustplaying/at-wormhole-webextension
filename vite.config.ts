@@ -39,7 +39,7 @@ export default defineConfig(({ mode }) => {
               fs.writeFileSync(mf, JSON.stringify(m, null, 2));
               console.log('✔️ Stripped service_worker for Firefox build');
             }
-            const zipName = 'firefox-extension.zip';
+            const zipName = 'firefox-extension.xpi';
             const zipPath = path.resolve(process.cwd(), zipName);
             if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
             execSync(`zip -r ../${zipName} . -x '*.DS_Store'`, { cwd: path.resolve(process.cwd(), 'dist') });
