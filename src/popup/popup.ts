@@ -30,8 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const createItem = ({ url, label }: Destination): string => `
     <li>
-      <a href="${url}" target="_blank" rel="noopener noreferrer"
-         style="display:block;padding:6px 8px;border:1px solid #ccc;border-radius:6px;background:#fafafa;text-decoration:none;color:inherit;font-size:14px;">
+      <a href="${url}" target="_blank" rel="noopener noreferrer">
         ${label}
       </a>
     </li>`;

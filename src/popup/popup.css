@@ -23,17 +23,64 @@ button {
 button:hover {
   background: #eee;
 }
+
+/* Styles for dynamically added links to look like buttons */
+ul#dest a {
+  display: block; /* Make them block-level to fill width */
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fafafa;
+  font-size: 14px;
+  color: inherit; /* Use inherited color, overridden in dark mode */
+  text-decoration: none; /* Remove underline */
+  box-sizing: border-box; /* Ensure padding and border are included in width */
+}
+
+ul#dest a:hover {
+  background: #eee;
+  text-decoration: none; /* Ensure underline doesn't reappear on hover */
+}
+
+hr {
+  border: 0;
+  height: 1px;
+  background-color: #ccc; /* Light mode HR color */
+}
+
+#emptyCacheBtn {
+  width: auto; /* Override general button width */
+  text-align: center; /* Center text for this specific button */
+}
+
 @media (prefers-color-scheme: dark) {
   body {
     background: #222;
     color: #eee;
   }
-  button {
+  body button { /* Increased specificity */
     background: #333;
     color: #eee;
     border-color: #555;
   }
-  button:hover {
+  body button:hover { /* Increased specificity */
     background: #444;
+  }
+
+  /* Dark mode for dynamically added links */
+  body ul#dest a {
+    background: #333;
+    color: #eee;
+    border-color: #555;
+  }
+
+  body ul#dest a:hover {
+    background: #444;
+  }
+
+  hr {
+    background-color: #555; /* Dark mode HR color */
   }
 }
