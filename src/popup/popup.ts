@@ -23,12 +23,12 @@ interface BrowserTheme {
   colors?: ThemeColors;
 }
 
-interface ChromeThemeAPI {
+interface BrowserThemeAPI {
   getCurrent(): Promise<BrowserTheme>;
 }
 
-interface ChromeWithTheme {
-  theme?: ChromeThemeAPI;
+interface BrowserWithTheme {
+  theme?: BrowserThemeAPI;
 }
 
 /**
@@ -38,8 +38,8 @@ async function applyTheme(): Promise<void> {
   Debug.theme('Theme detection starting...');
 
   // Only attempt theme detection in Firefox
-  const chromeWithTheme = chrome as ChromeWithTheme;
-  if (!chromeWithTheme.theme?.getCurrent) {
+  const browserWithTheme = chrome as BrowserWithTheme;
+  if (!browserWithTheme.theme?.getCurrent) {
     Debug.theme('Theme API not available (likely Chrome or older Firefox)');
     return;
   }
@@ -47,7 +47,7 @@ async function applyTheme(): Promise<void> {
   Debug.theme('Theme API available, getting current theme...');
 
   try {
-    const theme = await chromeWithTheme.theme.getCurrent();
+    const theme = await browserWithTheme.theme.getCurrent();
     Debug.theme('Raw theme object:', theme);
 
     if (!theme.colors) {
