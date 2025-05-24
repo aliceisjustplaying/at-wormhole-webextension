@@ -172,6 +172,219 @@ async function run() {
         bskyAppPath: '/profile/did:plc:5sk4eqsu7byvwokfcnfgywxg',
       },
     },
+    // deer.social
+    {
+      name: 'parseInput/deer.social/profile/handle',
+      input: 'https://deer.social/profile/why.bsky.team',
+      expected: {
+        atUri: 'at://did:plc:vpkhqolt662uhesyj6nxm7ys',
+        did: 'did:plc:vpkhqolt662uhesyj6nxm7ys',
+        handle: 'why.bsky.team',
+        rkey: undefined,
+        nsid: undefined,
+        bskyAppPath: '/profile/why.bsky.team',
+      },
+    },
+    {
+      name: 'parseInput/deer.social/profile/did',
+      input: 'https://deer.social/profile/did:plc:vpkhqolt662uhesyj6nxm7ys',
+      expected: {
+        atUri: 'at://did:plc:vpkhqolt662uhesyj6nxm7ys',
+        did: 'did:plc:vpkhqolt662uhesyj6nxm7ys',
+        handle: null,
+        rkey: undefined,
+        nsid: undefined,
+        bskyAppPath: '/profile/did:plc:vpkhqolt662uhesyj6nxm7ys',
+      },
+    },
+    {
+      name: 'parseInput/deer.social/profile/handle/post',
+      input: 'https://deer.social/profile/why.bsky.team/post/3lpe6ek6xhs2n',
+      expected: {
+        atUri: 'at://did:plc:vpkhqolt662uhesyj6nxm7ys/app.bsky.feed.post/3lpe6ek6xhs2n',
+        did: 'did:plc:vpkhqolt662uhesyj6nxm7ys',
+        handle: 'why.bsky.team',
+        rkey: '3lpe6ek6xhs2n',
+        nsid: 'app.bsky.feed.post',
+        bskyAppPath: '/profile/why.bsky.team/post/3lpe6ek6xhs2n',
+      },
+    },
+    {
+      name: 'parseInput/deer.social/profile/did/list',
+      input: 'https://deer.social/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf/lists/3l7vfhhfqcz2u',
+      expected: {
+        atUri: 'at://did:plc:by3jhwdqgbtrcc7q4tkkv3cf/app.bsky.graph.list/3l7vfhhfqcz2u',
+        did: 'did:plc:by3jhwdqgbtrcc7q4tkkv3cf',
+        handle: null,
+        rkey: '3l7vfhhfqcz2u',
+        nsid: 'app.bsky.graph.list',
+        bskyAppPath: '/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf/lists/3l7vfhhfqcz2u',
+      },
+    },
+    // bsky.app
+    {
+      name: 'parseInput/bsky.app/profile/handle',
+      input: 'https://bsky.app/profile/why.bsky.team',
+      expected: {
+        atUri: 'at://did:plc:vpkhqolt662uhesyj6nxm7ys',
+        did: 'did:plc:vpkhqolt662uhesyj6nxm7ys',
+        handle: 'why.bsky.team',
+        rkey: undefined,
+        nsid: undefined,
+        bskyAppPath: '/profile/why.bsky.team',
+      },
+    },
+    {
+      name: 'parseInput/bsky.app/profile/did',
+      input: 'https://bsky.app/profile/did:plc:vpkhqolt662uhesyj6nxm7ys',
+      expected: {
+        atUri: 'at://did:plc:vpkhqolt662uhesyj6nxm7ys',
+        did: 'did:plc:vpkhqolt662uhesyj6nxm7ys',
+        handle: null,
+        rkey: undefined,
+        nsid: undefined,
+        bskyAppPath: '/profile/did:plc:vpkhqolt662uhesyj6nxm7ys',
+      },
+    },
+    {
+      name: 'parseInput/bsky.app/profile/handle/post',
+      input: 'https://bsky.app/profile/why.bsky.team/post/3lpe6ek6xhs2n',
+      expected: {
+        atUri: 'at://did:plc:vpkhqolt662uhesyj6nxm7ys/app.bsky.feed.post/3lpe6ek6xhs2n',
+        did: 'did:plc:vpkhqolt662uhesyj6nxm7ys',
+        handle: 'why.bsky.team',
+        rkey: '3lpe6ek6xhs2n',
+        nsid: 'app.bsky.feed.post',
+        bskyAppPath: '/profile/why.bsky.team/post/3lpe6ek6xhs2n',
+      },
+    },
+    {
+      name: 'parseInput/bsky.app/profile/did/feed',
+      input: 'https://bsky.app/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf/feed/cozy',
+      expected: {
+        atUri: 'at://did:plc:by3jhwdqgbtrcc7q4tkkv3cf/app.bsky.feed.generator/cozy',
+        did: 'did:plc:by3jhwdqgbtrcc7q4tkkv3cf',
+        handle: null,
+        rkey: 'cozy',
+        nsid: 'app.bsky.feed.generator',
+        bskyAppPath: '/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf/feed/cozy',
+      },
+    },
+    // pdsls.dev
+    {
+      name: 'parseInput/pdsls.dev/atUri/didOnly',
+      input: 'https://pdsls.dev/at://did:plc:vpkhqolt662uhesyj6nxm7ys',
+      expected: {
+        atUri: 'at://did:plc:vpkhqolt662uhesyj6nxm7ys',
+        did: 'did:plc:vpkhqolt662uhesyj6nxm7ys',
+        handle: null, // Handle resolution would happen in a later step if needed
+        rkey: undefined,
+        nsid: undefined,
+        bskyAppPath: '/profile/did:plc:vpkhqolt662uhesyj6nxm7ys',
+      },
+    },
+    {
+      name: 'parseInput/pdsls.dev/atUri/post',
+      input: 'https://pdsls.dev/at://did:plc:vpkhqolt662uhesyj6nxm7ys/app.bsky.feed.post/3lpe6ek6xhs2n',
+      expected: {
+        atUri: 'at://did:plc:vpkhqolt662uhesyj6nxm7ys/app.bsky.feed.post/3lpe6ek6xhs2n',
+        did: 'did:plc:vpkhqolt662uhesyj6nxm7ys',
+        handle: null, // Handle resolution would happen in a later step
+        rkey: '3lpe6ek6xhs2n',
+        nsid: 'app.bsky.feed.post',
+        bskyAppPath: '/profile/did:plc:vpkhqolt662uhesyj6nxm7ys/post/3lpe6ek6xhs2n',
+      },
+    },
+    // atp.tools
+    {
+      name: 'parseInput/atp.tools/atUri/didOnly',
+      input: 'https://atp.tools/at://did:plc:vpkhqolt662uhesyj6nxm7ys',
+      expected: {
+        atUri: 'at://did:plc:vpkhqolt662uhesyj6nxm7ys',
+        did: 'did:plc:vpkhqolt662uhesyj6nxm7ys',
+        handle: null,
+        rkey: undefined,
+        nsid: undefined,
+        bskyAppPath: '/profile/did:plc:vpkhqolt662uhesyj6nxm7ys',
+      },
+    },
+    {
+      name: 'parseInput/atp.tools/atUri/list',
+      input: 'https://atp.tools/at://did:plc:by3jhwdqgbtrcc7q4tkkv3cf/app.bsky.graph.list/3l7vfhhfqcz2u',
+      expected: {
+        atUri: 'at://did:plc:by3jhwdqgbtrcc7q4tkkv3cf/app.bsky.graph.list/3l7vfhhfqcz2u',
+        did: 'did:plc:by3jhwdqgbtrcc7q4tkkv3cf',
+        handle: null,
+        rkey: '3l7vfhhfqcz2u',
+        nsid: 'app.bsky.graph.list',
+        bskyAppPath: '/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf/lists/3l7vfhhfqcz2u',
+      },
+    },
+    // clearsky.app
+    {
+      name: 'parseInput/clearsky.app/did/blocked-by',
+      input: 'https://clearsky.app/did:plc:vpkhqolt662uhesyj6nxm7ys/blocked-by',
+      expected: {
+        atUri: 'at://did:plc:vpkhqolt662uhesyj6nxm7ys/blocked-by', 
+        did: 'did:plc:vpkhqolt662uhesyj6nxm7ys',
+        handle: null,
+        rkey: undefined, // rkey is not identified in this pattern by current parseInput
+        nsid: 'blocked-by', // 'blocked-by' is treated as the nsid
+        bskyAppPath: '/profile/did:plc:vpkhqolt662uhesyj6nxm7ys', // bskyAppPath is just the profile
+      },
+    },
+     // frontpage.fyi
+    {
+      name: 'parseInput/frontpage.fyi/profile/handle',
+      input: 'https://frontpage.fyi/profile/why.bsky.team',
+      expected: {
+        atUri: 'at://did:plc:vpkhqolt662uhesyj6nxm7ys',
+        did: 'did:plc:vpkhqolt662uhesyj6nxm7ys',
+        handle: 'why.bsky.team',
+        rkey: undefined,
+        nsid: undefined,
+        bskyAppPath: '/profile/why.bsky.team',
+      },
+    },
+    // plc.directory
+    {
+      name: 'parseInput/plc.directory/did',
+      input: 'https://plc.directory/did:plc:vpkhqolt662uhesyj6nxm7ys',
+      expected: {
+        atUri: 'at://did:plc:vpkhqolt662uhesyj6nxm7ys',
+        did: 'did:plc:vpkhqolt662uhesyj6nxm7ys',
+        handle: null,
+        rkey: undefined,
+        nsid: undefined,
+        bskyAppPath: '/profile/did:plc:vpkhqolt662uhesyj6nxm7ys',
+      },
+    },
+    // tangled.sh (Covered by existing patterns if it resolves to a profile page, adding specific for @handle)
+    {
+      name: 'parseInput/tangled.sh/handle',
+      input: 'https://tangled.sh/@why.bsky.team',
+      expected: {
+        atUri: 'at://did:plc:vpkhqolt662uhesyj6nxm7ys',
+        did: 'did:plc:vpkhqolt662uhesyj6nxm7ys',
+        handle: 'why.bsky.team',
+        rkey: undefined,
+        nsid: undefined,
+        bskyAppPath: '/profile/why.bsky.team',
+      },
+    },
+    // cred.blue (Covered by existing patterns if it resolves to a profile page, adding specific for handle)
+    {
+        name: 'parseInput/cred.blue/handle',
+        input: 'https://cred.blue/why.bsky.team',
+        expected: {
+            atUri: 'at://did:plc:vpkhqolt662uhesyj6nxm7ys',
+            did: 'did:plc:vpkhqolt662uhesyj6nxm7ys',
+            handle: 'why.bsky.team',
+            rkey: undefined,
+            nsid: undefined,
+            bskyAppPath: '/profile/why.bsky.team',
+        },
+    },
   ];
   for (const test of parseInputTests) {
     try {
