@@ -1,6 +1,6 @@
 # at://wormhole
 
-![screenshot](./screenshot.png)
+![screenshot](./docs/screenshot.png)
 
 This is a browser extension that provides "wormhole" navigation between different AT Protocol/Bluesky services inspired by [Dame's Shortcut](https://bsky.app/profile/did:plc:gq4fo3u6tqzzdkjlwzpb23tj/post/3lpcnyrwuzc24). The extension transforms URLs and identifiers from one service to equivalent URLs on other services.
 
