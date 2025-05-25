@@ -1,0 +1,41 @@
+https://deer.social/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf/post/3lpwwx53o3s2v
+https://deer.social/profile/alice.mosphere.at/post/3lpwwx53o3s2v
+https://bsky.app/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf/post/3lpwwx53o3s2v
+https://bsky.app/profile/alice.mosphere.at/post/3lpwwx53o3s2v
+https://pdsls.dev/at://did:plc:by3jhwdqgbtrcc7q4tkkv3cf/app.bsky.feed.post/3lpwwx53o3s2v
+https://clearsky.app/did:plc:by3jhwdqgbtrcc7q4tkkv3cf/blocked-by
+https://clearsky.app/alice.mosphere.at/blocked-by
+https://blue.mackuba.eu/skythread/?author=did:plc:by3jhwdqgbtrcc7q4tkkv3cf&post=3lpwwx53o3s2v
+https://cred.blue/alice.mosphere.at
+https://tangled.sh/@alice.mosphere.at
+https://frontpage.fyi/profile/alice.mosphere.at
+https://boat.kelinci.net/plc-oplogs?q=did:plc:by3jhwdqgbtrcc7q4tkkv3cf
+https://plc.directory/did:plc:by3jhwdqgbtrcc7q4tkkv3cf
+
+content of https://plc.directory/did:plc:by3jhwdqgbtrcc7q4tkkv3cf:
+{
+  "@context": [
+    "https://www.w3.org/ns/did/v1",
+    "https://w3id.org/security/multikey/v1",
+    "https://w3id.org/security/suites/secp256k1-2019/v1"
+  ],
+  "id": "did:plc:by3jhwdqgbtrcc7q4tkkv3cf",
+  "alsoKnownAs": [
+    "at://alice.mosphere.at"
+  ],
+  "verificationMethod": [
+    {
+      "id": "did:plc:by3jhwdqgbtrcc7q4tkkv3cf#atproto",
+      "type": "Multikey",
+      "controller": "did:plc:by3jhwdqgbtrcc7q4tkkv3cf",
+      "publicKeyMultibase": "zQ3shMT8rjz8RLAvG2DruGAzaMShodJ6rLA1MPHZkbMT8kuXv"
+    }
+  ],
+  "service": [
+    {
+      "id": "#atproto_pds",
+      "type": "AtprotoPersonalDataServer",
+      "serviceEndpoint": "https://oyster.us-east.host.bsky.network"
+    }
+  ]
+}
