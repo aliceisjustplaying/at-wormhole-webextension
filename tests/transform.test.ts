@@ -3,6 +3,13 @@ import { parseInput, resolveHandleToDid } from '../src/shared/transform';
 
 describe('transform tests', () => {
   describe('parseInput', () => {
+    const targetDid = 'did:plc:by3jhwdqgbtrcc7q4tkkv3cf';
+    const targetHandle = 'alice.mosphere.at';
+    const postRkey = '3lpwwx53o3s2v';
+    const postNsid = 'app.bsky.feed.post';
+    const postAtUri = `at://${targetDid}/${postNsid}/${postRkey}`;
+    const profileAtUri = `at://${targetDid}`; // Represents the base AT URI for the actor
+
     const parseInputTests = [
       {
         name: 'parseInput/feed/cozy',
@@ -22,10 +29,10 @@ describe('transform tests', () => {
         expected: {
           atUri: 'at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lpe6ek6xhs2n',
           did: 'did:plc:kkkcb7sys7623hcf7oefcffg',
-          handle: null,
+          handle: 'now.alice.mosphere.at',
           rkey: '3lpe6ek6xhs2n',
           nsid: 'app.bsky.feed.post',
-          bskyAppPath: '/profile/did:plc:kkkcb7sys7623hcf7oefcffg/post/3lpe6ek6xhs2n',
+          bskyAppPath: '/profile/now.alice.mosphere.at/post/3lpe6ek6xhs2n',
         },
       },
       {
@@ -46,10 +53,10 @@ describe('transform tests', () => {
         expected: {
           atUri: 'at://did:web:didweb.watch',
           did: 'did:web:didweb.watch',
-          handle: null,
+          handle: 'didweb.watch',
           rkey: undefined,
           nsid: undefined,
-          bskyAppPath: '/profile/did:web:didweb.watch',
+          bskyAppPath: '/profile/didweb.watch',
         },
       },
       {
@@ -58,10 +65,10 @@ describe('transform tests', () => {
         expected: {
           atUri: 'at://did:web:didweb.watch/app.bsky.feed.post/3lpaioe62qk2j',
           did: 'did:web:didweb.watch',
-          handle: null,
+          handle: 'didweb.watch',
           rkey: '3lpaioe62qk2j',
           nsid: 'app.bsky.feed.post',
-          bskyAppPath: '/profile/did:web:didweb.watch/post/3lpaioe62qk2j',
+          bskyAppPath: '/profile/didweb.watch/post/3lpaioe62qk2j',
         },
       },
       {
@@ -70,10 +77,166 @@ describe('transform tests', () => {
         expected: {
           atUri: 'at://did:plc:5sk4eqsu7byvwokfcnfgywxg',
           did: 'did:plc:5sk4eqsu7byvwokfcnfgywxg',
-          handle: null,
+          handle: 'ev3rmichelle.bsky.social',
           nsid: undefined,
           rkey: undefined,
-          bskyAppPath: '/profile/did:plc:5sk4eqsu7byvwokfcnfgywxg',
+          bskyAppPath: '/profile/ev3rmichelle.bsky.social',
+        },
+      },
+      {
+        name: 'parseInput/deer.social/profile/did/post',
+        input: 'https://deer.social/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf/post/3lpwwx53o3s2v',
+        expected: {
+          atUri: postAtUri,
+          did: targetDid,
+          handle: targetHandle,
+          rkey: postRkey,
+          nsid: postNsid,
+          bskyAppPath: `/profile/${targetHandle}/post/${postRkey}`,
+        },
+      },
+      {
+        name: 'parseInput/deer.social/profile/handle/post',
+        input: 'https://deer.social/profile/alice.mosphere.at/post/3lpwwx53o3s2v',
+        expected: {
+          atUri: postAtUri,
+          did: targetDid,
+          handle: targetHandle,
+          rkey: postRkey,
+          nsid: postNsid,
+          bskyAppPath: `/profile/${targetHandle}/post/${postRkey}`,
+        },
+      },
+      {
+        name: 'parseInput/bsky.app/profile/did/post',
+        input: 'https://bsky.app/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf/post/3lpwwx53o3s2v',
+        expected: {
+          atUri: postAtUri,
+          did: targetDid,
+          handle: targetHandle,
+          rkey: postRkey,
+          nsid: postNsid,
+          bskyAppPath: `/profile/${targetHandle}/post/${postRkey}`,
+        },
+      },
+      {
+        name: 'parseInput/bsky.app/profile/handle/post',
+        input: 'https://bsky.app/profile/alice.mosphere.at/post/3lpwwx53o3s2v',
+        expected: {
+          atUri: postAtUri,
+          did: targetDid,
+          handle: targetHandle,
+          rkey: postRkey,
+          nsid: postNsid,
+          bskyAppPath: `/profile/${targetHandle}/post/${postRkey}`,
+        },
+      },
+      {
+        name: 'parseInput/pdsls.dev/atUriAsPath/post',
+        input: 'https://pdsls.dev/at://did:plc:by3jhwdqgbtrcc7q4tkkv3cf/app.bsky.feed.post/3lpwwx53o3s2v',
+        expected: {
+          atUri: postAtUri,
+          did: targetDid,
+          handle: targetHandle,
+          rkey: postRkey,
+          nsid: postNsid,
+          bskyAppPath: `/profile/${targetHandle}/post/${postRkey}`,
+        },
+      },
+      {
+        name: 'parseInput/clearsky.app/did/profileWithExtraPath',
+        input: 'https://clearsky.app/did:plc:by3jhwdqgbtrcc7q4tkkv3cf/blocked-by',
+        expected: {
+          atUri: profileAtUri,
+          did: targetDid,
+          handle: targetHandle,
+          rkey: undefined,
+          nsid: undefined,
+          bskyAppPath: `/profile/${targetHandle}`,
+        },
+      },
+      {
+        name: 'parseInput/clearsky.app/handle/profileWithExtraPath',
+        input: 'https://clearsky.app/alice.mosphere.at/blocked-by',
+        expected: {
+          atUri: profileAtUri,
+          did: targetDid,
+          handle: targetHandle,
+          rkey: undefined,
+          nsid: undefined,
+          bskyAppPath: `/profile/${targetHandle}`,
+        },
+      },
+      {
+        name: 'parseInput/blue.mackuba.eu/skythread/queryparams',
+        input: 'https://blue.mackuba.eu/skythread/?author=did:plc:by3jhwdqgbtrcc7q4tkkv3cf&post=3lpwwx53o3s2v',
+        expected: {
+          atUri: postAtUri,
+          did: targetDid,
+          handle: targetHandle,
+          rkey: postRkey,
+          nsid: postNsid,
+          bskyAppPath: `/profile/${targetHandle}/post/${postRkey}`,
+        },
+      },
+      {
+        name: 'parseInput/cred.blue/handle/profile',
+        input: 'https://cred.blue/alice.mosphere.at',
+        expected: {
+          atUri: profileAtUri,
+          did: targetDid,
+          handle: targetHandle,
+          rkey: undefined,
+          nsid: undefined,
+          bskyAppPath: `/profile/${targetHandle}`,
+        },
+      },
+      {
+        name: 'parseInput/tangled.sh/@handle/profile',
+        input: 'https://tangled.sh/@alice.mosphere.at',
+        expected: {
+          atUri: profileAtUri,
+          did: targetDid,
+          handle: targetHandle,
+          rkey: undefined,
+          nsid: undefined,
+          bskyAppPath: `/profile/${targetHandle}`,
+        },
+      },
+      {
+        name: 'parseInput/frontpage.fyi/profile/handle',
+        input: 'https://frontpage.fyi/profile/alice.mosphere.at',
+        expected: {
+          atUri: profileAtUri,
+          did: targetDid,
+          handle: targetHandle,
+          rkey: undefined,
+          nsid: undefined,
+          bskyAppPath: `/profile/${targetHandle}`,
+        },
+      },
+      {
+        name: 'parseInput/boat.kelinci.net/plc-oplogsViaQuery',
+        input: 'https://boat.kelinci.net/plc-oplogs?q=did:plc:by3jhwdqgbtrcc7q4tkkv3cf',
+        expected: {
+          atUri: profileAtUri,
+          did: targetDid,
+          handle: targetHandle,
+          rkey: undefined,
+          nsid: undefined,
+          bskyAppPath: `/profile/${targetHandle}`,
+        },
+      },
+      {
+        name: 'parseInput/plc.directory/didAsPathSegment',
+        input: 'https://plc.directory/did:plc:by3jhwdqgbtrcc7q4tkkv3cf',
+        expected: {
+          atUri: profileAtUri,
+          did: targetDid,
+          handle: targetHandle,
+          rkey: undefined,
+          nsid: undefined,
+          bskyAppPath: `/profile/${targetHandle}`,
         },
       },
     ];
@@ -92,10 +255,10 @@ describe('transform tests', () => {
       expect(out).toEqual({
         atUri: 'at://did:plc:2p6idfgjfe3easltiwmnofw6/app.bsky.feed.post/3lpjntj43rs23',
         did: 'did:plc:2p6idfgjfe3easltiwmnofw6',
-        handle: null,
+        handle: 'jimmusilpainter.bsky.social',
         rkey: '3lpjntj43rs23',
         nsid: 'app.bsky.feed.post',
-        bskyAppPath: '/profile/did:plc:2p6idfgjfe3easltiwmnofw6/post/3lpjntj43rs23',
+        bskyAppPath: '/profile/jimmusilpainter.bsky.social/post/3lpjntj43rs23',
       });
     });
   });

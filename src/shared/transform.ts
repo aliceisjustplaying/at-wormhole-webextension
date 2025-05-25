@@ -2,6 +2,7 @@
  * Shortcuts for NSIDs used in Bluesky/AT-Proto
  */
 import { NSID_SHORTCUTS } from './constants';
+import Debug from './debug';
 
 /**
  * Standardized info returned from transform functions.
@@ -61,18 +62,31 @@ export async function parseInput(raw: string): Promise<TransformInfo | null> {
       return await canonicalize(qParam);
     }
 
-    const parts = str.split(/[/?#]/);
-    for (let i = 0; i < parts.length; i++) {
-      const p = parts[i];
-      if (p.startsWith('did:') || (p.includes('.') && parts[i - 1]?.toLowerCase() === 'profile')) {
-        const rest = parts.slice(i + 1).join('/');
-        // Include slash before rest path
-        const fragment = rest ? `${p}/${rest}` : p;
-        return await canonicalize(fragment);
+    // New path parsing logic
+    const pathSegments = url.pathname.split('/').filter(Boolean); // Get non-empty segments
+    for (let i = 0; i < pathSegments.length; i++) {
+      const p = pathSegments[i];
+      // Check if 'p' is a DID or a potential handle (contains '.' and isn't part of common hostnames/paths)
+      // and ensure that if the previous segment was 'profile', we use 'p'.
+      const isPotentialIdentifier = p.startsWith('did:') || 
+                                    (p.includes('.') && p !== 'www' && !p.endsWith('.com') && !p.endsWith('.org') && !p.endsWith('.net') && !p.endsWith('.app') && !p.endsWith('.social') && !p.endsWith('.dev') && !p.endsWith('.team') && !p.endsWith('.watch') && !p.endsWith('.eu') && !p.endsWith('.fyi') && !p.endsWith('.sh') && !p.endsWith('.net') && !p.endsWith('.directory'));
+      
+      const prevSegment = i > 0 ? pathSegments[i-1].toLowerCase() : '';
+
+      if (isPotentialIdentifier || prevSegment === 'profile') {
+        // If prevSegment is 'profile', p is the identifier regardless of isPotentialIdentifier
+        // (handles cases like /profile/handle.example.com)
+        // Otherwise, p itself must be a potential identifier.
+        if (prevSegment === 'profile' || isPotentialIdentifier) {
+          const identifier = p;
+          const rest = pathSegments.slice(i + 1).join('/');
+          const fragment = rest ? `${identifier}/${rest}` : identifier;
+          return await canonicalize(fragment);
+        }
       }
     }
   } catch (error) {
-    console.error('Error parsing input:', error);
+    Debug.error('transform', 'Error parsing input:', error);
   }
 
   return null;
@@ -87,9 +101,58 @@ export async function canonicalize(fragment: string): Promise<TransformInfo | nu
   const [, idAndRest] = f.split('at://');
   const [idPart, ...restParts] = idAndRest.split('/');
   let did = idPart.startsWith('did:') ? idPart : null;
-  const handle = did ? null : idPart;
-  if (!did && handle) {
-    did = await resolveHandleToDid(handle);
+  let handle = did ? null : idPart;
+
+  const isExtensionContext = typeof chrome !== 'undefined' && chrome.runtime.id;
+
+  if (!did && handle) { // Input was a handle, resolve to DID
+    if (isExtensionContext) {
+      Debug.transform('canonicalize: In extension context, resolving handle via SW:', handle);
+      const response = await new Promise<{ did: string | null } | undefined>((resolve) => {
+        chrome.runtime.sendMessage({ type: 'GET_DID', handle }, (res) => {
+          if (chrome.runtime.lastError) {
+            Debug.error(
+              'transform',
+              `canonicalize: SW GET_DID error for ${handle}:`,
+              chrome.runtime.lastError.message,
+            );
+            resolve(undefined); // Resolve with undefined on error
+            return;
+          }
+          resolve(res as { did: string | null });
+        });
+      });
+      did = response?.did ?? null;
+      Debug.transform('canonicalize: SW resolved handle to DID:', { handle, did });
+    } else {
+      Debug.transform('canonicalize: Not in extension context, resolving handle directly:', handle);
+      did = await resolveHandleToDid(handle);
+      Debug.transform('canonicalize: Direct resolved handle to DID:', { handle, did });
+    }
+  } else if (did && !handle) { // Input was a DID, resolve to handle
+    if (isExtensionContext) {
+      Debug.transform('canonicalize: In extension context, resolving DID via SW:', did);
+      const response = await new Promise<{ handle: string | null } | undefined>((resolve) => {
+        chrome.runtime.sendMessage({ type: 'GET_HANDLE', did }, (res) => {
+          if (chrome.runtime.lastError) {
+            Debug.error(
+              'transform',
+              `canonicalize: SW GET_HANDLE error for ${did}:`,
+              chrome.runtime.lastError.message,
+            );
+            resolve(undefined); // Resolve with undefined on error
+            return;
+          }
+          resolve(res as { handle: string | null });
+        });
+      });
+      handle = response?.handle ?? null;
+      Debug.transform('canonicalize: SW resolved DID to handle:', { did, handle });
+    } else {
+      Debug.transform('canonicalize: Not in extension context, resolving DID directly:', did);
+      handle = await resolveDidToHandle(did);
+      Debug.transform('canonicalize: Direct resolved DID to handle:', { did, handle });
+    }
   }
 
   if (restParts.length) {
@@ -99,7 +162,18 @@ export async function canonicalize(fragment: string): Promise<TransformInfo | nu
     }
   }
   const pathRest = restParts.join('/');
-  const [nsid, rkey] = pathRest.split('/').filter(Boolean);
+  let nsid: string | undefined;
+  let rkey: string | undefined;
+
+  const [potentialNsid, potentialRkey] = pathRest.split('/').filter(Boolean);
+
+  if (potentialNsid === 'blocked-by') {
+    // 'blocked-by' is not a valid nsid, so ignore it and any rkey.
+    // nsid and rkey remain undefined as initialized
+  } else {
+    nsid = potentialNsid;
+    rkey = potentialRkey;
+  }
 
   let bskyAppPath = '';
   const acct = handle ?? did;
@@ -115,8 +189,15 @@ export async function canonicalize(fragment: string): Promise<TransformInfo | nu
 
   if (!did) return null;
 
+  let atUriPath = '';
+  if (nsid && rkey) {
+    atUriPath = `/${nsid}/${rkey}`;
+  } else if (nsid) {
+    atUriPath = `/${nsid}`;
+  }
+
   return {
-    atUri: `at://${did}${pathRest ? `/${pathRest}` : ''}`,
+    atUri: `at://${did}${atUriPath}`,
     did,
     handle,
     rkey,
