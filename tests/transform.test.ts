@@ -1,84 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { parseInput, resolveHandleToDid } from '../src/shared/transform';
 
-function mockFetchResponse(data: unknown = {}, httpStatus = 200) {
-  // _isOk parameter removed as Response derives .ok from status
-  return () =>
-    Promise.resolve(
-      new Response(JSON.stringify(data), {
-        status: httpStatus,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-}
-
-const fetchMockConfigs = [
-  {
-    condition: (url: string) => url.includes('resolveHandle?handle=why.bsky.team'),
-    response: mockFetchResponse({ did: 'did:plc:vpkhqolt662uhesyj6nxm7ys' }),
-  },
-  {
-    condition: (url: string) => url.includes('resolveHandle?handle=alice.mosphere.at'),
-    response: mockFetchResponse({ did: 'did:plc:by3jhwdqgbtrcc7q4tkkv3cf' }),
-  },
-  {
-    condition: (url: string) => url === 'https://didweb.watch/.well-known/did.json',
-    response: mockFetchResponse({
-      '@context': [
-        'https://www.w3.org/ns/did/v1',
-        'https://w3id.org/security/multikey/v1',
-        'https://w3id.org/security/suites/secp256k1-2019/v1',
-      ],
-      id: 'did:web:didweb.watch',
-      alsoKnownAs: ['at://didweb.watch'],
-      verificationMethod: [
-        {
-          id: 'did:web:didweb.watch#atproto',
-          type: 'Multikey',
-          controller: 'did:web:didweb.watch',
-          publicKeyMultibase: 'zQ3shPLyZu2EbgJ75P61bMZP4yvBwmtd22ph5sEnY6oLz4YLo',
-        },
-      ],
-      service: [
-        {
-          id: '#atproto_pds',
-          type: 'AtprotoPersonalDataServer',
-          serviceEndpoint: 'https://zio.blue',
-        },
-      ],
-    }),
-  },
-  {
-    condition: (url: string) => url === 'https://fail-did-web.com/.well-known/did.json',
-    response: mockFetchResponse({}, 404),
-  },
-  {
-    condition: (url: string) => url.includes('resolveHandle?handle=bob.test'),
-    response: mockFetchResponse({ did: 'did:plc:bobtestdid' }),
-  },
-];
-
 describe('transform tests', () => {
-  beforeEach(() => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation((url: URL | RequestInfo) => {
-      const urlStr =
-        typeof url === 'string' ? url
-        : url instanceof URL ? url.href
-        : '';
-      const mock = fetchMockConfigs.find((m) => m.condition(urlStr));
-      if (mock) {
-        return mock.response();
-      }
-      console.warn('Unhandled fetch mock for URL: ' + urlStr);
-      return Promise.resolve(
-        new Response(JSON.stringify({}), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      );
-    });
-  });
-
   describe('parseInput', () => {
     const parseInputTests = [
       {
@@ -185,11 +108,6 @@ describe('transform tests', () => {
         expected: 'did:plc:by3jhwdqgbtrcc7q4tkkv3cf',
       },
       {
-        name: 'resolveHandle/plc/bob',
-        input: 'bob.test',
-        expected: 'did:plc:bobtestdid',
-      },
-      {
         name: 'resolveHandle/did-web/success',
         input: 'did:web:didweb.watch',
         expected: 'did:web:didweb.watch',
@@ -197,7 +115,7 @@ describe('transform tests', () => {
       {
         name: 'resolveHandle/did-web/failure',
         input: 'did:web:fail-did-web.com',
-        expected: 'did:web:fail-did-web.com',
+        expected: null,
       },
     ];
 

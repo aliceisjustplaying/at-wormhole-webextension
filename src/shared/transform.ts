@@ -147,12 +147,12 @@ export async function resolveHandleToDid(handle: string): Promise<string | null>
       try {
         const resp = await fetch(`https://${parts[2]}/.well-known/did.json`);
         const data = await safeJson<{ id?: string }>(resp);
-        return data?.id ?? handle;
+        return data?.id ?? null;
       } catch {
-        /* ignore */
+        return null;
       }
     }
-    return handle;
+    return null;
   }
   try {
     const resp = await fetch(
