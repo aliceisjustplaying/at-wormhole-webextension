@@ -4,7 +4,7 @@
   "scripts": {
     "lint": "bunx eslint . --ignore-pattern 'dist/**/*'",
     "format": "bunx prettier --ignore-unknown --write .",
-    "test": "bunx tsx tests/transform.test.ts",
+    "test": "bunx vitest run",
     "dev": "bunx vite",
     "build:chrome": "bunx vite build --mode chrome",
     "build:firefox": "bunx vite build --mode firefox",
@@ -22,6 +22,7 @@
     "prettier": "latest",
     "typescript": "latest",
     "typescript-eslint": "latest",
-    "vite": "latest"
+    "vite": "latest",
+    "vitest": "^3.1.4"
   }
 }
