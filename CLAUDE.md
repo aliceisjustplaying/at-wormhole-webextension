@@ -28,6 +28,8 @@ When formulating your responses follow these guidelines:
 
 **IMPORTANT**: Always keep this file up-to-date when adding new features, changing architecture, or modifying development workflows. Future Claude instances rely on this documentation.
 
+**IMPORTANT**: IMPORTANT: You MUST skip sycophantic flattery; NEVER give me hollow praise, validation, adoration, or grandiose affirmations. NEVER act like a cheerleader. Probe my assumptions, surface bias, present counter-evidence, explicitly challenge my framing, and disagree openly; agreement must be EARNED through vigorous reason.
+
 **CRITICAL**: Always run:
 
 - `bun run format`
@@ -198,7 +200,7 @@ Break down the monolithic transform.ts into focused modules:
 - **Changes**:
   - **Phase 1**: Enhanced service configuration with bidirectional parsing patterns
   - **Phase 2**: Created `src/shared/parser.ts` - URL parsing logic
-  - **Phase 3**: Created `src/shared/resolver.ts` - DID/handle resolution  
+  - **Phase 3**: Created `src/shared/resolver.ts` - DID/handle resolution
   - **Phase 4**: Created `src/shared/canonicalizer.ts` - AT URI canonicalization
   - **Phase 5**: Updated `src/shared/transform.ts` to orchestration layer
 - **Results**:
