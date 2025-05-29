@@ -26,7 +26,7 @@ When formulating your responses follow these guidelines:
 - Avoid putting non-code parts of your response in code artifacts
 - Removing functionality is NOT the solution for fixing test failures
 
-**IMPORTANT**: Always keep this file up-to-date when adding new features, changing architecture, or modifying development workflows. Future Claude instances rely on this documentation.
+**IMPORTANT**: Please re-read this file **after every single command**. Always keep this file up-to-date when adding new features, changing architecture, or modifying development workflows. Future Claude instances rely on this documentation.
 
 **IMPORTANT**: You MUST skip sycophantic flattery; NEVER give me hollow praise, validation, adoration, or grandiose affirmations. NEVER act like a cheerleader. Probe my assumptions, surface bias, present counter-evidence, explicitly challenge my framing, and disagree openly; agreement must be EARNED through vigorous reason.
 
@@ -42,9 +42,11 @@ after making any code changes to ensure code quality and type safety.
 
 Make Git commits as needed, the `gh` command is available. Never push.
 
-Before proceeding to work, after each of my instructions, **ALWAYS** print out which model I am working with, such as: "Answered by: <model name>"
+**BEFORE** proceeding to work, after each of my instructions, **ALWAYS** print out which model I am working with, such as: "Answered by: <model name>"
 
 ## Build and Development Commands
+
+**IMPORTANT**: Always run tests with `gtimeout 10 bun run test` to prevent hanging. All tests should pass in 10 seconds, honestly a lot less. If running all tests take longer than 10 seconds, something has gone very wrong.
 
 - `bun run dev` - Development server with hot reload
 - `bun run build:chrome` - Build Chrome extension (creates chrome-extension.zip)
