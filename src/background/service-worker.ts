@@ -1,4 +1,5 @@
-import { parseInput, resolveDidToHandle, resolveHandleToDid } from '../shared/transform';
+import { parseInput } from '../shared/parser';
+import { resolveDidToHandle, resolveHandleToDid } from '../shared/resolver';
 import Debug from '../shared/debug';
 import type { CacheEntry, SWMessage } from '../shared/types';
 

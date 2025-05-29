@@ -1,5 +1,7 @@
 import { test, expect, describe, beforeEach } from 'bun:test';
-import { parseInput, resolveHandleToDid, buildDestinations } from '../src/shared/transform';
+import { parseInput } from '../src/shared/parser';
+import { resolveHandleToDid } from '../src/shared/resolver';
+import { buildDestinations } from '../src/shared/transform';
 
 // Mock data for handle resolution
 const mockResponses = {
@@ -44,26 +46,33 @@ const mockResponses = {
 
 beforeEach(() => {
   const mockFetch = (input: string | URL | Request): Promise<Response> => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    
+    const url =
+      typeof input === 'string' ? input
+      : input instanceof URL ? input.href
+      : input.url;
+
     if (url in mockResponses) {
       const data = mockResponses[url as keyof typeof mockResponses];
       if (data === null) {
         return Promise.resolve(new Response('Not found', { status: 404, statusText: 'Not Found' }));
       }
-      return Promise.resolve(new Response(JSON.stringify(data), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }));
+      return Promise.resolve(
+        new Response(JSON.stringify(data), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
     }
-    
+
     // Default fallback for unmocked URLs
-    return Promise.resolve(new Response(JSON.stringify({}), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    }));
+    return Promise.resolve(
+      new Response(JSON.stringify({}), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
   };
-  
+
   globalThis.fetch = mockFetch as typeof fetch;
 });
 
@@ -141,7 +150,9 @@ describe('parseInput', () => {
   });
 
   test('should parse skythread URLs', async () => {
-    const result = await parseInput('https://blue.mackuba.eu/skythread/?author=did:plc:2p6idfgjfe3easltiwmnofw6&post=3lpjntj43rs23');
+    const result = await parseInput(
+      'https://blue.mackuba.eu/skythread/?author=did:plc:2p6idfgjfe3easltiwmnofw6&post=3lpjntj43rs23',
+    );
     expect(result).toEqual({
       atUri: 'at://did:plc:2p6idfgjfe3easltiwmnofw6/app.bsky.feed.post/3lpjntj43rs23',
       did: 'did:plc:2p6idfgjfe3easltiwmnofw6',
@@ -178,7 +189,9 @@ describe('parseInput', () => {
     });
 
     test('should parse pdsls.dev AT URI', async () => {
-      const result = await parseInput('https://pdsls.dev/at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u');
+      const result = await parseInput(
+        'https://pdsls.dev/at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
+      );
       expect(result).toEqual({
         atUri: 'at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
         did: 'did:plc:kkkcb7sys7623hcf7oefcffg',
@@ -190,7 +203,9 @@ describe('parseInput', () => {
     });
 
     test('should parse atp.tools malformed AT URI', async () => {
-      const result = await parseInput('https://atp.tools/at:/did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u');
+      const result = await parseInput(
+        'https://atp.tools/at:/did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
+      );
       expect(result).toEqual({
         atUri: 'at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
         did: 'did:plc:kkkcb7sys7623hcf7oefcffg',
@@ -261,10 +276,16 @@ describe('buildDestinations', () => {
     // Verify URLs match those from urls.txt
     expect(destMap['deer.social']).toBe('https://deer.social/profile/now.alice.mosphere.at/post/3lqcw7n4gly2u');
     expect(destMap['bsky.app']).toBe('https://bsky.app/profile/now.alice.mosphere.at/post/3lqcw7n4gly2u');
-    expect(destMap['pdsls.dev']).toBe('https://pdsls.dev/at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u');
-    expect(destMap['atp.tools']).toBe('https://atp.tools/at:/did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u');
+    expect(destMap['pdsls.dev']).toBe(
+      'https://pdsls.dev/at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
+    );
+    expect(destMap['atp.tools']).toBe(
+      'https://atp.tools/at:/did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
+    );
     expect(destMap.clearsky).toBe('https://clearsky.app/did:plc:kkkcb7sys7623hcf7oefcffg/blocked-by');
-    expect(destMap.skythread).toBe('https://blue.mackuba.eu/skythread/?author=did:plc:kkkcb7sys7623hcf7oefcffg&post=3lqcw7n4gly2u');
+    expect(destMap.skythread).toBe(
+      'https://blue.mackuba.eu/skythread/?author=did:plc:kkkcb7sys7623hcf7oefcffg&post=3lqcw7n4gly2u',
+    );
     expect(destMap['cred.blue']).toBe('https://cred.blue/now.alice.mosphere.at');
     expect(destMap['tangled.sh']).toBe('https://tangled.sh/@now.alice.mosphere.at');
     expect(destMap['frontpage.fyi']).toBe('https://frontpage.fyi/profile/now.alice.mosphere.at');
@@ -275,31 +296,28 @@ describe('buildDestinations', () => {
   test('should exclude skythread when no rkey', () => {
     const profileOnlyInfo = { ...realPostInfo, rkey: undefined, nsid: undefined };
     const destinations = buildDestinations(profileOnlyInfo);
-    const hasSkythreadUrl = destinations.some(dest => dest.url.includes('skythread'));
+    const hasSkythreadUrl = destinations.some((dest) => dest.url.includes('skythread'));
     expect(hasSkythreadUrl).toBe(false);
   });
 
   test('should exclude handle-based services when no handle', () => {
     const didOnlyInfo = { ...realPostInfo, handle: null };
     const destinations = buildDestinations(didOnlyInfo);
-    const handleBasedUrls = destinations.filter(dest => 
-      dest.url.includes('cred.blue') || 
-      dest.url.includes('tangled.sh') || 
-      dest.url.includes('frontpage.fyi')
+    const handleBasedUrls = destinations.filter(
+      (dest) => dest.url.includes('cred.blue') || dest.url.includes('tangled.sh') || dest.url.includes('frontpage.fyi'),
     );
     expect(handleBasedUrls).toHaveLength(0);
   });
 
   test('should exclude plc-specific services for did:web', () => {
-    const didWebInfo = { 
-      ...realPostInfo, 
+    const didWebInfo = {
+      ...realPostInfo,
       did: 'did:web:example.com',
-      atUri: 'at://did:web:example.com/app.bsky.feed.post/3lqcw7n4gly2u'
+      atUri: 'at://did:web:example.com/app.bsky.feed.post/3lqcw7n4gly2u',
     };
     const destinations = buildDestinations(didWebInfo);
-    const plcUrls = destinations.filter(dest => 
-      dest.url.includes('boat.kelinci') || 
-      dest.url.includes('plc.directory')
+    const plcUrls = destinations.filter(
+      (dest) => dest.url.includes('boat.kelinci') || dest.url.includes('plc.directory'),
     );
     expect(plcUrls).toHaveLength(0);
   });
