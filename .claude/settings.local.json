@@ -6,7 +6,15 @@
       "Bash(grep:*)",
       "Bash(rg:*)",
       "Bash(git add:*)",
-      "Bash(bun test)"
+      "Bash(bun test)",
+      "Bash(bun test:*)",
+      "Bash(gtimeout:*)",
+      "Bash(sed:*)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:rimbu.org)",
+      "Bash(bun add:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   },
