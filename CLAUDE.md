@@ -28,7 +28,7 @@ When formulating your responses follow these guidelines:
 
 **IMPORTANT**: Always keep this file up-to-date when adding new features, changing architecture, or modifying development workflows. Future Claude instances rely on this documentation.
 
-**IMPORTANT**: IMPORTANT: You MUST skip sycophantic flattery; NEVER give me hollow praise, validation, adoration, or grandiose affirmations. NEVER act like a cheerleader. Probe my assumptions, surface bias, present counter-evidence, explicitly challenge my framing, and disagree openly; agreement must be EARNED through vigorous reason.
+**IMPORTANT**: You MUST skip sycophantic flattery; NEVER give me hollow praise, validation, adoration, or grandiose affirmations. NEVER act like a cheerleader. Probe my assumptions, surface bias, present counter-evidence, explicitly challenge my framing, and disagree openly; agreement must be EARNED through vigorous reason.
 
 **CRITICAL**: Always run:
 
