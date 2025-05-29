@@ -1,6 +1,14 @@
 {
   "permissions": {
-    "allow": ["WebFetch(domain:developer.mozilla.org)", "Bash(bun run:*)", "Bash(grep:*)", "Bash(rg:*)"],
+    "allow": [
+      "WebFetch(domain:developer.mozilla.org)",
+      "Bash(bun run:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(git add:*)",
+      "Bash(bun test)"
+    ],
     "deny": []
-  }
+  },
+  "enableAllProjectMcpServers": false
 }

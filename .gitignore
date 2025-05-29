@@ -37,3 +37,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 *.xpi
 
 *plan.md
+
+# Local Claude settings
+.claude/settings.local.json
+
+# Temporary files
+urls.txt
