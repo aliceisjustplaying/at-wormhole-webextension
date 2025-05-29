@@ -64,12 +64,14 @@ This is a Manifest V3 browser extension that provides "wormhole" navigation betw
 
 ### Core Components
 
-**Transform System (`src/shared/transform.ts`)**:
+**Transform System (modular architecture)**:
 
-- `parseInput()` - Main entry point that accepts URLs, handles, or DIDs and extracts canonical information
-- `canonicalize()` - Converts any input to standardized TransformInfo structure
-- `buildDestinations()` - Generates list of equivalent URLs across different services
-- Handle/DID resolution functions with caching
+- **Parser (`src/shared/parser.ts`)** - Main entry point with `parseInput()` that accepts URLs, handles, or DIDs and extracts canonical information
+- **Canonicalizer (`src/shared/canonicalizer.ts`)** - Contains `canonicalize()` function that converts any input to standardized TransformInfo structure
+- **Resolver (`src/shared/resolver.ts`)** - Handle/DID resolution functions with AT Protocol API integration
+- **Services (`src/shared/services.ts`)** - Service configuration and `buildDestinations()` function that generates equivalent URLs across different services
+- **Types (`src/shared/types.ts`)** - All TypeScript interfaces and type definitions
+- **Constants (`src/shared/constants.ts`)** - Shared constants including NSID shortcuts
 
 **Service Worker (`src/background/service-worker.ts`)**:
 
