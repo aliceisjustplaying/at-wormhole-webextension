@@ -1,7 +1,7 @@
 import { test, expect, describe, beforeEach } from 'bun:test';
 import { parseInput } from '../src/shared/parser';
 import { resolveHandleToDid } from '../src/shared/resolver';
-import { buildDestinations } from '../src/shared/transform';
+import { buildDestinations } from '../src/shared/services';
 
 // Mock data for handle resolution
 const mockResponses = {

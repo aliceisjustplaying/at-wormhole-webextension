@@ -1,5 +1,5 @@
 import { parseInput } from '../shared/parser';
-import { buildDestinations } from '../shared/transform';
+import { buildDestinations } from '../shared/services';
 import Debug from '../shared/debug';
 import type { TransformInfo, BrowserWithTheme, DebugConfig, Destination, WindowWithDebug } from '../shared/types';
 

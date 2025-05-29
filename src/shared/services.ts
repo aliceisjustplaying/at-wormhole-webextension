@@ -260,7 +260,7 @@ export function parseUrlFromServices(url: URL): string | null {
 /**
  * Builds a list of destination link objects from canonical info using service configuration.
  */
-export function buildDestinationsFromServices(info: TransformInfo): { label: string; url: string }[] {
+export function buildDestinations(info: TransformInfo): { label: string; url: string }[] {
   const isDidWeb = info.did.startsWith('did:web:');
   const destinations: { label: string; url: string }[] = [];
 
