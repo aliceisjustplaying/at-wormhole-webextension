@@ -211,16 +211,68 @@ Break down the monolithic transform.ts into focused modules:
   - Circular dependencies resolved
   - All tests passing, no type errors
 
-#### Step 4: Extract Cache Logic ⏳
+#### Step 4: Redesign and Extract Cache Logic ⏳
 
-Move cache implementation from service-worker.ts to dedicated module.
+Completely redesign the cache architecture for instant popup performance and simplicity.
 
 - **Status**: Not started
-- **Target**: Create `src/shared/cache.ts`
-- **Goals**:
-  - Separate cache from message handling
-  - Make cache testable in isolation
-  - Cleaner service worker
+- **Target**: Create `src/shared/cache.ts` with `p-queue` dependency
+- **Primary Goal**: Aggressive prefetching so popup opens instantly with all destination URLs ready
+
+##### Current Problems:
+- Complex dual-map LRU implementation with synchronization issues
+- 1-second debounced saves that can lose data when service worker terminates
+- Reactive storage quota handling leading to unpredictable behavior
+- 288-line service worker mixing cache, messages, and tab monitoring
+- Race conditions in async operations without proper coordination
+
+##### New Architecture:
+
+**Phase 4.1: Simple Bidirectional Cache**
+- Create `BidirectionalMap<K1, K2>` class for handle↔DID mapping
+- Write-through persistence (immediate storage, no debouncing)
+- Dynamic size limits based on available storage quota
+- Comprehensive test coverage for cache operations
+
+**Phase 4.2: Aggressive Prefetching Strategy**
+- When page loads: parse URL and immediately resolve missing handle OR DID
+- Background queue using `p-queue` (concurrency: 3) for non-blocking resolution
+- Prefetch both handle AND DID since different services need different formats:
+  - Handle-only: `bsky.app`, `deer.social`, `cred.blue`, `tangled.sh`, `frontpage.fyi`
+  - DID-only: `plc.directory`, `clearsky.app`, `boat.kelinci.net`
+  - Either: `atp.tools`, `pdsls.dev`
+
+**Phase 4.3: Service Worker Simplification**
+- Remove all cache implementation (190+ lines)
+- Keep only message routing and tab monitoring
+- Use cache manager for all handle/DID operations
+- Target: <100 lines focused on communication
+
+**Phase 4.4: Performance Validation**
+- Test popup opening speed before/after changes
+- Verify cache persistence across service worker restarts
+- Test storage quota management and cleanup
+
+##### Implementation Details:
+
+```typescript
+// src/shared/cache.ts structure:
+class BidirectionalMap<K1, K2> { /* ~30 lines */ }
+class DidHandleCache { 
+  private cache: BidirectionalMap<string, string>
+  private queue: PQueue
+  private maxSize: number
+  /* write-through persistence, dynamic sizing */ 
+}
+```
+
+**Dependencies**: Add `p-queue` to package.json (~8.5kB, 2M+ weekly downloads)
+
+**Success Metrics**:
+- Popup opens with all destinations visible immediately (no loading states)
+- Cache module <150 lines total vs current 190+ lines in service worker
+- Service worker <100 lines vs current 288 lines
+- 100% test coverage for cache operations
 
 #### Step 5: Fix Type Safety ⏳
 
