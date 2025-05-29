@@ -3,14 +3,7 @@
  * Controls debug output by category with build-time and runtime flags
  */
 
-export interface DebugConfig {
-  theme: boolean;
-  cache: boolean;
-  parsing: boolean;
-  popup: boolean;
-  serviceWorker: boolean;
-  transform: boolean;
-}
+import type { DebugConfig } from './types';
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export default class Debug {

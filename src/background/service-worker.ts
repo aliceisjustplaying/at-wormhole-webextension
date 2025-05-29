@@ -1,15 +1,10 @@
 import { parseInput, resolveDidToHandle, resolveHandleToDid } from '../shared/transform';
 import Debug from '../shared/debug';
+import type { CacheEntry, SWMessage } from '../shared/types';
 
 const DID_HANDLE_CACHE_KEY = 'didHandleCache';
 const MAX_CACHE_ENTRIES = 1000; // Maximum number of entries to keep in the cache
 const CLEANUP_THRESHOLD = 1.2 * MAX_CACHE_ENTRIES; // Start cleanup when we're 20% over limit
-
-// Type definitions for cache entries
-interface CacheEntry {
-  handle: string;
-  lastAccessed: number;
-}
 
 // Structure: { [did]: { handle: string, lastAccessed: number } }
 
@@ -172,12 +167,6 @@ const cacheLoaded = (async () => {
 });
 
 // Message types for service worker comms
-type SWMessage =
-  | { type: 'UPDATE_CACHE'; did: string; handle: string }
-  | { type: 'GET_HANDLE'; did: string }
-  | { type: 'GET_DID'; handle: string }
-  | { type: 'CLEAR_CACHE' }
-  | { type: 'DEBUG_LOG'; message: string };
 
 // Handle messages from the popup
 chrome.runtime.onMessage.addListener((request: SWMessage, sender, sendResponse): boolean => {

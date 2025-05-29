@@ -2,18 +2,12 @@
  * Shortcuts for NSIDs used in Bluesky/AT-Proto
  */
 import { NSID_SHORTCUTS } from './constants';
+import type { TransformInfo } from './types';
+import { isRecord } from './types';
 
 /**
  * Standardized info returned from transform functions.
  */
-export interface TransformInfo {
-  atUri: string;
-  did: string;
-  handle: string | null;
-  rkey?: string;
-  nsid?: string;
-  bskyAppPath: string;
-}
 
 /**
  * Parses a raw input string (URL, DID, handle) and returns canonical info.
@@ -123,11 +117,6 @@ export async function canonicalize(fragment: string): Promise<TransformInfo | nu
     nsid,
     bskyAppPath,
   };
-}
-
-// Type guard for JSON
-function isRecord(x: unknown): x is Record<string, unknown> {
-  return typeof x === 'object' && x !== null;
 }
 
 // Safely parse JSON and ensure it's an object

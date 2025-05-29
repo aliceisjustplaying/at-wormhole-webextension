@@ -1,35 +1,6 @@
-import { parseInput, buildDestinations, TransformInfo } from '../shared/transform';
-import Debug, { type DebugConfig } from '../shared/debug';
-
-// Types for Firefox theme API
-interface ThemeColors {
-  popup?: string;
-  popup_text?: string;
-  popup_border?: string;
-  popup_highlight?: string;
-  popup_highlight_text?: string;
-  toolbar?: string;
-  toolbar_text?: string;
-  toolbar_field?: string;
-  toolbar_field_text?: string;
-  toolbar_field_border?: string;
-  frame?: string;
-  icons?: string;
-  button_background_hover?: string;
-  button_background_active?: string;
-}
-
-interface BrowserTheme {
-  colors?: ThemeColors;
-}
-
-interface BrowserThemeAPI {
-  getCurrent(): Promise<BrowserTheme>;
-}
-
-interface BrowserWithTheme {
-  theme?: BrowserThemeAPI;
-}
+import { parseInput, buildDestinations } from '../shared/transform';
+import Debug from '../shared/debug';
+import type { TransformInfo, BrowserWithTheme, DebugConfig, Destination, WindowWithDebug } from '../shared/types';
 
 /**
  * Applies Firefox theme colors to the popup if available, falls back to CSS media query
@@ -151,10 +122,6 @@ async function applyTheme(): Promise<void> {
 }
 
 // Local type for list items
-interface Destination {
-  url: string;
-  label: string;
-}
 
 /**
  * Main entry for popup script. Runs on DOMContentLoaded.
@@ -332,22 +299,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Expose debug controls to browser console for development
 // Usage: window.wormholeDebug.theme(true) or window.wormholeDebug.getConfig()
-declare global {
-  interface Window {
-    wormholeDebug: {
-      theme: (enabled: boolean) => void;
-      cache: (enabled: boolean) => void;
-      parsing: (enabled: boolean) => void;
-      popup: (enabled: boolean) => void;
-      serviceWorker: (enabled: boolean) => void;
-      transform: (enabled: boolean) => void;
-      getConfig: () => object;
-      all: (enabled: boolean) => void;
-    };
-  }
-}
 
-window.wormholeDebug = {
+(window as unknown as WindowWithDebug).wormholeDebug = {
   theme: (enabled: boolean) => {
     Debug.setCategory('theme', enabled);
   },
