@@ -4,7 +4,7 @@
 import { NSID_SHORTCUTS } from './constants';
 import type { TransformInfo } from './types';
 import { isRecord } from './types';
-import { buildDestinationsFromServices } from './services';
+import { buildDestinationsFromServices, parseUrlFromServices } from './services';
 
 /**
  * Standardized info returned from transform functions.
@@ -28,34 +28,19 @@ export async function parseInput(raw: string): Promise<TransformInfo | null> {
   try {
     const url = new URL(str);
 
-    if (url.hostname === 'cred.blue' && url.pathname.length > 1) {
-      const handle = url.pathname.slice(1);
-      if (handle) {
-        return await canonicalize(handle);
-      }
+    // Try service-specific parsing first
+    const serviceResult = parseUrlFromServices(url);
+    if (serviceResult) {
+      return await canonicalize(serviceResult);
     }
 
-    if (url.hostname === 'tangled.sh' && url.pathname.length > 1) {
-      const handle = url.pathname.slice(1).replace(/^@/, '');
-      if (handle) {
-        return await canonicalize(handle);
-      }
-    }
-
-    if (url.hostname === 'blue.mackuba.eu' && url.pathname.startsWith('/skythread')) {
-      const author = url.searchParams.get('author');
-      const post = url.searchParams.get('post');
-      if (author?.startsWith('did:') && post) {
-        // Use explicit NSID for posts
-        return await canonicalize(`${author}/app.bsky.feed.post/${post}`);
-      }
-    }
-
+    // Fallback: generic query parameter check for DIDs
     const qParam = url.searchParams.get('q');
     if (qParam?.startsWith('did:')) {
       return await canonicalize(qParam);
     }
 
+    // Fallback: generic parsing for any /profile/identifier pattern
     const parts = str.split(/[/?#]/);
     for (let i = 0; i < parts.length; i++) {
       const p = parts[i];
