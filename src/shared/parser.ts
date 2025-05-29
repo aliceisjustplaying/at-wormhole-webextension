@@ -1,8 +1,6 @@
 import type { TransformInfo } from './types';
 import { parseUrlFromServices } from './services';
-
-// Temporary import from transform.ts - will be resolved in Phase 5 after all modules are extracted
-import { canonicalize } from './transform';
+import { canonicalize } from './canonicalizer';
 
 /**
  * Parses a raw input string (URL, DID, handle) and returns canonical info.

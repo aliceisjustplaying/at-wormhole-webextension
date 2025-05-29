@@ -34,10 +34,13 @@ When formulating your responses follow these guidelines:
 - `bun run lint`
 - `bun run typecheck`
 - `bun run test`
+- `bun run build:dev`
 
 after making any code changes to ensure code quality and type safety.
 
 Make Git commits as needed, the `gh` command is available. Never push.
+
+Before proceeding to work, after each of my instructions, **ALWAYS** print out which model I am working with, such as: "Answered by: <model name>"
 
 ## Build and Development Commands
 
@@ -187,16 +190,22 @@ Move hardcoded service URLs and patterns into a centralized configuration.
   - Preserved all existing functionality while making service addition trivial
   - All tests passing, no type errors
 
-#### Step 3: Split transform.ts ⏳
+#### Step 3: Split transform.ts ✅
 
 Break down the monolithic transform.ts into focused modules:
 
-- **Status**: Not started
-- **Target files**:
-  - `src/shared/parser.ts` - URL parsing logic
-  - `src/shared/resolver.ts` - DID/handle resolution
-  - `src/shared/destinations.ts` - Building destination URLs
-  - `src/shared/transform.ts` - Orchestration layer
+- **Status**: Completed
+- **Changes**:
+  - **Phase 1**: Enhanced service configuration with bidirectional parsing patterns
+  - **Phase 2**: Created `src/shared/parser.ts` - URL parsing logic
+  - **Phase 3**: Created `src/shared/resolver.ts` - DID/handle resolution  
+  - **Phase 4**: Created `src/shared/canonicalizer.ts` - AT URI canonicalization
+  - **Phase 5**: Updated `src/shared/transform.ts` to orchestration layer
+- **Results**:
+  - Service-specific parsing now centralized in services.ts
+  - Each module has single responsibility
+  - Circular dependencies resolved
+  - All tests passing, no type errors
 
 #### Step 4: Extract Cache Logic ⏳
 
