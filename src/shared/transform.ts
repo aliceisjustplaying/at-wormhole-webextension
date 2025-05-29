@@ -236,7 +236,7 @@ export function buildDestinations(info: TransformInfo): { label: string; url: st
     },
     {
       label: '🛠️ atp.tools',
-      url: `https://atp.tools/${atUri}`,
+      url: `https://atp.tools/${atUri.replace('at://', 'at:/')}`,
     },
     {
       label: '☀️ clearsky',

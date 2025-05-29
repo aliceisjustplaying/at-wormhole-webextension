@@ -54,6 +54,10 @@ const fetchMockConfigs = [
     condition: (url: string) => url.includes('resolveHandle?handle=bob.test'),
     response: mockFetchResponse({ did: 'did:plc:bobtestdid' }),
   },
+  {
+    condition: (url: string) => url.includes('resolveHandle?handle=now.alice.mosphere.at'),
+    response: mockFetchResponse({ did: 'did:plc:kkkcb7sys7623hcf7oefcffg' }),
+  },
 ];
 
 // Define typed fetch mock with preconnect
@@ -172,6 +176,54 @@ async function run() {
         bskyAppPath: '/profile/did:plc:5sk4eqsu7byvwokfcnfgywxg',
       },
     },
+    {
+      name: 'parseInput/realPost/bsky',
+      input: 'https://bsky.app/profile/now.alice.mosphere.at/post/3lqcw7n4gly2u',
+      expected: {
+        atUri: 'at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
+        did: 'did:plc:kkkcb7sys7623hcf7oefcffg',
+        handle: 'now.alice.mosphere.at',
+        rkey: '3lqcw7n4gly2u',
+        nsid: 'app.bsky.feed.post',
+        bskyAppPath: '/profile/now.alice.mosphere.at/post/3lqcw7n4gly2u',
+      },
+    },
+    {
+      name: 'parseInput/realPost/deer',
+      input: 'https://deer.social/profile/now.alice.mosphere.at/post/3lqcw7n4gly2u',
+      expected: {
+        atUri: 'at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
+        did: 'did:plc:kkkcb7sys7623hcf7oefcffg',
+        handle: 'now.alice.mosphere.at',
+        rkey: '3lqcw7n4gly2u',
+        nsid: 'app.bsky.feed.post',
+        bskyAppPath: '/profile/now.alice.mosphere.at/post/3lqcw7n4gly2u',
+      },
+    },
+    {
+      name: 'parseInput/realPost/pdsls',
+      input: 'https://pdsls.dev/at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
+      expected: {
+        atUri: 'at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
+        did: 'did:plc:kkkcb7sys7623hcf7oefcffg',
+        handle: null,
+        rkey: '3lqcw7n4gly2u',
+        nsid: 'app.bsky.feed.post',
+        bskyAppPath: '/profile/did:plc:kkkcb7sys7623hcf7oefcffg/post/3lqcw7n4gly2u',
+      },
+    },
+    {
+      name: 'parseInput/realPost/atptools',
+      input: 'https://atp.tools/at:/did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
+      expected: {
+        atUri: 'at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
+        did: 'did:plc:kkkcb7sys7623hcf7oefcffg',
+        handle: null,
+        rkey: '3lqcw7n4gly2u',
+        nsid: 'app.bsky.feed.post',
+        bskyAppPath: '/profile/did:plc:kkkcb7sys7623hcf7oefcffg/post/3lqcw7n4gly2u',
+      },
+    },
   ];
   for (const test of parseInputTests) {
     try {
@@ -222,6 +274,11 @@ async function run() {
       input: 'did:web:fail-did-web.com',
       expected: 'did:web:fail-did-web.com',
     },
+    {
+      name: 'resolveHandle/alice-now',
+      input: 'now.alice.mosphere.at',
+      expected: 'did:plc:kkkcb7sys7623hcf7oefcffg',
+    },
   ];
 
   for (const test of resolveHandleTests) {
@@ -232,6 +289,49 @@ async function run() {
       console.log(`FAIL: ${test.name} (exception)`);
       failed++;
     }
+  }
+
+  // Test buildDestinations with real post data
+  try {
+    const transformInfo = {
+      atUri: 'at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
+      did: 'did:plc:kkkcb7sys7623hcf7oefcffg',
+      handle: 'now.alice.mosphere.at',
+      rkey: '3lqcw7n4gly2u',
+      nsid: 'app.bsky.feed.post',
+      bskyAppPath: '/profile/now.alice.mosphere.at/post/3lqcw7n4gly2u',
+    };
+
+    const { buildDestinations } = await import('../src/shared/transform');
+    const destinations = buildDestinations(transformInfo);
+
+    // Verify key destinations match urls.txt
+    const expectedUrls = {
+      'deer.social': 'https://deer.social/profile/now.alice.mosphere.at/post/3lqcw7n4gly2u',
+      'bsky.app': 'https://bsky.app/profile/now.alice.mosphere.at/post/3lqcw7n4gly2u',
+      'pdsls.dev': 'https://pdsls.dev/at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
+      'atp.tools': 'https://atp.tools/at:/did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
+      clearsky: 'https://clearsky.app/did:plc:kkkcb7sys7623hcf7oefcffg/blocked-by',
+      skythread: 'https://blue.mackuba.eu/skythread/?author=did:plc:kkkcb7sys7623hcf7oefcffg&post=3lqcw7n4gly2u',
+      'cred.blue': 'https://cred.blue/now.alice.mosphere.at',
+      'tangled.sh': 'https://tangled.sh/@now.alice.mosphere.at',
+      'frontpage.fyi': 'https://frontpage.fyi/profile/now.alice.mosphere.at',
+      'boat.kelinci': 'https://boat.kelinci.net/plc-oplogs?q=did:plc:kkkcb7sys7623hcf7oefcffg',
+      'plc.directory': 'https://plc.directory/did:plc:kkkcb7sys7623hcf7oefcffg',
+    };
+
+    const destMap = destinations.reduce<Record<string, string>>((acc, dest) => {
+      const key = Object.keys(expectedUrls).find((k) => dest.label.includes(k) || dest.url.includes(k));
+      if (key) acc[key] = dest.url;
+      return acc;
+    }, {});
+
+    for (const [service, expectedUrl] of Object.entries(expectedUrls)) {
+      check(`buildDestinations/${service}`, destMap[service], expectedUrl);
+    }
+  } catch (error) {
+    console.log('FAIL: buildDestinations test (exception)', error);
+    failed++;
   }
 
   console.log(`\nTest results: ${passed} passed, ${failed} failed.`);
