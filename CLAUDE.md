@@ -45,10 +45,13 @@ Make Git commits as needed, the `gh` command is available. Never push.
 - `bun run build:chrome` - Build Chrome extension (creates chrome-extension.zip)
 - `bun run build:firefox` - Build Firefox extension (creates firefox-extension.zip)
 - `bun run build:dev` - Development build without minification
-- `bun run test` - Run tests using tsx
+- `bun run test` - Run tests using bun test framework
+- `bun run test:watch` - Run tests in watch mode for development
 - `bun run lint` - Lint code with ESLint
 - `bun run format` - Format code with Prettier
 - `bun run typecheck` - TypeScript type checking
+
+For more information, read the Bun API docs in `node_modules/bun-types/docs/**.md`.
 
 ## Architecture
 
@@ -137,7 +140,13 @@ window.wormholeDebug.getConfig(); // Check current settings
 
 ### Testing
 
-Tests use mocked fetch responses to simulate AT Protocol API calls and handle resolution. Run single test with `bun run test`.
+Tests use mocked fetch responses to simulate AT Protocol API calls and handle resolution. The test suite uses bun's built-in test framework with organized test suites:
+
+- **parseInput tests**: URL parsing from all supported services
+- **resolveHandleToDid tests**: Handle→DID resolution including did:web
+- **buildDestinations tests**: URL generation and service fallback behavior
+
+Run tests with `bun run test` or `bun run test:watch` for development.
 
 ## Refactoring Plan
 

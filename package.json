@@ -4,7 +4,8 @@
   "scripts": {
     "lint": "bunx eslint . --ignore-pattern 'dist/**/*'",
     "format": "bunx prettier --ignore-unknown --write .",
-    "test": "bunx tsx tests/transform.test.ts",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
     "dev": "bunx vite",
     "build:chrome": "bunx vite build --mode chrome",
     "build:firefox": "bunx vite build --mode firefox",
