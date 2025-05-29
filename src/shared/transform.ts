@@ -4,6 +4,7 @@
 import { NSID_SHORTCUTS } from './constants';
 import type { TransformInfo } from './types';
 import { isRecord } from './types';
+import { buildDestinationsFromServices } from './services';
 
 /**
  * Standardized info returned from transform functions.
@@ -225,58 +226,5 @@ function _getDidWebWellKnownUrl(did: string): string {
  * Builds a list of destination link objects from canonical info.
  */
 export function buildDestinations(info: TransformInfo): { label: string; url: string }[] {
-  const { atUri, did, handle, rkey, bskyAppPath } = info;
-  const isDidWeb = did.startsWith('did:web:');
-  return [
-    { label: '🦌 deer.social', url: `https://deer.social${bskyAppPath}` },
-    { label: '🦋 bsky.app', url: `https://bsky.app${bskyAppPath}` },
-    {
-      label: '⚙️ pdsls.dev',
-      url: `https://pdsls.dev/${atUri}`,
-    },
-    {
-      label: '🛠️ atp.tools',
-      url: `https://atp.tools/${atUri.replace('at://', 'at:/')}`,
-    },
-    {
-      label: '☀️ clearsky',
-      url: `https://clearsky.app/${did}/blocked-by`,
-    },
-    ...(rkey ?
-      [
-        {
-          label: '☁️ skythread',
-          url: `https://blue.mackuba.eu/skythread/?author=${did}&post=${rkey}`,
-        },
-      ]
-    : []),
-    ...(handle ?
-      [
-        {
-          label: '🍥 cred.blue',
-          url: `https://cred.blue/${handle}`,
-        },
-        {
-          label: '🪢 tangled.sh',
-          url: `https://tangled.sh/@${handle}`,
-        },
-        {
-          label: '📰 frontpage.fyi',
-          url: `https://frontpage.fyi/profile/${handle}`,
-        },
-      ]
-    : []),
-    ...(!isDidWeb ?
-      [
-        {
-          label: '⛵ boat.kelinci',
-          url: `https://boat.kelinci.net/plc-oplogs?q=${did}`,
-        },
-        {
-          label: '🪪 plc.directory',
-          url: `https://plc.directory/${did}`,
-        },
-      ]
-    : []),
-  ].filter((d) => Boolean(d.url));
+  return buildDestinationsFromServices(info);
 }

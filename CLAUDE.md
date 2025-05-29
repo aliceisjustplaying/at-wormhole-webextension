@@ -174,23 +174,18 @@ Extract all interfaces and types into a dedicated `types.ts` file.
   - Improved type safety with proper Firefox theme API types
   - All tests passing, no type errors
 
-#### Step 2: Create Service Configuration ⏳
+#### Step 2: Create Service Configuration ✅
 
 Move hardcoded service URLs and patterns into a centralized configuration.
 
-- **Status**: Not started
-- **Target**: Create `src/shared/services.ts` with service definitions
-- **Pattern**:
-  ```typescript
-  const SERVICES = {
-    BSKY_APP: {
-      url: 'https://bsky.app',
-      name: '🦋 bsky.app',
-      patterns: { profile: /\/profile\//, post: /\/profile\/.*\/post\// },
-    },
-    // ... other services
-  };
-  ```
+- **Status**: Completed
+- **Files**: Created `src/shared/services.ts`
+- **Changes**:
+  - Extracted all service definitions into centralized SERVICES configuration
+  - Created ServiceConfig interface with label, buildUrl function, and requiredFields
+  - Updated buildDestinations() to use buildDestinationsFromServices()
+  - Preserved all existing functionality while making service addition trivial
+  - All tests passing, no type errors
 
 #### Step 3: Split transform.ts ⏳
 
@@ -258,8 +253,9 @@ When working on the refactoring:
    bun run test
    ```
 3. **Make incremental commits** with clear messages describing the refactoring step
-4. **Maintain backward compatibility** - the extension should work throughout the refactoring
-5. **Update tests** as you refactor to ensure nothing breaks
+4. **Create git commits immediately after completing each step** - use meaningful commit messages that describe what was accomplished
+5. **Maintain backward compatibility** - the extension should work throughout the refactoring
+6. **Update tests** as you refactor to ensure nothing breaks
 
 ### Adding New Services
 
