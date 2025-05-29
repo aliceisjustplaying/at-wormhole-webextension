@@ -4,59 +4,11 @@
 import { NSID_SHORTCUTS } from './constants';
 import type { TransformInfo } from './types';
 import { isRecord } from './types';
-import { buildDestinationsFromServices, parseUrlFromServices } from './services';
+import { buildDestinationsFromServices } from './services';
 
 /**
  * Standardized info returned from transform functions.
  */
-
-/**
- * Parses a raw input string (URL, DID, handle) and returns canonical info.
- */
-export async function parseInput(raw: string): Promise<TransformInfo | null> {
-  if (!raw) return null;
-  const str = decodeURIComponent(raw.trim());
-  if (!str.startsWith('http')) {
-    return await canonicalize(str);
-  }
-
-  const atMatch = /at:\/\/[\w:.\-/]+/.exec(str);
-  if (atMatch) {
-    return await canonicalize(atMatch[0]);
-  }
-
-  try {
-    const url = new URL(str);
-
-    // Try service-specific parsing first
-    const serviceResult = parseUrlFromServices(url);
-    if (serviceResult) {
-      return await canonicalize(serviceResult);
-    }
-
-    // Fallback: generic query parameter check for DIDs
-    const qParam = url.searchParams.get('q');
-    if (qParam?.startsWith('did:')) {
-      return await canonicalize(qParam);
-    }
-
-    // Fallback: generic parsing for any /profile/identifier pattern
-    const parts = str.split(/[/?#]/);
-    for (let i = 0; i < parts.length; i++) {
-      const p = parts[i];
-      if (p.startsWith('did:') || (p.includes('.') && parts[i - 1]?.toLowerCase() === 'profile')) {
-        const rest = parts.slice(i + 1).join('/');
-        // Include slash before rest path
-        const fragment = rest ? `${p}/${rest}` : p;
-        return await canonicalize(fragment);
-      }
-    }
-  } catch (error) {
-    console.error('Error parsing input:', error);
-  }
-
-  return null;
-}
 
 /**
  * Canonicalizes an input fragment into a standard info object.
@@ -213,3 +165,6 @@ function _getDidWebWellKnownUrl(did: string): string {
 export function buildDestinations(info: TransformInfo): { label: string; url: string }[] {
   return buildDestinationsFromServices(info);
 }
+
+// Re-export parseInput from parser module to maintain backward compatibility
+export { parseInput } from './parser';
