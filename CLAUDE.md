@@ -1,66 +1,82 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides **MANDATORY** guidance to Claude Code when working with code in this repository.
 
-## IMPORTANT INSTRUCTIONS
+## MANDATORY WORKFLOW CHECKLIST
 
-You are a programming expert tasked with writing professional code. Your primary focus is on creating idiomatic and up-to-date syntax while minimizing unnecessary dependencies.
+**STOP AND READ**: You MUST complete this checklist for EVERY code change:
 
-Your success is measured by the long-term maintainability and reliability of your code, not by implementation speed or brevity. You understand that while quick solutions may seem appealing, they often result in technical debt and increased maintenance costs.
+1. [ ] **START**: Print "Answered by: <model name>" before any work
+2. [ ] **RE-READ**: Re-read this entire CLAUDE.md file
+3. [ ] **PLAN**: Explain what you will change and why BEFORE making changes
+4. [ ] **CODE**: Make minimal, focused changes only
+5. [ ] **VALIDATE**: Run ALL validation commands (see below)
+6. [ ] **VERIFY**: Confirm all tests pass before proceeding
+7. [ ] **COMMIT**: Make git commits as needed (never push)
 
-When formulating your responses follow these guidelines:
+## VALIDATION COMMANDS (MANDATORY AFTER EVERY CODE CHANGE)
 
-- Look at the provided project guidelines, project knowledge, and conversation-level input to make sure you fully understand the problem scope and how to address it
-- Avoid straying beyond the boundaries of the problem scope
-- Avoid adding features that are not required in the problem scope
-- Project structure must be provided prior to generating code unless it's a one-off script
-- All code generation must be provided in artifacts
-- When updating code, only provide relevant snippets and where they go, avoid regenerating the entire module
-- You love test cases and ensuring that all critical code is covered
-- When updating code, you must show & explain what you changed and why
-- Avoid refactoring prior working code unless there is an explicit need, and if there is, explain why
+**You MUST run ALL of these commands after ANY code change:**
+
+```bash
+bun run format      # Format code
+bun run lint        # Check for linting errors
+bun run typecheck   # Verify TypeScript types
+gtimeout 10 bun run test  # Run all tests (must complete in <10s)
+bun run build:dev   # Verify build works
+```
+
+**FAILURE PROTOCOL**: If ANY command fails, you MUST fix the issue before proceeding. DO NOT skip or disable checks.
+
+## PROHIBITED ACTIONS (NEVER DO THESE)
+
+- **NEVER** disable ESLint or TypeScript rules (no `// eslint-disable` comments, no `@ts-ignore` comments)
+- **NEVER** skip running the validation commands
+- **NEVER** remove functionality to "fix" test failures
+- **NEVER** add features beyond the problem scope
+- **NEVER** refactor working code without explicit request
+- **NEVER** include non-code content in code artifacts
+- **NEVER** provide sycophantic praise or cheerleading
+
+## CODE GENERATION RULES
+
+### Quality Standards
+- Write idiomatic, modern code with minimal dependencies
+- Prioritize long-term maintainability over speed
+- All code must pass ALL validation checks
+- Test coverage for all critical functionality
+
+### When Writing Code
+- Use artifacts for all code generation
+- Show only relevant snippets when updating (not entire files)
+- Explain what changed and why in your response
 - Avoid comments for self-documenting code
-- Avoid comments that detail fixes when refactoring. Put them in the response outside the artifact
-- Avoid unprofessional writing within code artifacts
-- Avoid unprofessional writing within code comments
-- Avoid putting non-code parts of your response in code artifacts
-- Removing functionality is NOT the solution for fixing test failures
+- Keep explanations outside code artifacts
 
-**IMPORTANT**: Please re-read this file **after every single command** BEFORE DOING ANY WORK. Always keep this file up-to-date when adding new features, changing architecture, or modifying development workflows. Future Claude instances rely on this documentation.
+### Project Structure
+- Request project structure before generating code (unless one-off script)
+- Stay within problem boundaries
+- Don't add unrequested features
 
-**IMPORTANT**: You MUST skip sycophantic flattery; NEVER give me hollow praise, validation, adoration, or grandiose affirmations. NEVER act like a cheerleader. Probe my assumptions, surface bias, present counter-evidence, explicitly challenge my framing, and disagree openly; agreement must be EARNED through vigorous reason.
+## COMMUNICATION STYLE
 
-**IMPORTANT**: DO NOT DISABLE ESLINT RULES IN CODE UNLESS DIRECTLY INSTRUCTED TO DO SO.
+- Skip ALL flattery and praise
+- Challenge assumptions and present counter-evidence
+- Disagree openly when appropriate
+- Be direct and professional
 
-**CRITICAL**: Always run:
+## Build Commands Reference
 
-- `bun run format`
-- `bun run lint`
-- `bun run typecheck`
-- `bun run test`
-- `bun run build:dev`
+- `bun run build:dev` - Build development version of the extension
+- `bun run build:chrome` - Build Chrome extension
+- `bun run build:firefox` - Build Firefox extension
+- `bun run test:watch` - Run tests in watch mode
 
-after making any code changes to ensure code quality and type safety.
+For Bun API documentation, see: `node_modules/bun-types/docs/**.md`
 
-Make Git commits as needed, the `gh` command is available. Never push.
+---
 
-**BEFORE** proceeding to work, after each of my instructions, **ALWAYS** print out which model I am working with, such as: "Answered by: <model name>"
-
-## Build and Development Commands
-
-**IMPORTANT**: Always run tests with `gtimeout 10 bun run test` to prevent hanging. All tests should pass in 10 seconds, honestly a lot less. If running all tests take longer than 10 seconds, something has gone very wrong.
-
-- `bun run dev` - Development server with hot reload
-- `bun run build:chrome` - Build Chrome extension (creates chrome-extension.zip)
-- `bun run build:firefox` - Build Firefox extension (creates firefox-extension.zip)
-- `bun run build:dev` - Development build without minification
-- `bun run test` - Run tests using bun test framework
-- `bun run test:watch` - Run tests in watch mode for development
-- `bun run lint` - Lint code with ESLint
-- `bun run format` - Format code with Prettier
-- `bun run typecheck` - TypeScript type checking
-
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.md`.
+**REMINDER**: Re-read this file after EVERY command. Update it when adding features or changing workflows.
 
 ## Architecture
 
