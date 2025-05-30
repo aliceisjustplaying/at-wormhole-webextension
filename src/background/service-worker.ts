@@ -39,15 +39,15 @@ chrome.runtime.onMessage.addListener((request: SWMessage, _sender, sendResponse)
       try {
         const handle = cache.getHandle(request.did);
         if (handle) {
-          sendResponse({ handle });
+          sendResponse({ handle, fromCache: true });
           return;
         }
         const resolvedHandle = await resolveDidToHandle(request.did);
         if (resolvedHandle) await cache.set(request.did, resolvedHandle);
-        sendResponse({ handle: resolvedHandle ?? null });
+        sendResponse({ handle: resolvedHandle ?? null, fromCache: false });
       } catch (e: unknown) {
         console.error('GET_HANDLE error', e);
-        sendResponse({ handle: null });
+        sendResponse({ handle: null, fromCache: false });
       }
     })();
     return true;
@@ -60,14 +60,14 @@ chrome.runtime.onMessage.addListener((request: SWMessage, _sender, sendResponse)
       try {
         const did = cache.getDid(request.handle);
         if (did) {
-          sendResponse({ did });
+          sendResponse({ did, fromCache: true });
           return;
         }
         const resolvedDid = await resolveHandleToDid(request.handle);
         if (resolvedDid) await cache.set(resolvedDid, request.handle);
-        sendResponse({ did: resolvedDid ?? null });
+        sendResponse({ did: resolvedDid ?? null, fromCache: false });
       } catch {
-        sendResponse({ did: null });
+        sendResponse({ did: null, fromCache: false });
       }
     })();
     return true;
@@ -103,23 +103,35 @@ chrome.tabs.onUpdated.addListener((_tabId, info, tab) => {
     try {
       if (info.status !== 'complete' || !tab.url) return;
       const data = parseInput(tab.url);
-      if (!data?.did) return;
+      if (!data || (!data.did && !data.handle)) return;
 
-      // If URL had a handle, cache the pair
-      if (data.handle) {
+      // Case 1: URL had both DID and handle, cache the pair
+      if (data.did && data.handle) {
         await cache.set(data.did, data.handle);
         return;
       }
 
-      // Check if we already have this DID cached
-      const cachedHandle = cache.getHandle(data.did);
-      if (cachedHandle) {
+      // Case 2: URL had only DID, resolve handle if not cached
+      if (data.did && !data.handle) {
+        const cachedHandle = cache.getHandle(data.did);
+        if (cachedHandle) {
+          return;
+        }
+        const resolvedHandle = await resolveDidToHandle(data.did);
+        if (resolvedHandle) await cache.set(data.did, resolvedHandle);
         return;
       }
 
-      // Resolve and cache the handle
-      const resolvedHandle = await resolveDidToHandle(data.did);
-      if (resolvedHandle) await cache.set(data.did, resolvedHandle);
+      // Case 3: URL had only handle, resolve DID if not cached
+      if (data.handle && !data.did) {
+        const cachedDid = cache.getDid(data.handle);
+        if (cachedDid) {
+          return;
+        }
+        const resolvedDid = await resolveHandleToDid(data.handle);
+        if (resolvedDid) await cache.set(resolvedDid, data.handle);
+        return;
+      }
     } catch (error: unknown) {
       console.error('SW error', error);
     }

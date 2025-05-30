@@ -137,6 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
     await applyTheme();
     const list = document.getElementById('dest') as HTMLUListElement;
     const emptyBtn = document.getElementById('emptyCacheBtn') as HTMLButtonElement;
+    const debugInfo = document.getElementById('debugInfo') as HTMLDivElement;
 
     // Close popup when a destination link is clicked (Firefox MV3 does not auto-close)
     list.addEventListener('click', (e: MouseEvent) => {
@@ -196,16 +197,19 @@ document.addEventListener('DOMContentLoaded', () => {
       // Ask SW for a handle (from cache or resolved)
       showStatus('Resolving...');
       try {
-        const response = await new Promise<{ handle: string | null }>((resolve, reject) => {
+        const response = await new Promise<{ handle: string | null; fromCache: boolean }>((resolve, reject) => {
           chrome.runtime.sendMessage({ type: 'GET_HANDLE', did: info.did }, (res) => {
             if (chrome.runtime.lastError) {
               reject(new Error(chrome.runtime.lastError.message));
             } else {
-              resolve(res as { handle: string | null });
+              resolve(res as { handle: string | null; fromCache: boolean });
             }
           });
         });
         handleToUse = response.handle;
+        if (handleToUse) {
+          debugInfo.textContent = response.fromCache ? 'handle was fetched from cache' : 'was forced to resolve handle';
+        }
       } catch (err: unknown) {
         console.error('GET_HANDLE error', err);
         showStatus('Error resolving');
@@ -232,16 +236,19 @@ document.addEventListener('DOMContentLoaded', () => {
       let errorStatusWasSet = false;
       showStatus('Resolving...');
       try {
-        const response = await new Promise<{ did: string | null }>((resolve, reject) => {
+        const response = await new Promise<{ did: string | null; fromCache: boolean }>((resolve, reject) => {
           chrome.runtime.sendMessage({ type: 'GET_DID', handle: info.handle! }, (res) => {
             if (chrome.runtime.lastError) {
               reject(new Error(chrome.runtime.lastError.message));
             } else {
-              resolve(res as { did: string | null });
+              resolve(res as { did: string | null; fromCache: boolean });
             }
           });
         });
         didToUse = response.did;
+        if (didToUse) {
+          debugInfo.textContent = response.fromCache ? 'did was fetched from cache' : 'was forced to resolve did';
+        }
       } catch (err: unknown) {
         console.error('GET_DID error', err);
         showStatus('Error resolving');
