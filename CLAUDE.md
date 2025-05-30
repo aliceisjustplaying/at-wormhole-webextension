@@ -9,10 +9,11 @@ This file provides **MANDATORY** guidance to Claude Code when working with code 
 1. [ ] **START**: Print "Answered by: <model name>" before any work
 2. [ ] **RE-READ**: Re-read this entire CLAUDE.md file
 3. [ ] **PLAN**: Explain what you will change and why BEFORE making changes
-4. [ ] **CODE**: Make minimal, focused changes only
-5. [ ] **VALIDATE**: Run ALL validation commands (see below)
-6. [ ] **VERIFY**: Confirm all tests pass before proceeding
-7. [ ] **COMMIT**: Make git commits as needed (never push)
+4. [ ] **ASK BEFORE CODING**: Ask for explicit permission before you start coding in any task
+5. [ ] **CODE**: Make minimal, focused changes only
+6. [ ] **VALIDATE**: Run ALL validation commands (see below)
+7. [ ] **VERIFY**: Confirm all tests pass before proceeding
+8. [ ] **COMMIT**: Make git commits as needed (never push)
 
 ## VALIDATION COMMANDS (MANDATORY AFTER EVERY CODE CHANGE)
 
@@ -41,12 +42,14 @@ bun run build:dev   # Verify build works
 ## CODE GENERATION RULES
 
 ### Quality Standards
+
 - Write idiomatic, modern code with minimal dependencies
 - Prioritize long-term maintainability over speed
 - All code must pass ALL validation checks
 - Test coverage for all critical functionality
 
 ### When Writing Code
+
 - Use artifacts for all code generation
 - Show only relevant snippets when updating (not entire files)
 - Explain what changed and why in your response
@@ -54,6 +57,7 @@ bun run build:dev   # Verify build works
 - Keep explanations outside code artifacts
 
 ### Project Structure
+
 - Request project structure before generating code (unless one-off script)
 - Stay within problem boundaries
 - Don't add unrequested features
@@ -231,68 +235,80 @@ Break down the monolithic transform.ts into focused modules:
   - Circular dependencies resolved
   - All tests passing, no type errors
 
-#### Step 4: Redesign and Extract Cache Logic ⏳
+#### Step 4: Simplify Cache Logic ⏳
 
-Completely redesign the cache architecture for instant popup performance and simplicity.
+Extract and simplify the cache implementation for better maintainability and reliability.
 
-- **Status**: Not started
-- **Target**: Create `src/shared/cache.ts` with `p-queue` dependency
-- **Primary Goal**: Aggressive prefetching so popup opens instantly with all destination URLs ready
+- **Status**: In progress (Phase 4.1 completed)
+- **Target**: Create `src/shared/cache.ts` with zero dependencies
+- **Primary Goal**: Simple, reliable cache that persists handle↔DID mappings
 
 ##### Current Problems:
+
 - Complex dual-map LRU implementation with synchronization issues
 - 1-second debounced saves that can lose data when service worker terminates
 - Reactive storage quota handling leading to unpredictable behavior
 - 288-line service worker mixing cache, messages, and tab monitoring
-- Race conditions in async operations without proper coordination
+- Over-engineered for the simple needs of the extension
 
 ##### New Architecture:
 
-**Phase 4.1: Simple Bidirectional Cache**
-- Create `BidirectionalMap<K1, K2>` class for handle↔DID mapping
-- Write-through persistence (immediate storage, no debouncing)
-- Dynamic size limits based on available storage quota
-- Comprehensive test coverage for cache operations
+**Phase 4.1: Simple Bidirectional Cache** ✅
 
-**Phase 4.2: Aggressive Prefetching Strategy**
-- When page loads: parse URL and immediately resolve missing handle OR DID
-- Background queue using `p-queue` (concurrency: 3) for non-blocking resolution
-- Prefetch both handle AND DID since different services need different formats:
-  - Handle-only: `bsky.app`, `deer.social`, `cred.blue`, `tangled.sh`, `frontpage.fyi`
-  - DID-only: `plc.directory`, `clearsky.app`, `boat.kelinci.net`
-  - Either: `atp.tools`, `pdsls.dev`
+- ✅ Created `BidirectionalMap<K1, K2>` class for handle↔DID mapping (42 lines)
+- ✅ Bidirectional lookups with automatic reverse mapping cleanup
+- ✅ Handles overwrites correctly (removes old mappings when keys/values change)
+- ✅ Comprehensive test coverage (18 tests covering all operations and edge cases)
+- ✅ Zero external dependencies, all validation commands pass
+
+**Phase 4.2: Minimal Cache Manager**
+
+- Create `DidHandleCache` class (~80 lines)
+- Write-through persistence (immediate saves, no debouncing)
+- Track storage size manually for Firefox compatibility
+- Evict oldest entries when approaching 4MB limit
+- Keep existing tab monitoring approach (it works well)
 
 **Phase 4.3: Service Worker Simplification**
-- Remove all cache implementation (190+ lines)
-- Keep only message routing and tab monitoring
-- Use cache manager for all handle/DID operations
+
+- Extract cache implementation to new module
+- Keep message routing and tab monitoring
 - Target: <100 lines focused on communication
+- No changes to existing prefetch behavior
 
-**Phase 4.4: Performance Validation**
-- Test popup opening speed before/after changes
-- Verify cache persistence across service worker restarts
-- Test storage quota management and cleanup
-
-##### Implementation Details:
+##### Implementation Details
 
 ```typescript
 // src/shared/cache.ts structure:
-class BidirectionalMap<K1, K2> { /* ~30 lines */ }
-class DidHandleCache { 
-  private cache: BidirectionalMap<string, string>
-  private queue: PQueue
-  private maxSize: number
-  /* write-through persistence, dynamic sizing */ 
+class BidirectionalMap<K1, K2> {
+  set(k1: K1, k2: K2): void;
+  getByFirst(k1: K1): K2 | undefined;
+  getBySecond(k2: K2): K1 | undefined;
+  delete(k1: K1, k2: K2): boolean;
+  clear(): void;
+  get size(): number;
+}
+
+class DidHandleCache {
+  private cache: BidirectionalMap<string, string>;
+  private lastAccessTime: Map<string, number>;
+  async load(): Promise<void>;
+  async set(did: string, handle: string): Promise<void>;
+  getHandle(did: string): string | undefined;
+  getDid(handle: string): string | undefined;
+  async clear(): Promise<void>;
 }
 ```
 
-**Dependencies**: Add `p-queue` to package.json (~8.5kB, 2M+ weekly downloads)
+**No Dependencies**: Pure TypeScript implementation, no external libraries needed
 
 **Success Metrics**:
-- Popup opens with all destinations visible immediately (no loading states)
-- Cache module <150 lines total vs current 190+ lines in service worker
-- Service worker <100 lines vs current 288 lines
+
+- Cache module ~110 lines total (vs current 190+ lines in service worker)
+- Service worker <100 lines (vs current 288 lines)
+- Zero data loss from debouncing
 - 100% test coverage for cache operations
+- Maintains all current functionality
 
 #### Step 5: Fix Type Safety ⏳
 
@@ -321,7 +337,7 @@ Expand test coverage for new modules and critical paths.
 - **Status**: Not started
 - **Target areas**:
   - Service configuration
-  - Cache operations
+  - ✅ Cache operations (BidirectionalMap fully tested)
   - Parser edge cases
   - Error scenarios
 
@@ -331,12 +347,14 @@ When working on the refactoring:
 
 1. **Always update the status** in this section after completing a step
 2. **Run all quality checks** after each change:
+
    ```bash
    bun run format
    bun run lint
    bun run typecheck
    bun run test
    ```
+
 3. **Make incremental commits** with clear messages describing the refactoring step
 4. **Create git commits immediately after completing each step** - use meaningful commit messages that describe what was accomplished
 5. **Maintain backward compatibility** - the extension should work throughout the refactoring
