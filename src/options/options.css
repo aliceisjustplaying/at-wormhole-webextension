@@ -1,0 +1,64 @@
+:root {
+  --fallback-bg: #fff;
+  --fallback-text: #000;
+  --fallback-border: #ccc;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fallback-bg: #222;
+    --fallback-text: #eee;
+    --fallback-border: #555;
+  }
+}
+
+body {
+  font-family: -apple-system, sans-serif;
+  background: var(--fallback-bg);
+  color: var(--fallback-text);
+  margin: 0;
+  padding: 20px;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+h1 {
+  margin: 0 0 20px 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.option-group {
+  margin: 16px 0;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 8px 0;
+}
+
+.checkbox-label input[type='checkbox'] {
+  margin-right: 12px;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.checkbox-text {
+  font-size: 14px;
+  user-select: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #222;
+    color: #eee;
+  }
+}

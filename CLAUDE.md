@@ -310,3 +310,35 @@ SERVICES.NEW_SERVICE = {
 ```
 
 No other code changes should be required!
+
+## Options Page Implementation Plan
+
+### Goal
+
+Add a simple options page with a single "show emojis" checkbox setting. This is foundational work for future UI preferences.
+
+### Implementation Strategy
+
+**Files to create:**
+
+- `src/options/options.html` - Basic options page structure
+- `src/options/options.css` - Clean, extension-appropriate styling
+- `src/options/options.ts` - Checkbox logic and storage integration
+
+**Manifest changes:**
+
+- Add `options_ui` configuration pointing to options page
+- Leverage existing `storage` permission for settings persistence
+
+**Storage approach:**
+
+- Use `chrome.storage.sync` for cross-device synchronization
+- Storage key: `showEmojis` (boolean, defaults to true)
+- Follow existing storage patterns from cache system
+
+**Design principles:**
+
+- Minimal, focused implementation
+- Chrome/Firefox compatibility
+- Follow extension UI best practices
+- No feature implementation yet - just the settings infrastructure
