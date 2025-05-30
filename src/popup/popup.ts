@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    let ds = buildDestinations(info, options.showEmojis);
+    let ds = buildDestinations(info, options.showEmojis, options.strictMode);
     render(ds);
 
     if (info.did && !info.handle) {
@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // After attempting to get handle from cache or by fetching:
       if (handleToUse) {
         info.handle = handleToUse;
-        ds = buildDestinations(info, options.showEmojis); // Re-build destinations with the handle
+        ds = buildDestinations(info, options.showEmojis, options.strictMode); // Re-build destinations with the handle
         render(ds); // Re-render the list
       } else {
         // Handle was not obtained. An error status might have already been set.
@@ -258,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (didToUse) {
         info.did = didToUse;
-        ds = buildDestinations(info, options.showEmojis);
+        ds = buildDestinations(info, options.showEmojis, options.strictMode);
         render(ds);
       } else if (!ds.length && !errorStatusWasSet) {
         showStatus('No actions available');

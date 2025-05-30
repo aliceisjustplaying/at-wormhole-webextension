@@ -3,6 +3,7 @@ import type { TransformInfo } from './types';
 export interface ServiceConfig {
   emoji: string;
   name: string;
+  contentSupport: 'only-profiles' | 'only-posts' | 'profiles-and-posts' | 'full';
 
   // Input parsing configuration
   parsing?: {
@@ -38,6 +39,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
   DEER_SOCIAL: {
     emoji: '🦌',
     name: 'deer.social',
+    contentSupport: 'full',
     parsing: {
       hostname: 'deer.social',
       patterns: {
@@ -51,6 +53,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
   BSKY_APP: {
     emoji: '🦋',
     name: 'bsky.app',
+    contentSupport: 'full',
     parsing: {
       hostname: 'bsky.app',
       patterns: {
@@ -64,6 +67,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
   PDSLS_DEV: {
     emoji: '⚙️',
     name: 'pdsls.dev',
+    contentSupport: 'full',
     parsing: {
       hostname: 'pdsls.dev',
       patterns: {
@@ -80,6 +84,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
   ATP_TOOLS: {
     emoji: '🛠️',
     name: 'atp.tools',
+    contentSupport: 'full',
     parsing: {
       hostname: 'atp.tools',
       patterns: {
@@ -100,6 +105,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
   CLEARSKY: {
     emoji: '☀️',
     name: 'clearsky',
+    contentSupport: 'only-profiles',
     parsing: {
       hostname: 'clearsky.app',
       patterns: {
@@ -113,6 +119,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
   SKYTHREAD: {
     emoji: '☁️',
     name: 'skythread',
+    contentSupport: 'only-posts',
     parsing: {
       hostname: 'blue.mackuba.eu',
       patterns: {
@@ -136,6 +143,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
   CRED_BLUE: {
     emoji: '🍥',
     name: 'cred.blue',
+    contentSupport: 'only-profiles',
     parsing: {
       hostname: 'cred.blue',
       patterns: {
@@ -150,6 +158,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
   TANGLED_SH: {
     emoji: '🪢',
     name: 'tangled.sh',
+    contentSupport: 'only-profiles',
     parsing: {
       hostname: 'tangled.sh',
       patterns: {
@@ -164,6 +173,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
   FRONTPAGE_FYI: {
     emoji: '📰',
     name: 'frontpage.fyi',
+    contentSupport: 'only-profiles',
     parsing: {
       hostname: 'frontpage.fyi',
       patterns: {
@@ -178,6 +188,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
   BOAT_KELINCI: {
     emoji: '⛵',
     name: 'boat.kelinci',
+    contentSupport: 'only-profiles',
     parsing: {
       hostname: 'boat.kelinci.net',
       patterns: {
@@ -192,6 +203,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
   PLC_DIRECTORY: {
     emoji: '🪪',
     name: 'plc.directory',
+    contentSupport: 'only-profiles',
     parsing: {
       hostname: 'plc.directory',
       patterns: {
@@ -206,6 +218,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
   TOOLIFY_BLUE: {
     emoji: '🔧',
     name: 'toolify.blue',
+    contentSupport: 'profiles-and-posts',
     parsing: {
       hostname: 'toolify.blue',
       patterns: {
@@ -285,7 +298,11 @@ export function parseUrlFromServices(url: URL): string | null {
 /**
  * Builds a list of destination link objects from canonical info using service configuration.
  */
-export function buildDestinations(info: TransformInfo, showEmojis = true): { label: string; url: string }[] {
+export function buildDestinations(
+  info: TransformInfo,
+  showEmojis = true,
+  strictMode = false,
+): { label: string; url: string }[] {
   const isDidWeb = info.did?.startsWith('did:web:') ?? false;
   const destinations: { label: string; url: string }[] = [];
 
@@ -295,6 +312,22 @@ export function buildDestinations(info: TransformInfo, showEmojis = true): { lab
       if (service.requiredFields.handle && !info.handle) continue;
       if (service.requiredFields.rkey && !info.rkey) continue;
       if (service.requiredFields.plcOnly && isDidWeb) continue;
+    }
+
+    // Strict mode filtering
+    if (strictMode && info.rkey) {
+      // When viewing content (posts/feeds/lists), apply strict filtering
+      if (info.nsid === 'app.bsky.feed.post') {
+        // For posts: include only-posts, profiles-and-posts, and full
+        if (!['only-posts', 'profiles-and-posts', 'full'].includes(service.contentSupport)) {
+          continue;
+        }
+      } else if (info.nsid === 'app.bsky.feed.generator' || info.nsid === 'app.bsky.graph.list') {
+        // For feeds/lists: include only full support services
+        if (service.contentSupport !== 'full') {
+          continue;
+        }
+      }
     }
 
     const url = service.buildUrl(info);

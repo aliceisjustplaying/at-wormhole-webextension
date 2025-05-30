@@ -1,9 +1,11 @@
 interface OptionsData {
   showEmojis: boolean;
+  strictMode: boolean;
 }
 
 const DEFAULT_OPTIONS: OptionsData = {
   showEmojis: true,
+  strictMode: false,
 };
 
 const STORAGE_KEY = 'wormhole-options';
@@ -23,6 +25,7 @@ export async function loadOptions(): Promise<OptionsData> {
       const options = data as Record<string, unknown>;
       cachedOptions = {
         showEmojis: typeof options.showEmojis === 'boolean' ? options.showEmojis : DEFAULT_OPTIONS.showEmojis,
+        strictMode: typeof options.strictMode === 'boolean' ? options.strictMode : DEFAULT_OPTIONS.strictMode,
       };
     } else {
       cachedOptions = DEFAULT_OPTIONS;

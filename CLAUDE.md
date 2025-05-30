@@ -316,25 +316,23 @@ No other code changes should be required!
 
 ### Status: COMPLETED ✅
 
-Basic options page infrastructure has been successfully implemented with a single "show emojis" checkbox setting.
+Options page infrastructure has been successfully implemented with "show emojis" and "strict mode" checkbox settings.
 
 **Completed work:**
 
-- ✅ `src/options/options.html` - Basic options page structure with checkbox
+- ✅ `src/options/options.html` - Options page structure with checkboxes for both settings
 - ✅ `src/options/options.css` - Clean, extension-appropriate styling
-- ✅ `src/options/options.ts` - Checkbox logic and storage integration
+- ✅ `src/options/options.ts` - Checkbox logic and storage integration for both options
 - ✅ `public/manifest.json` - Added `options_ui` configuration
 - ✅ All validation commands pass (lint, typecheck, tests, build)
 
 **Implementation details:**
 
 - Uses `chrome.storage.sync` for cross-device synchronization
-- Storage key: `showEmojis` (boolean, defaults to true)
+- Storage keys: `showEmojis` (boolean, defaults to true), `strictMode` (boolean, defaults to false)
 - Follows existing storage patterns from cache system
 - Chrome/Firefox compatible
 - Proper TypeScript types and error handling
-
-**Next step:** Implement the actual "show emojis" feature functionality.
 
 ## ✅ Show Emojis Feature Implementation - COMPLETED
 
@@ -369,7 +367,7 @@ The "show emojis" feature has been successfully implemented with clean data sepa
 
 **Testing results:**
 
-- All 60 existing tests continue to pass
+- All existing tests continue to pass
 - New tests verify emoji functionality works correctly
 - Both enabled (🦋 bsky.app) and disabled (bsky.app) scenarios tested
 
@@ -428,6 +426,7 @@ Successfully added support for toolify.blue, a tools and utility service for AT 
 - ✅ Documentation update - CLAUDE.md and URL Pattern Recognition updated
 
 **Final Results:**
+
 - **66 total tests passing** (4 new toolify.blue tests added)
 - **Service successfully integrated** into modular architecture
 - **Full handle and DID support** like bsky.app and deer.social
@@ -436,3 +435,148 @@ Successfully added support for toolify.blue, a tools and utility service for AT 
 - **No breaking changes** to existing functionality
 
 **Implementation Complete** - toolify.blue is now fully supported in the extension! 🎉
+
+## 🔒 Strict Mode Feature Implementation - COMPLETED
+
+### Status: COMPLETED ✅
+
+Successfully implemented the "strict mode" option to prevent fallback behavior when viewing posts or specific content types. When enabled, the extension only shows services that support the current content level (e.g., posts) rather than falling back to profile-level URLs.
+
+**Current Behavior (Fallback Mode)**:
+
+- When viewing a post on deer.social or pdsls.dev
+- Extension shows destinations for ALL services
+- Services that don't support posts (like cred.blue, tangled.sh) fall back to profile URLs
+- User gets mixed results: some post URLs, some profile URLs
+
+**Strict Mode Behavior**:
+
+- When viewing a post, only show services that support post-level URLs
+- When viewing a profile, show all applicable services
+- No fallback behavior - strict content-type matching
+
+### Service Categorization Analysis
+
+**Full Content Support** (`'full'` - profiles, posts, feeds, lists):
+
+- 🦌 **deer.social** - Uses `bskyAppPath` (supports `/profile/handle/post|feed|lists/xyz`)
+- 🦋 **bsky.app** - Uses `bskyAppPath` (supports `/profile/handle/post|feed|lists/xyz`)
+- ⚙️ **pdsls.dev** - Uses full `atUri` (complete AT Protocol support for all content types)
+- 🛠️ **atp.tools** - Uses full `atUri` (complete AT Protocol support for all content types)
+
+**Profiles and Posts Support** (`'profiles-and-posts'` - profiles and posts only):
+
+- 🔧 **toolify.blue** - Uses `bskyAppPath` (supports `/profile/handle/post/xyz` but not feeds/lists)
+
+**Posts-Only Services** (`'only-posts'` - require rkey, posts only):
+
+- ☁️ **skythread** - Requires `rkey`, returns `null` without it (posts only, not feeds/lists)
+
+**Profile-Only Services** (`'only-profiles'` - profiles only, no content):
+
+- 🍥 **cred.blue** - Only supports handles, no content URLs
+- 🪢 **tangled.sh** - Only supports handles, no content URLs
+- 📰 **frontpage.fyi** - Only supports handles, no content URLs
+- ☀️ **clearsky** - Profile-level DID checking only
+- ⛵ **boat.kelinci** - PLC oplog viewer, profile-level only
+- 🪪 **plc.directory** - PLC directory, profile-level only
+
+**Completed work:**
+
+- ✅ **Updated OptionsData interface** - Added `strictMode: boolean` field (defaults to false)
+- ✅ **Enhanced ServiceConfig interface** - Added `contentSupport` field with values: `'only-profiles'` | `'only-posts'` | `'profiles-and-posts'` | `'full'`
+- ✅ **Updated all service configurations** - Added appropriate contentSupport values for all 12 services
+- ✅ **Modified buildDestinations() function** - Added strictMode parameter with filtering logic for posts/feeds/lists
+- ✅ **Updated options page** - Added strict mode checkbox to HTML/CSS/TS
+- ✅ **Updated popup integration** - Loads and passes strictMode option to buildDestinations
+- ✅ **Added comprehensive tests** - 6 new strict mode tests covering all scenarios
+- ✅ **All validation commands pass** - Format, lint, typecheck, test (72 tests), and build all successful
+
+**Implementation details:**
+
+- **Backward compatibility**: `strictMode` defaults to `false` (maintains existing fallback behavior)
+- **Service categorization**: Each service now has explicit content support level
+- **Smart filtering**: Different logic for posts vs feeds/lists in strict mode
+- **Options integration**: Uses existing options system with shared storage
+- **Comprehensive testing**: Added tests for all content types and combinations
+
+**How it works:**
+
+1. **Options page**: User toggles "strict mode" checkbox → setting saved to `chrome.storage.sync`
+2. **Popup initialization**: Loads options via `loadOptions()` utility
+3. **Content filtering**: When `strictMode = true` and viewing content (posts/feeds/lists):
+   - For posts: Shows services with `'only-posts'`, `'profiles-and-posts'`, or `'full'` support
+   - For feeds/lists: Shows only services with `'full'` support
+   - Excludes services with `'only-profiles'` support
+4. **Profile viewing**: No filtering applied (shows all applicable services)
+
+
+### Content Support Classification
+
+```typescript
+// Example service configurations with contentSupport field
+SERVICES.DEER_SOCIAL = {
+  emoji: '🦌',
+  name: 'deer.social',
+  contentSupport: 'full', // Supports profiles, posts, feeds, lists
+  // ... existing config
+};
+
+SERVICES.TOOLIFY_BLUE = {
+  emoji: '🔧',
+  name: 'toolify.blue',
+  contentSupport: 'profiles-and-posts', // Supports profiles and posts only
+  // ... existing config
+};
+
+SERVICES.CRED_BLUE = {
+  emoji: '🍥',
+  name: 'cred.blue',
+  contentSupport: 'only-profiles', // Profile-only service
+  // ... existing config
+};
+
+SERVICES.SKYTHREAD = {
+  emoji: '☁️',
+  name: 'skythread',
+  contentSupport: 'only-posts', // Posts-only service (no feeds/lists/profiles)
+  // ... existing config
+};
+```
+
+### User Experience Impact
+
+**Strict Mode OFF (Default)**:
+
+- Viewing deer.social post/feed/list → Shows all services (current behavior)
+- Some destinations are content-level, some fall back to profiles
+- Maximum destinations shown, mixed content levels
+
+**Strict Mode ON**:
+
+- Viewing deer.social post/feed/list → Only shows content-capable services
+- All destinations are content-level URLs, no profile fallbacks
+- Fewer but more relevant destinations
+
+**Benefits**:
+
+- Reduces cognitive load when viewing content (posts/feeds/lists)
+- Ensures consistent content-level navigation
+- Users who want post-to-post navigation get cleaner experience
+- Advanced users can enable for more precise behavior
+
+**Testing results:**
+
+- All 72 tests pass (6 new strict mode tests added)
+- Comprehensive coverage of all content types and service combinations
+- Emoji + strict mode combinations work correctly
+- Backward compatibility maintained (defaults to false)
+
+**Final Results:**
+- **Service categorization**: 12 services properly categorized by content support
+- **Smart filtering**: Context-aware service filtering in strict mode
+- **Zero breaking changes**: Existing behavior preserved when strict mode is off
+- **Comprehensive testing**: All scenarios covered with automated tests
+- **Clean options integration**: Follows existing patterns and storage system
+
+**Implementation Complete** - Strict mode is now fully functional in the extension! 🎉

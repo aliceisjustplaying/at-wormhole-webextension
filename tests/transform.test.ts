@@ -397,4 +397,138 @@ describe('buildDestinations', () => {
     const toolifyDestination = destinations.find((dest) => dest.url.includes('toolify.blue'));
     expect(toolifyDestination?.label).toBe('toolify.blue');
   });
+
+  describe('strict mode', () => {
+    const postInfo = {
+      atUri: 'at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
+      did: 'did:plc:kkkcb7sys7623hcf7oefcffg',
+      handle: 'now.alice.mosphere.at',
+      rkey: '3lqcw7n4gly2u',
+      nsid: 'app.bsky.feed.post',
+      bskyAppPath: '/profile/now.alice.mosphere.at/post/3lqcw7n4gly2u',
+    };
+
+    const feedInfo = {
+      atUri: 'at://why.bsky.team/app.bsky.feed.generator/cozy',
+      did: 'did:plc:vpkhqolt662uhesyj6nxm7ys',
+      handle: 'why.bsky.team',
+      rkey: 'cozy',
+      nsid: 'app.bsky.feed.generator',
+      bskyAppPath: '/profile/why.bsky.team/feed/cozy',
+    };
+
+    const listInfo = {
+      atUri: 'at://alice.mosphere.at/app.bsky.graph.list/3l7vfhhfqcz2u',
+      did: 'did:plc:by3jhwdqgbtrcc7q4tkkv3cf',
+      handle: 'alice.mosphere.at',
+      rkey: '3l7vfhhfqcz2u',
+      nsid: 'app.bsky.graph.list',
+      bskyAppPath: '/profile/alice.mosphere.at/lists/3l7vfhhfqcz2u',
+    };
+
+    const profileInfo = {
+      atUri: 'at://alice.mosphere.at',
+      did: 'did:plc:by3jhwdqgbtrcc7q4tkkv3cf',
+      handle: 'alice.mosphere.at',
+      bskyAppPath: '/profile/alice.mosphere.at',
+    };
+
+    test('should maintain all services in non-strict mode (default)', () => {
+      const destinations = buildDestinations(postInfo, true, false);
+
+      // Should include all service types
+      expect(destinations.some((d) => d.url.includes('deer.social'))).toBe(true); // full
+      expect(destinations.some((d) => d.url.includes('toolify.blue'))).toBe(true); // profiles-and-posts
+      expect(destinations.some((d) => d.url.includes('skythread'))).toBe(true); // only-posts
+      expect(destinations.some((d) => d.url.includes('cred.blue'))).toBe(true); // only-profiles (fallback)
+    });
+
+    test('should exclude profile-only services in strict mode for posts', () => {
+      const destinations = buildDestinations(postInfo, true, true);
+
+      // Should include post-supporting services
+      expect(destinations.some((d) => d.url.includes('deer.social'))).toBe(true); // full
+      expect(destinations.some((d) => d.url.includes('bsky.app'))).toBe(true); // full
+      expect(destinations.some((d) => d.url.includes('toolify.blue'))).toBe(true); // profiles-and-posts
+      expect(destinations.some((d) => d.url.includes('skythread'))).toBe(true); // only-posts
+
+      // Should exclude profile-only services
+      expect(destinations.some((d) => d.url.includes('cred.blue'))).toBe(false);
+      expect(destinations.some((d) => d.url.includes('tangled.sh'))).toBe(false);
+      expect(destinations.some((d) => d.url.includes('frontpage.fyi'))).toBe(false);
+      expect(destinations.some((d) => d.url.includes('clearsky'))).toBe(false);
+      expect(destinations.some((d) => d.url.includes('boat.kelinci'))).toBe(false);
+      expect(destinations.some((d) => d.url.includes('plc.directory'))).toBe(false);
+    });
+
+    test('should exclude toolify.blue in strict mode for feeds', () => {
+      const destinations = buildDestinations(feedInfo, true, true);
+
+      // Should include full content support services
+      expect(destinations.some((d) => d.url.includes('deer.social'))).toBe(true);
+      expect(destinations.some((d) => d.url.includes('bsky.app'))).toBe(true);
+      expect(destinations.some((d) => d.url.includes('pdsls.dev'))).toBe(true);
+      expect(destinations.some((d) => d.url.includes('atp.tools'))).toBe(true);
+
+      // Should exclude toolify.blue (only supports posts, not feeds)
+      expect(destinations.some((d) => d.url.includes('toolify.blue'))).toBe(false);
+
+      // Should exclude skythread (only supports posts, not feeds)
+      expect(destinations.some((d) => d.url.includes('skythread'))).toBe(false);
+
+      // Should exclude profile-only services
+      expect(destinations.some((d) => d.url.includes('cred.blue'))).toBe(false);
+    });
+
+    test('should exclude toolify.blue in strict mode for lists', () => {
+      const destinations = buildDestinations(listInfo, true, true);
+
+      // Should include full content support services
+      expect(destinations.some((d) => d.url.includes('deer.social'))).toBe(true);
+      expect(destinations.some((d) => d.url.includes('bsky.app'))).toBe(true);
+      expect(destinations.some((d) => d.url.includes('pdsls.dev'))).toBe(true);
+      expect(destinations.some((d) => d.url.includes('atp.tools'))).toBe(true);
+
+      // Should exclude toolify.blue (only supports posts, not lists)
+      expect(destinations.some((d) => d.url.includes('toolify.blue'))).toBe(false);
+
+      // Should exclude skythread (only supports posts, not lists)
+      expect(destinations.some((d) => d.url.includes('skythread'))).toBe(false);
+
+      // Should exclude profile-only services
+      expect(destinations.some((d) => d.url.includes('cred.blue'))).toBe(false);
+    });
+
+    test('should include all applicable services in strict mode for profiles', () => {
+      const destinations = buildDestinations(profileInfo, true, true);
+
+      // Profile viewing should include all services that don't require rkey
+      expect(destinations.some((d) => d.url.includes('deer.social'))).toBe(true);
+      expect(destinations.some((d) => d.url.includes('bsky.app'))).toBe(true);
+      expect(destinations.some((d) => d.url.includes('toolify.blue'))).toBe(true);
+      expect(destinations.some((d) => d.url.includes('cred.blue'))).toBe(true);
+      expect(destinations.some((d) => d.url.includes('tangled.sh'))).toBe(true);
+      expect(destinations.some((d) => d.url.includes('frontpage.fyi'))).toBe(true);
+      expect(destinations.some((d) => d.url.includes('clearsky'))).toBe(true);
+      expect(destinations.some((d) => d.url.includes('boat.kelinci'))).toBe(true);
+      expect(destinations.some((d) => d.url.includes('plc.directory'))).toBe(true);
+
+      // Should exclude skythread (requires rkey)
+      expect(destinations.some((d) => d.url.includes('skythread'))).toBe(false);
+    });
+
+    test('should work correctly with emoji settings in strict mode', () => {
+      const destinationsWithEmoji = buildDestinations(postInfo, true, true);
+      const destinationsWithoutEmoji = buildDestinations(postInfo, false, true);
+
+      // Should have same filtering but different labels
+      expect(destinationsWithEmoji.length).toBe(destinationsWithoutEmoji.length);
+
+      const bskyWithEmoji = destinationsWithEmoji.find((d) => d.url.includes('bsky.app'));
+      const bskyWithoutEmoji = destinationsWithoutEmoji.find((d) => d.url.includes('bsky.app'));
+
+      expect(bskyWithEmoji?.label).toBe('🦋 bsky.app');
+      expect(bskyWithoutEmoji?.label).toBe('bsky.app');
+    });
+  });
 });
