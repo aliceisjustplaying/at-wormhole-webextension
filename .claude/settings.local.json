@@ -14,7 +14,8 @@
       "WebFetch(domain:rimbu.org)",
       "Bash(bun add:*)",
       "Bash(find:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(timeout:*)"
     ],
     "deny": []
   },
