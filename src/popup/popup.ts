@@ -179,9 +179,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const info: TransformInfo | null = await parseInput(raw);
+    const info: TransformInfo | null = parseInput(raw);
     Debug.parsing('Parse result:', info);
-    if (!info?.did && !info?.atUri) {
+    if (!info || (!info.did && !info.handle && !info.atUri)) {
       showStatus('No DID or at:// URI found in current tab.');
       return;
     }

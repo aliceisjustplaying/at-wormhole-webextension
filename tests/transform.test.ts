@@ -77,11 +77,11 @@ beforeEach(() => {
 });
 
 describe('parseInput', () => {
-  test('should parse feed URLs with handle', async () => {
-    const result = await parseInput('https://deer.social/profile/why.bsky.team/feed/cozy');
+  test('should parse feed URLs with handle', () => {
+    const result = parseInput('https://deer.social/profile/why.bsky.team/feed/cozy');
     expect(result).toEqual({
-      atUri: 'at://did:plc:vpkhqolt662uhesyj6nxm7ys/app.bsky.feed.generator/cozy',
-      did: 'did:plc:vpkhqolt662uhesyj6nxm7ys',
+      atUri: 'at://why.bsky.team/app.bsky.feed.generator/cozy',
+      did: null,
       handle: 'why.bsky.team',
       rkey: 'cozy',
       nsid: 'app.bsky.feed.generator',
@@ -89,8 +89,8 @@ describe('parseInput', () => {
     });
   });
 
-  test('should parse post URLs with DID', async () => {
-    const result = await parseInput('https://deer.social/profile/did:plc:kkkcb7sys7623hcf7oefcffg/post/3lpe6ek6xhs2n');
+  test('should parse post URLs with DID', () => {
+    const result = parseInput('https://deer.social/profile/did:plc:kkkcb7sys7623hcf7oefcffg/post/3lpe6ek6xhs2n');
     expect(result).toEqual({
       atUri: 'at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lpe6ek6xhs2n',
       did: 'did:plc:kkkcb7sys7623hcf7oefcffg',
@@ -101,11 +101,11 @@ describe('parseInput', () => {
     });
   });
 
-  test('should parse list URLs with handle', async () => {
-    const result = await parseInput('https://deer.social/profile/alice.mosphere.at/lists/3l7vfhhfqcz2u');
+  test('should parse list URLs with handle', () => {
+    const result = parseInput('https://deer.social/profile/alice.mosphere.at/lists/3l7vfhhfqcz2u');
     expect(result).toEqual({
-      atUri: 'at://did:plc:by3jhwdqgbtrcc7q4tkkv3cf/app.bsky.graph.list/3l7vfhhfqcz2u',
-      did: 'did:plc:by3jhwdqgbtrcc7q4tkkv3cf',
+      atUri: 'at://alice.mosphere.at/app.bsky.graph.list/3l7vfhhfqcz2u',
+      did: null,
       handle: 'alice.mosphere.at',
       rkey: '3l7vfhhfqcz2u',
       nsid: 'app.bsky.graph.list',
@@ -113,8 +113,8 @@ describe('parseInput', () => {
     });
   });
 
-  test('should parse did:web profile URLs', async () => {
-    const result = await parseInput('https://deer.social/profile/did:web:didweb.watch');
+  test('should parse did:web profile URLs', () => {
+    const result = parseInput('https://deer.social/profile/did:web:didweb.watch');
     expect(result).toEqual({
       atUri: 'at://did:web:didweb.watch',
       did: 'did:web:didweb.watch',
@@ -125,8 +125,8 @@ describe('parseInput', () => {
     });
   });
 
-  test('should parse did:web post URLs', async () => {
-    const result = await parseInput('https://deer.social/profile/did:web:didweb.watch/post/3lpaioe62qk2j');
+  test('should parse did:web post URLs', () => {
+    const result = parseInput('https://deer.social/profile/did:web:didweb.watch/post/3lpaioe62qk2j');
     expect(result).toEqual({
       atUri: 'at://did:web:didweb.watch/app.bsky.feed.post/3lpaioe62qk2j',
       did: 'did:web:didweb.watch',
@@ -137,8 +137,8 @@ describe('parseInput', () => {
     });
   });
 
-  test('should parse query parameter DIDs', async () => {
-    const result = await parseInput('https://boat.kelinci.net/plc-oplogs?q=did:plc:5sk4eqsu7byvwokfcnfgywxg');
+  test('should parse query parameter DIDs', () => {
+    const result = parseInput('https://boat.kelinci.net/plc-oplogs?q=did:plc:5sk4eqsu7byvwokfcnfgywxg');
     expect(result).toEqual({
       atUri: 'at://did:plc:5sk4eqsu7byvwokfcnfgywxg',
       did: 'did:plc:5sk4eqsu7byvwokfcnfgywxg',
@@ -149,8 +149,8 @@ describe('parseInput', () => {
     });
   });
 
-  test('should parse skythread URLs', async () => {
-    const result = await parseInput(
+  test('should parse skythread URLs', () => {
+    const result = parseInput(
       'https://blue.mackuba.eu/skythread/?author=did:plc:2p6idfgjfe3easltiwmnofw6&post=3lpjntj43rs23',
     );
     expect(result).toEqual({
@@ -164,11 +164,11 @@ describe('parseInput', () => {
   });
 
   describe('real service URLs', () => {
-    test('should parse bsky.app post URL', async () => {
-      const result = await parseInput('https://bsky.app/profile/now.alice.mosphere.at/post/3lqcw7n4gly2u');
+    test('should parse bsky.app post URL', () => {
+      const result = parseInput('https://bsky.app/profile/now.alice.mosphere.at/post/3lqcw7n4gly2u');
       expect(result).toEqual({
-        atUri: 'at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
-        did: 'did:plc:kkkcb7sys7623hcf7oefcffg',
+        atUri: 'at://now.alice.mosphere.at/app.bsky.feed.post/3lqcw7n4gly2u',
+        did: null,
         handle: 'now.alice.mosphere.at',
         rkey: '3lqcw7n4gly2u',
         nsid: 'app.bsky.feed.post',
@@ -176,11 +176,11 @@ describe('parseInput', () => {
       });
     });
 
-    test('should parse deer.social post URL', async () => {
-      const result = await parseInput('https://deer.social/profile/now.alice.mosphere.at/post/3lqcw7n4gly2u');
+    test('should parse deer.social post URL', () => {
+      const result = parseInput('https://deer.social/profile/now.alice.mosphere.at/post/3lqcw7n4gly2u');
       expect(result).toEqual({
-        atUri: 'at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
-        did: 'did:plc:kkkcb7sys7623hcf7oefcffg',
+        atUri: 'at://now.alice.mosphere.at/app.bsky.feed.post/3lqcw7n4gly2u',
+        did: null,
         handle: 'now.alice.mosphere.at',
         rkey: '3lqcw7n4gly2u',
         nsid: 'app.bsky.feed.post',
@@ -188,8 +188,8 @@ describe('parseInput', () => {
       });
     });
 
-    test('should parse pdsls.dev AT URI', async () => {
-      const result = await parseInput(
+    test('should parse pdsls.dev AT URI', () => {
+      const result = parseInput(
         'https://pdsls.dev/at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
       );
       expect(result).toEqual({
@@ -202,8 +202,8 @@ describe('parseInput', () => {
       });
     });
 
-    test('should parse atp.tools malformed AT URI', async () => {
-      const result = await parseInput(
+    test('should parse atp.tools malformed AT URI', () => {
+      const result = parseInput(
         'https://atp.tools/at:/did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
       );
       expect(result).toEqual({

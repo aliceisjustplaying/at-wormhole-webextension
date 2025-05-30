@@ -1,20 +1,17 @@
 import { NSID_SHORTCUTS } from './constants';
 import type { TransformInfo } from './types';
-import { resolveHandleToDid } from './resolver';
 
 /**
  * Canonicalizes an input fragment into a standard info object.
+ * This is a pure transformation function - no network calls.
  */
-export async function canonicalize(fragment: string): Promise<TransformInfo | null> {
+export function canonicalize(fragment: string): TransformInfo | null {
   let f = fragment.replace(/^at:\/\/([^/])/, 'at://$1');
   if (!f.startsWith('at://')) f = 'at://' + f;
   const [, idAndRest] = f.split('at://');
   const [idPart, ...restParts] = idAndRest.split('/');
-  let did = idPart.startsWith('did:') ? idPart : null;
+  const did = idPart.startsWith('did:') ? idPart : null;
   const handle = did ? null : idPart;
-  if (!did && handle) {
-    did = await resolveHandleToDid(handle);
-  }
 
   if (restParts.length) {
     const first = restParts[0];
@@ -37,10 +34,10 @@ export async function canonicalize(fragment: string): Promise<TransformInfo | nu
     }
   }
 
-  if (!did) return null;
-
+  // Return TransformInfo with atUri using either DID or handle
+  const identifier = did ?? handle;
   return {
-    atUri: `at://${did}${pathRest ? `/${pathRest}` : ''}`,
+    atUri: identifier ? `at://${identifier}${pathRest ? `/${pathRest}` : ''}` : null,
     did,
     handle,
     rkey,

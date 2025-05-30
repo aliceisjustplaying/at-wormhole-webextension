@@ -420,6 +420,105 @@ class DidHandleCache {
 - ✅ 100% test coverage for cache operations
 - ✅ Maintains all current functionality
 
+#### Step 4.5: Fix Canonicalizer Resolution Issue ✅
+
+Remove network resolution from the canonicalizer to make it a pure transformation function.
+
+- **Status**: Completed
+- **Target**: Make `canonicalize()` a pure function without side effects
+- **Primary Goal**: Proper separation of concerns and cache utilization
+
+##### Current Problems:
+
+- **Asymmetry**: `canonicalize()` resolves handle→DID but not DID→handle
+- **Cache Bypass**: Network calls in canonicalizer bypass the service worker's cache entirely
+- **Redundant Requests**: Every `parseInput()` call with a handle triggers a network request
+- **Architectural Inconsistency**: Mixing data transformation with network resolution
+
+##### Implementation Plan:
+
+1. **Make canonicalize() Pure**
+
+   - Remove lines 15-17 (handle resolution logic)
+   - Return TransformInfo with whatever data is available
+   - Let higher layers handle resolution when needed
+
+2. **Update Return Logic**
+
+   - Allow returning TransformInfo even without a DID
+   - Update the atUri construction to handle missing DIDs gracefully
+   - Adjust the return type if necessary
+
+3. **Fix Downstream Consumers**
+
+   - Service Worker: Already handles resolution properly with cache
+   - Popup: Already has logic to request missing data from SW
+   - Tests: Update expectations for canonicalize behavior
+
+4. **Consider parseInput() Enhancement** (Optional)
+   - Add optional resolver parameter for direct resolution if needed
+   - Or keep parseInput pure and let consumers handle resolution
+
+##### Expected Changes:
+
+```typescript
+// Before: Mixed concerns
+export async function canonicalize(fragment: string): Promise<TransformInfo | null> {
+  // ... parsing ...
+  if (!did && handle) {
+    did = await resolveHandleToDid(handle); // ❌ Network call
+  }
+  // ...
+}
+
+// After: Pure transformation
+export function canonicalize(fragment: string): TransformInfo | null {
+  // ... parsing only ...
+  // Return what we have, no resolution
+}
+```
+
+##### Success Metrics:
+
+- ✅ No network calls in canonicalize()
+- ✅ Proper cache utilization through service worker
+- ✅ Consistent architecture across modules
+- ✅ No redundant network requests
+
+##### Implementation Results:
+
+- ✅ Made `canonicalize()` a pure synchronous function
+- ✅ Updated `TransformInfo` interface to allow nullable `atUri` and `did` fields
+- ✅ Made `parseInput()` synchronous as well for consistency
+- ✅ Fixed popup logic to handle partial `TransformInfo` correctly
+- ✅ Updated service worker tab monitoring for nullable fields
+- ✅ Updated all tests to match new behavior
+- ✅ All validation commands pass (format, lint, typecheck, test, build)
+
+##### Testing Requirements:
+
+1. **Update canonicalize tests**
+
+   - Remove async/await from test calls
+   - Test with handles that return partial TransformInfo
+   - Verify no resolution attempts
+
+2. **Verify popup behavior**
+
+   - Ensure popup still resolves missing DIDs via SW
+   - Test that handle-only inputs work correctly
+
+3. **Check service worker caching**
+   - Confirm SW properly caches resolved pairs
+   - Verify no duplicate network requests
+
+##### Important Notes:
+
+- This change may affect the `atUri` field when DID is not available
+- Consider if TransformInfo should have optional fields
+- The popup already handles missing data gracefully
+- Service worker tab monitoring will still pre-cache handle/DID pairs
+
 #### Step 5: Fix Type Safety ⏳
 
 Replace all `any` and `unknown` types with proper interfaces.

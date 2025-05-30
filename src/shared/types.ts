@@ -1,6 +1,6 @@
 export interface TransformInfo {
-  atUri: string;
-  did: string;
+  atUri: string | null;
+  did: string | null;
   handle: string | null;
   rkey?: string;
   nsid?: string;

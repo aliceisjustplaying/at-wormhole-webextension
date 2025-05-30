@@ -89,7 +89,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
         },
       },
     },
-    buildUrl: (info) => `https://atp.tools/${info.atUri.replace('at://', 'at:/')}`,
+    buildUrl: (info) => (info.atUri ? `https://atp.tools/${info.atUri.replace('at://', 'at:/')}` : ''),
   },
 
   CLEARSKY: {
@@ -261,7 +261,7 @@ export function parseUrlFromServices(url: URL): string | null {
  * Builds a list of destination link objects from canonical info using service configuration.
  */
 export function buildDestinations(info: TransformInfo): { label: string; url: string }[] {
-  const isDidWeb = info.did.startsWith('did:web:');
+  const isDidWeb = info.did?.startsWith('did:web:') ?? false;
   const destinations: { label: string; url: string }[] = [];
 
   for (const service of Object.values(SERVICES)) {

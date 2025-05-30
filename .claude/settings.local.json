@@ -15,7 +15,8 @@
       "Bash(bun add:*)",
       "Bash(find:*)",
       "Bash(ls:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "WebFetch(domain:atproto.com)"
     ],
     "deny": []
   },

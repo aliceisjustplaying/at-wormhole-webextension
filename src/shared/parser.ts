@@ -6,19 +6,19 @@ import { canonicalize } from './canonicalizer';
  * Parses a raw input string (URL, DID, handle) and returns canonical info.
  * This is the main entry point for parsing any user input.
  */
-export async function parseInput(raw: string): Promise<TransformInfo | null> {
+export function parseInput(raw: string): TransformInfo | null {
   if (!raw) return null;
   const str = decodeURIComponent(raw.trim());
 
   // Non-URL inputs (handles, DIDs, AT URIs)
   if (!str.startsWith('http')) {
-    return await canonicalize(str);
+    return canonicalize(str);
   }
 
   // Check for AT URI embedded in the URL string
   const atMatch = /at:\/\/[\w:.\-/]+/.exec(str);
   if (atMatch) {
-    return await canonicalize(atMatch[0]);
+    return canonicalize(atMatch[0]);
   }
 
   try {
@@ -27,13 +27,13 @@ export async function parseInput(raw: string): Promise<TransformInfo | null> {
     // Try service-specific parsing first
     const serviceResult = parseUrlFromServices(url);
     if (serviceResult) {
-      return await canonicalize(serviceResult);
+      return canonicalize(serviceResult);
     }
 
     // Fallback: generic query parameter check for DIDs
     const qParam = url.searchParams.get('q');
     if (qParam?.startsWith('did:')) {
-      return await canonicalize(qParam);
+      return canonicalize(qParam);
     }
 
     // Fallback: generic parsing for any /profile/identifier pattern
@@ -44,7 +44,7 @@ export async function parseInput(raw: string): Promise<TransformInfo | null> {
         const rest = parts.slice(i + 1).join('/');
         // Include slash before rest path
         const fragment = rest ? `${p}/${rest}` : p;
-        return await canonicalize(fragment);
+        return canonicalize(fragment);
       }
     }
   } catch (error) {

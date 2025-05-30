@@ -102,7 +102,7 @@ chrome.tabs.onUpdated.addListener((_tabId, info, tab) => {
     await cacheLoaded;
     try {
       if (info.status !== 'complete' || !tab.url) return;
-      const data = await parseInput(tab.url);
+      const data = parseInput(tab.url);
       if (!data?.did) return;
 
       // If URL had a handle, cache the pair
