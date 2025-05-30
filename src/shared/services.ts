@@ -1,7 +1,8 @@
 import type { TransformInfo } from './types';
 
 export interface ServiceConfig {
-  label: string;
+  emoji: string;
+  name: string;
 
   // Input parsing configuration
   parsing?: {
@@ -35,7 +36,8 @@ export interface ServiceConfig {
 
 export const SERVICES: Record<string, ServiceConfig> = {
   DEER_SOCIAL: {
-    label: '🦌 deer.social',
+    emoji: '🦌',
+    name: 'deer.social',
     parsing: {
       hostname: 'deer.social',
       patterns: {
@@ -47,7 +49,8 @@ export const SERVICES: Record<string, ServiceConfig> = {
   },
 
   BSKY_APP: {
-    label: '🦋 bsky.app',
+    emoji: '🦋',
+    name: 'bsky.app',
     parsing: {
       hostname: 'bsky.app',
       patterns: {
@@ -59,7 +62,8 @@ export const SERVICES: Record<string, ServiceConfig> = {
   },
 
   PDSLS_DEV: {
-    label: '⚙️ pdsls.dev',
+    emoji: '⚙️',
+    name: 'pdsls.dev',
     parsing: {
       hostname: 'pdsls.dev',
       patterns: {
@@ -74,7 +78,8 @@ export const SERVICES: Record<string, ServiceConfig> = {
   },
 
   ATP_TOOLS: {
-    label: '🛠️ atp.tools',
+    emoji: '🛠️',
+    name: 'atp.tools',
     parsing: {
       hostname: 'atp.tools',
       patterns: {
@@ -93,7 +98,8 @@ export const SERVICES: Record<string, ServiceConfig> = {
   },
 
   CLEARSKY: {
-    label: '☀️ clearsky',
+    emoji: '☀️',
+    name: 'clearsky',
     parsing: {
       hostname: 'clearsky.app',
       patterns: {
@@ -105,7 +111,8 @@ export const SERVICES: Record<string, ServiceConfig> = {
   },
 
   SKYTHREAD: {
-    label: '☁️ skythread',
+    emoji: '☁️',
+    name: 'skythread',
     parsing: {
       hostname: 'blue.mackuba.eu',
       patterns: {
@@ -127,7 +134,8 @@ export const SERVICES: Record<string, ServiceConfig> = {
   },
 
   CRED_BLUE: {
-    label: '🍥 cred.blue',
+    emoji: '🍥',
+    name: 'cred.blue',
     parsing: {
       hostname: 'cred.blue',
       patterns: {
@@ -140,7 +148,8 @@ export const SERVICES: Record<string, ServiceConfig> = {
   },
 
   TANGLED_SH: {
-    label: '🪢 tangled.sh',
+    emoji: '🪢',
+    name: 'tangled.sh',
     parsing: {
       hostname: 'tangled.sh',
       patterns: {
@@ -153,7 +162,8 @@ export const SERVICES: Record<string, ServiceConfig> = {
   },
 
   FRONTPAGE_FYI: {
-    label: '📰 frontpage.fyi',
+    emoji: '📰',
+    name: 'frontpage.fyi',
     parsing: {
       hostname: 'frontpage.fyi',
       patterns: {
@@ -166,7 +176,8 @@ export const SERVICES: Record<string, ServiceConfig> = {
   },
 
   BOAT_KELINCI: {
-    label: '⛵ boat.kelinci',
+    emoji: '⛵',
+    name: 'boat.kelinci',
     parsing: {
       hostname: 'boat.kelinci.net',
       patterns: {
@@ -179,7 +190,8 @@ export const SERVICES: Record<string, ServiceConfig> = {
   },
 
   PLC_DIRECTORY: {
-    label: '🪪 plc.directory',
+    emoji: '🪪',
+    name: 'plc.directory',
     parsing: {
       hostname: 'plc.directory',
       patterns: {
@@ -260,7 +272,7 @@ export function parseUrlFromServices(url: URL): string | null {
 /**
  * Builds a list of destination link objects from canonical info using service configuration.
  */
-export function buildDestinations(info: TransformInfo): { label: string; url: string }[] {
+export function buildDestinations(info: TransformInfo, showEmojis = true): { label: string; url: string }[] {
   const isDidWeb = info.did?.startsWith('did:web:') ?? false;
   const destinations: { label: string; url: string }[] = [];
 
@@ -274,7 +286,8 @@ export function buildDestinations(info: TransformInfo): { label: string; url: st
 
     const url = service.buildUrl(info);
     if (url) {
-      destinations.push({ label: service.label, url });
+      const label = showEmojis ? `${service.emoji} ${service.name}` : service.name;
+      destinations.push({ label, url });
     }
   }
 

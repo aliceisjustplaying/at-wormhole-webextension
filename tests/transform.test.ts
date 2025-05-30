@@ -321,4 +321,16 @@ describe('buildDestinations', () => {
     );
     expect(plcUrls).toHaveLength(0);
   });
+
+  test('should include emojis in labels when showEmojis is true (default)', () => {
+    const destinations = buildDestinations(realPostInfo);
+    const bskyDestination = destinations.find((dest) => dest.url.includes('bsky.app'));
+    expect(bskyDestination?.label).toBe('🦋 bsky.app');
+  });
+
+  test('should exclude emojis in labels when showEmojis is false', () => {
+    const destinations = buildDestinations(realPostInfo, false);
+    const bskyDestination = destinations.find((dest) => dest.url.includes('bsky.app'));
+    expect(bskyDestination?.label).toBe('bsky.app');
+  });
 });

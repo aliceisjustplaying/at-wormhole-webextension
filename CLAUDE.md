@@ -311,34 +311,63 @@ SERVICES.NEW_SERVICE = {
 
 No other code changes should be required!
 
-## Options Page Implementation Plan
+## ✅ Options Page Implementation - COMPLETED
 
-### Goal
+### Status: COMPLETED ✅
 
-Add a simple options page with a single "show emojis" checkbox setting. This is foundational work for future UI preferences.
+Basic options page infrastructure has been successfully implemented with a single "show emojis" checkbox setting.
 
-### Implementation Strategy
+**Completed work:**
 
-**Files to create:**
+- ✅ `src/options/options.html` - Basic options page structure with checkbox
+- ✅ `src/options/options.css` - Clean, extension-appropriate styling
+- ✅ `src/options/options.ts` - Checkbox logic and storage integration
+- ✅ `public/manifest.json` - Added `options_ui` configuration
+- ✅ All validation commands pass (lint, typecheck, tests, build)
 
-- `src/options/options.html` - Basic options page structure
-- `src/options/options.css` - Clean, extension-appropriate styling
-- `src/options/options.ts` - Checkbox logic and storage integration
+**Implementation details:**
 
-**Manifest changes:**
-
-- Add `options_ui` configuration pointing to options page
-- Leverage existing `storage` permission for settings persistence
-
-**Storage approach:**
-
-- Use `chrome.storage.sync` for cross-device synchronization
+- Uses `chrome.storage.sync` for cross-device synchronization
 - Storage key: `showEmojis` (boolean, defaults to true)
-- Follow existing storage patterns from cache system
+- Follows existing storage patterns from cache system
+- Chrome/Firefox compatible
+- Proper TypeScript types and error handling
 
-**Design principles:**
+**Next step:** Implement the actual "show emojis" feature functionality.
 
-- Minimal, focused implementation
-- Chrome/Firefox compatibility
-- Follow extension UI best practices
-- No feature implementation yet - just the settings infrastructure
+## ✅ Show Emojis Feature Implementation - COMPLETED
+
+### Feature Status: COMPLETED ✅
+
+The "show emojis" feature has been successfully implemented with clean data separation and proper integration.
+
+**Completed work:**
+
+- ✅ **Updated ServiceConfig interface** - Added separate `emoji` and `name` fields
+- ✅ **Updated all service configurations** - Split labels into emoji + name parts  
+- ✅ **Modified buildDestinations()** - Added optional `showEmojis` parameter (defaults to true)
+- ✅ **Created shared options utility** (`src/shared/options.ts`) - Centralized options loading with caching
+- ✅ **Updated popup integration** - Loads options and passes `showEmojis` to buildDestinations
+- ✅ **Added comprehensive tests** - Tests for both emoji enabled/disabled scenarios
+- ✅ **All validation commands pass** - Lint, typecheck, tests, and build all successful
+
+**Implementation details:**
+
+- **Clean data structure**: Each service now has separate `emoji` and `name` fields
+- **Backward compatibility**: `buildDestinations()` defaults to showing emojis (existing behavior)  
+- **Efficient options loading**: Options are cached to avoid repeated storage calls
+- **Comprehensive testing**: Added tests to verify emoji display behavior
+- **Type safety**: Full TypeScript support with proper interfaces
+
+**How it works:**
+
+1. **Options page**: User toggles "show emojis" checkbox → setting saved to `chrome.storage.sync`
+2. **Popup initialization**: Loads options via `loadOptions()` utility
+3. **Destination building**: Passes `showEmojis` setting to `buildDestinations()`
+4. **Label generation**: `${showEmojis ? service.emoji : ''} ${service.name}`
+
+**Testing results:**
+
+- All 60 existing tests continue to pass
+- New tests verify emoji functionality works correctly
+- Both enabled (🦋 bsky.app) and disabled (bsky.app) scenarios tested
