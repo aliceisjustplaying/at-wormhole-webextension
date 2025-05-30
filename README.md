@@ -15,6 +15,7 @@ This is a browser extension that provides "wormhole" navigation between differen
 - [cred.blue](https://cred.blue)
 - [tangled.sh](https://tangled.sh)
 - [frontpage.fyi](https://frontpage.fyi)
+- [toolify.blue](https://toolify.blue)
 - [boat.kelinci.net](https://boat.kelinci.net)
 - [plc.directory](https://plc.directory)
 

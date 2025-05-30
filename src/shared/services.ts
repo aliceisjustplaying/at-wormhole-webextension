@@ -202,6 +202,19 @@ export const SERVICES: Record<string, ServiceConfig> = {
     buildUrl: (info) => `https://plc.directory/${info.did}`,
     requiredFields: { plcOnly: true },
   },
+
+  TOOLIFY_BLUE: {
+    emoji: '🔧',
+    name: 'toolify.blue',
+    parsing: {
+      hostname: 'toolify.blue',
+      patterns: {
+        // Matches /profile/IDENTIFIER where IDENTIFIER can be handle or DID
+        profileIdentifier: /^\/profile\/([^/]+)/,
+      },
+    },
+    buildUrl: (info) => `https://toolify.blue${info.bskyAppPath}`,
+  },
 };
 
 /**

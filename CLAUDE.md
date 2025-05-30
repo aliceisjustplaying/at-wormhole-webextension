@@ -198,6 +198,7 @@ The extension recognizes URLs from these services and extracts AT Protocol ident
 - atp.tools, pdsls.dev (developer tools)
 - clearsky.app (block checking)
 - plc.directory, boat.kelinci.net (did:plc information tools)
+- toolify.blue (tools and utilities for AT Protocol/Bluesky)
 
 ### Firefox Theme Integration
 
@@ -344,7 +345,7 @@ The "show emojis" feature has been successfully implemented with clean data sepa
 **Completed work:**
 
 - ✅ **Updated ServiceConfig interface** - Added separate `emoji` and `name` fields
-- ✅ **Updated all service configurations** - Split labels into emoji + name parts  
+- ✅ **Updated all service configurations** - Split labels into emoji + name parts
 - ✅ **Modified buildDestinations()** - Added optional `showEmojis` parameter (defaults to true)
 - ✅ **Created shared options utility** (`src/shared/options.ts`) - Centralized options loading with caching
 - ✅ **Updated popup integration** - Loads options and passes `showEmojis` to buildDestinations
@@ -354,7 +355,7 @@ The "show emojis" feature has been successfully implemented with clean data sepa
 **Implementation details:**
 
 - **Clean data structure**: Each service now has separate `emoji` and `name` fields
-- **Backward compatibility**: `buildDestinations()` defaults to showing emojis (existing behavior)  
+- **Backward compatibility**: `buildDestinations()` defaults to showing emojis (existing behavior)
 - **Efficient options loading**: Options are cached to avoid repeated storage calls
 - **Comprehensive testing**: Added tests to verify emoji display behavior
 - **Type safety**: Full TypeScript support with proper interfaces
@@ -371,3 +372,67 @@ The "show emojis" feature has been successfully implemented with clean data sepa
 - All 60 existing tests continue to pass
 - New tests verify emoji functionality works correctly
 - Both enabled (🦋 bsky.app) and disabled (bsky.app) scenarios tested
+
+## 🔧 toolify.blue Service Addition - COMPLETED
+
+### Status: COMPLETED ✅
+
+Successfully added support for toolify.blue, a tools and utility service for AT Protocol/Bluesky users.
+
+**Target URLs:**
+
+- Profile (handle): `https://toolify.blue/profile/alice.mosphere.at`
+- Profile (DID): `https://toolify.blue/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf`
+- Post (handle): `https://toolify.blue/profile/alice.mosphere.at/post/3lqeyxrcx6k2p`
+- Post (DID): `https://toolify.blue/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf/post/3lqeyxrcx6k2p`
+
+**Implementation Plan:**
+
+1. **URL Pattern Analysis** ✅
+
+   - Pattern: `/profile/IDENTIFIER` for profiles, `/profile/IDENTIFIER/post/RKEY` for posts
+   - **IDENTIFIER can be either HANDLE or DID** (like bsky.app, deer.social)
+   - Single regex: `/^\/profile\/([^/]+)(?:\/post\/([^/]+))?$/`
+   - Supports both handle and DID inputs, no resolution restrictions
+
+2. **Service Configuration** ✅
+
+   - ✅ Added `TOOLIFY_BLUE` to `src/shared/services.ts`
+   - ✅ `emoji: '🔧'` (tools theme), `name: 'toolify.blue'`
+   - ✅ `parsing.hostname: 'toolify.blue'`
+   - ✅ `parsing.patterns.profileIdentifier` with combined profile/post regex
+   - ✅ `buildUrl` function for both profile and post URLs using bskyAppPath
+   - ✅ **No requiredFields restrictions** (accepts both handles and DIDs)
+
+3. **Testing Strategy** ✅
+
+   - ✅ Parse profile with handle: `toolify.blue/profile/alice.mosphere.at` → handle extraction
+   - ✅ Parse post with handle: `toolify.blue/profile/alice.mosphere.at/post/3lqeyxrcx6k2p` → handle + rkey
+   - ✅ Parse profile with DID: `toolify.blue/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf` → DID extraction
+   - ✅ Parse post with DID: `toolify.blue/profile/did:plc:xyz/post/3lqeyxrcx6k2p` → DID + rkey
+   - ✅ Verify buildDestinations includes toolify.blue for both handle and DID scenarios
+   - ✅ Test emoji enabled/disabled display behavior
+
+4. **Technical Requirements** ✅
+   - ✅ Works with existing handle→DID resolution system
+   - ✅ Works with both handle-based and DID-based transformations
+   - ✅ All validation commands pass (format, lint, typecheck, test, build:dev)
+   - ✅ Maintains backward compatibility with existing services
+
+**Progress:**
+
+- ✅ Analysis complete - URL patterns identified and documented
+- ✅ Service configuration - TOOLIFY_BLUE added to services.ts
+- ✅ Testing - All 4 parsing tests and 3 buildDestinations tests added and passing
+- ✅ Validation - All commands pass (format, lint, typecheck, test, build:dev)
+- ✅ Documentation update - CLAUDE.md and URL Pattern Recognition updated
+
+**Final Results:**
+- **66 total tests passing** (4 new toolify.blue tests added)
+- **Service successfully integrated** into modular architecture
+- **Full handle and DID support** like bsky.app and deer.social
+- **Emoji toggle integration** works correctly (🔧 toolify.blue / toolify.blue)
+- **Documentation updated** in README.md and docs/index.html
+- **No breaking changes** to existing functionality
+
+**Implementation Complete** - toolify.blue is now fully supported in the extension! 🎉
