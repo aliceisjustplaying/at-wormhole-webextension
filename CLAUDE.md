@@ -237,6 +237,15 @@ window.wormholeDebug.all(true); // Enable all categories
 window.wormholeDebug.getConfig(); // Check current settings
 ```
 
+### Cache System (`src/shared/cache.ts`)
+
+Reliable bidirectional handle↔DID persistence with comprehensive features:
+
+- **BidirectionalMap**: Core bidirectional mapping with automatic cleanup
+- **DidHandleCache**: Full cache manager with write-through persistence, LRU eviction, and cross-browser compatibility
+- **Service Worker Integration**: Proactive background resolution for visited URLs
+- **Development Debug**: Visual cache hit/miss indicators (development builds only)
+
 ### Testing
 
 Tests use mocked fetch responses to simulate AT Protocol API calls and handle resolution. The test suite uses bun's built-in test framework with organized test suites:
@@ -244,333 +253,42 @@ Tests use mocked fetch responses to simulate AT Protocol API calls and handle re
 - **parseInput tests**: URL parsing from all supported services
 - **resolveHandleToDid tests**: Handle→DID resolution including did:web
 - **buildDestinations tests**: URL generation and service fallback behavior
+- **cache tests**: Comprehensive coverage of BidirectionalMap and DidHandleCache
 
 Run tests with `bun run test` or `bun run test:watch` for development.
 
-## Refactoring Plan
-
-This section tracks the ongoing refactoring effort to make the codebase cleaner and more extensible.
-
-### Goals
-
-- Split large modules into focused, single-responsibility files
-- Extract hardcoded configurations into centralized locations
-- Improve type safety throughout the codebase
-- Standardize error handling patterns
-- Make adding new AT Protocol services trivial
-
-### Step-by-Step Plan
-
-#### Step 1: Extract Types ✅
-
-Extract all interfaces and types into a dedicated `types.ts` file.
-
-- **Status**: Completed
-- **Files**: Created `src/shared/types.ts`
-- **Changes**:
-  - Extracted all type definitions to centralized location
-  - Updated imports across transform.ts, service-worker.ts, popup.ts, debug.ts
-  - Improved type safety with proper Firefox theme API types
-  - All tests passing, no type errors
-
-#### Step 2: Create Service Configuration ✅
-
-Move hardcoded service URLs and patterns into a centralized configuration.
-
-- **Status**: Completed
-- **Files**: Created `src/shared/services.ts`
-- **Changes**:
-  - Extracted all service definitions into centralized SERVICES configuration
-  - Created ServiceConfig interface with label, buildUrl function, and requiredFields
-  - Updated buildDestinations() to use buildDestinationsFromServices()
-  - Preserved all existing functionality while making service addition trivial
-  - All tests passing, no type errors
-
-#### Step 3: Split transform.ts ✅
-
-Break down the monolithic transform.ts into focused modules:
-
-- **Status**: Completed
-- **Changes**:
-  - **Phase 1**: Enhanced service configuration with bidirectional parsing patterns
-  - **Phase 2**: Created `src/shared/parser.ts` - URL parsing logic
-  - **Phase 3**: Created `src/shared/resolver.ts` - DID/handle resolution
-  - **Phase 4**: Created `src/shared/canonicalizer.ts` - AT URI canonicalization
-  - **Phase 5**: Updated `src/shared/transform.ts` to orchestration layer
-- **Results**:
-  - Service-specific parsing now centralized in services.ts
-  - Each module has single responsibility
-  - Circular dependencies resolved
-  - All tests passing, no type errors
-
-#### Step 4: Simplify Cache Logic ✅
-
-Extract and simplify the cache implementation for better maintainability and reliability.
-
-- **Status**: Completed
-- **Target**: Create `src/shared/cache.ts` with zero dependencies
-- **Primary Goal**: Simple, reliable cache that persists handle↔DID mappings
-
-##### Current Problems:
-
-- Complex dual-map LRU implementation with synchronization issues
-- 1-second debounced saves that can lose data when service worker terminates
-- Reactive storage quota handling leading to unpredictable behavior
-- 288-line service worker mixing cache, messages, and tab monitoring
-- Over-engineered for the simple needs of the extension
-
-##### New Architecture:
-
-**Phase 4.1: Simple Bidirectional Cache** ✅
-
-- ✅ Created `BidirectionalMap<K1, K2>` class for handle↔DID mapping (42 lines)
-- ✅ Bidirectional lookups with automatic reverse mapping cleanup
-- ✅ Handles overwrites correctly (removes old mappings when keys/values change)
-- ✅ Comprehensive test coverage (18 tests covering all operations and edge cases)
-- ✅ Zero external dependencies, all validation commands pass
-
-**Phase 4.2: Minimal Cache Manager** ✅
-
-- ✅ Created `DidHandleCache` class (184 lines with comprehensive features)
-- ✅ Write-through persistence (immediate saves, no debouncing)
-- ✅ Cross-browser storage size estimation for Firefox compatibility
-- ✅ LRU eviction when approaching 4MB storage limit
-- ✅ Input validation for DIDs and handles with error handling
-- ✅ Storage failure rollback to prevent data corruption
-- ✅ Comprehensive test coverage (20 tests covering all scenarios)
-
-**Phase 4.3: Service Worker Simplification** ✅
-
-- ✅ Extracted cache implementation to new module
-- ✅ Kept message routing and tab monitoring
-- ✅ Reduced service worker from 288 to 127 lines
-- ✅ No changes to existing prefetch behavior
-- ✅ All functionality maintained while improving reliability
-
-**Implementation Plan for Phase 4.3:**
-
-1. **Replace Internal Cache with DidHandleCache**
-
-   - Remove lines 16-158 (all internal cache implementation)
-   - Import and instantiate DidHandleCache from cache module
-   - Replace all cache operations with DidHandleCache methods
-
-2. **Simplify Message Handlers**
-
-   - UPDATE_CACHE: Use `cache.set(did, handle)`
-   - GET_HANDLE: Use `cache.getHandle(did)` with fallback to resolver
-   - GET_DID: Use `cache.getDid(handle)` with fallback to resolver
-   - CLEAR_CACHE: Use `cache.clear()`
-   - Keep DEBUG_LOG handler unchanged
-
-3. **Maintain Tab Monitoring**
-
-   - Keep onUpdated listener (lines 261-287)
-   - Replace internal cache calls with DidHandleCache methods
-   - Preserve pre-caching behavior for visited URLs
-
-4. **Expected Result**
-   - Service worker reduced from 288 to ~90 lines
-   - All cache logic delegated to cache module
-   - Cleaner separation of concerns
-   - No functionality changes
-
-**Key Changes:**
-
-```typescript
-// Before (complex internal implementation)
-let didToHandle = new Map<string, CacheEntry>();
-const handleToDid = new Map<string, string>();
-// ... 140+ lines of cache logic
-
-// After (simple delegation)
-import { DidHandleCache } from '../shared/cache';
-const cache = new DidHandleCache();
-await cache.load(); // on startup
-```
-
-##### Implementation Details
-
-```typescript
-// src/shared/cache.ts structure:
-class BidirectionalMap<K1, K2> {
-  set(k1: K1, k2: K2): void;
-  getByFirst(k1: K1): K2 | undefined;
-  getBySecond(k2: K2): K1 | undefined;
-  delete(k1: K1, k2: K2): boolean;
-  clear(): void;
-  get size(): number;
-}
-
-class DidHandleCache {
-  private cache: BidirectionalMap<string, string>;
-  private lastAccessTime: Map<string, number>;
-  async load(): Promise<void>;
-  async set(did: string, handle: string): Promise<void>;
-  getHandle(did: string): string | undefined;
-  getDid(handle: string): string | undefined;
-  async clear(): Promise<void>;
-}
-```
-
-**No Dependencies**: Pure TypeScript implementation, no external libraries needed
-
-**Success Metrics**:
-
-- ✅ Cache module 242 lines total (vs previous 190+ lines in service worker)
-- ✅ Service worker 127 lines (vs previous 288 lines)
-- ✅ Zero data loss from debouncing
-- ✅ 100% test coverage for cache operations
-- ✅ Maintains all current functionality
-
-#### Step 4.5: Fix Canonicalizer Resolution Issue ✅
-
-Remove network resolution from the canonicalizer to make it a pure transformation function.
-
-- **Status**: Completed
-- **Target**: Make `canonicalize()` a pure function without side effects
-- **Primary Goal**: Proper separation of concerns and cache utilization
-
-##### Current Problems:
-
-- **Asymmetry**: `canonicalize()` resolves handle→DID but not DID→handle
-- **Cache Bypass**: Network calls in canonicalizer bypass the service worker's cache entirely
-- **Redundant Requests**: Every `parseInput()` call with a handle triggers a network request
-- **Architectural Inconsistency**: Mixing data transformation with network resolution
-
-##### Implementation Plan:
-
-1. **Make canonicalize() Pure**
-
-   - Remove lines 15-17 (handle resolution logic)
-   - Return TransformInfo with whatever data is available
-   - Let higher layers handle resolution when needed
-
-2. **Update Return Logic**
-
-   - Allow returning TransformInfo even without a DID
-   - Update the atUri construction to handle missing DIDs gracefully
-   - Adjust the return type if necessary
-
-3. **Fix Downstream Consumers**
-
-   - Service Worker: Already handles resolution properly with cache
-   - Popup: Already has logic to request missing data from SW
-   - Tests: Update expectations for canonicalize behavior
-
-4. **Consider parseInput() Enhancement** (Optional)
-   - Add optional resolver parameter for direct resolution if needed
-   - Or keep parseInput pure and let consumers handle resolution
-
-##### Expected Changes:
-
-```typescript
-// Before: Mixed concerns
-export async function canonicalize(fragment: string): Promise<TransformInfo | null> {
-  // ... parsing ...
-  if (!did && handle) {
-    did = await resolveHandleToDid(handle); // ❌ Network call
-  }
-  // ...
-}
-
-// After: Pure transformation
-export function canonicalize(fragment: string): TransformInfo | null {
-  // ... parsing only ...
-  // Return what we have, no resolution
-}
-```
-
-##### Success Metrics:
-
-- ✅ No network calls in canonicalize()
-- ✅ Proper cache utilization through service worker
-- ✅ Consistent architecture across modules
-- ✅ No redundant network requests
-
-##### Implementation Results:
-
-- ✅ Made `canonicalize()` a pure synchronous function
-- ✅ Updated `TransformInfo` interface to allow nullable `atUri` and `did` fields
-- ✅ Made `parseInput()` synchronous as well for consistency
-- ✅ Fixed popup logic to handle partial `TransformInfo` correctly
-- ✅ Updated service worker tab monitoring for nullable fields
-- ✅ Updated all tests to match new behavior
-- ✅ All validation commands pass (format, lint, typecheck, test, build)
-
-##### Testing Requirements:
-
-1. **Update canonicalize tests**
-
-   - Remove async/await from test calls
-   - Test with handles that return partial TransformInfo
-   - Verify no resolution attempts
-
-2. **Verify popup behavior**
-
-   - Ensure popup still resolves missing DIDs via SW
-   - Test that handle-only inputs work correctly
-
-3. **Check service worker caching**
-   - Confirm SW properly caches resolved pairs
-   - Verify no duplicate network requests
-
-##### Important Notes:
-
-- This change may affect the `atUri` field when DID is not available
-- Consider if TransformInfo should have optional fields
-- The popup already handles missing data gracefully
-- Service worker tab monitoring will still pre-cache handle/DID pairs
-
-#### Step 5: Fix Type Safety ⏳
-
-Replace all `any` and `unknown` types with proper interfaces.
-
-- **Status**: Not started
-- **Focus areas**:
-  - API response types
-  - Message passing between popup and service worker
-  - Chrome runtime API wrappers
-
-#### Step 6: Standardize Error Handling ⏳
-
-Create consistent error handling patterns across the codebase.
-
-- **Status**: Not started
-- **Goals**:
-  - No silent failures
-  - User-friendly error messages in UI
-  - Consistent logging patterns
-
-#### Step 7: Add Missing Tests ⏳
-
-Expand test coverage for new modules and critical paths.
-
-- **Status**: Not started
-- **Target areas**:
-  - Service configuration
-  - ✅ Cache operations (BidirectionalMap and DidHandleCache fully tested)
-  - Parser edge cases
-  - Error scenarios
-
-### Implementation Instructions
-
-When working on the refactoring:
-
-1. **Always update the status** in this section after completing a step
-2. **Run all quality checks** after each change:
-
-   ```bash
-   bun run format
-   bun run lint
-   bun run typecheck
-   bun run test
-   ```
-
-3. **Make incremental commits** with clear messages describing the refactoring step
-4. **Create git commits immediately after completing each step** - use meaningful commit messages that describe what was accomplished
-5. **Maintain backward compatibility** - the extension should work throughout the refactoring
-6. **Update tests** as you refactor to ensure nothing breaks
+## Completed Refactoring
+
+The codebase has been successfully refactored into a clean, modular architecture:
+
+### ✅ Completed Refactors
+
+1. **Type System**: Centralized all TypeScript interfaces in `src/shared/types.ts`
+2. **Service Configuration**: Extracted hardcoded service definitions into `src/shared/services.ts` with ServiceConfig interface
+3. **Module Splitting**: Broke down monolithic transform.ts into focused modules:
+   - `parser.ts` - URL parsing logic
+   - `canonicalizer.ts` - Pure AT URI transformation
+   - `resolver.ts` - Network resolution functions
+   - `services.ts` - Service configuration and URL building
+4. **Cache System**: Replaced complex cache with simple, reliable implementation:
+   - `BidirectionalMap` class for handle↔DID mapping
+   - `DidHandleCache` with write-through persistence and LRU eviction
+   - Service worker reduced from 288 to 139 lines
+5. **Architecture Cleanup**: Made canonicalizer pure (no network calls), proper separation of concerns
+
+### 📈 Results
+
+- **Modularity**: Each file has single responsibility
+- **Maintainability**: Zero external dependencies, comprehensive test coverage
+- **Performance**: Write-through caching, proactive background resolution
+- **Extensibility**: Adding new services requires only updating `services.ts`
+- **Reliability**: No data loss, proper error handling, cross-browser compatibility
+
+### ⏳ Remaining Tasks
+
+- **Type Safety**: Replace remaining `any`/`unknown` types with proper interfaces
+- **Error Handling**: Standardize error patterns across modules
+- **Test Coverage**: Add edge case and error scenario tests
 
 ### Adding New Services
 
