@@ -14,6 +14,7 @@ This file provides **MANDATORY** guidance to Claude Code when working with code 
 6. [ ] **VALIDATE**: Run ALL validation commands (see below)
 7. [ ] **VERIFY**: Confirm all tests pass before proceeding
 8. [ ] **COMMIT**: Make git commits as needed (never push)
+9. [ ] **DOCUMENT**: Update this file after completing each step with the current status
 
 ## VALIDATION COMMANDS (MANDATORY AFTER EVERY CODE CHANGE)
 
@@ -239,7 +240,7 @@ Break down the monolithic transform.ts into focused modules:
 
 Extract and simplify the cache implementation for better maintainability and reliability.
 
-- **Status**: In progress (Phase 4.1 completed)
+- **Status**: In progress (Phase 4.1 and 4.2 completed)
 - **Target**: Create `src/shared/cache.ts` with zero dependencies
 - **Primary Goal**: Simple, reliable cache that persists handle↔DID mappings
 
@@ -261,13 +262,15 @@ Extract and simplify the cache implementation for better maintainability and rel
 - ✅ Comprehensive test coverage (18 tests covering all operations and edge cases)
 - ✅ Zero external dependencies, all validation commands pass
 
-**Phase 4.2: Minimal Cache Manager**
+**Phase 4.2: Minimal Cache Manager** ✅
 
-- Create `DidHandleCache` class (~80 lines)
-- Write-through persistence (immediate saves, no debouncing)
-- Track storage size manually for Firefox compatibility
-- Evict oldest entries when approaching 4MB limit
-- Keep existing tab monitoring approach (it works well)
+- ✅ Created `DidHandleCache` class (184 lines with comprehensive features)
+- ✅ Write-through persistence (immediate saves, no debouncing)
+- ✅ Cross-browser storage size estimation for Firefox compatibility
+- ✅ LRU eviction when approaching 4MB storage limit
+- ✅ Input validation for DIDs and handles with error handling
+- ✅ Storage failure rollback to prevent data corruption
+- ✅ Comprehensive test coverage (20 tests covering all scenarios)
 
 **Phase 4.3: Service Worker Simplification**
 
@@ -337,7 +340,7 @@ Expand test coverage for new modules and critical paths.
 - **Status**: Not started
 - **Target areas**:
   - Service configuration
-  - ✅ Cache operations (BidirectionalMap fully tested)
+  - ✅ Cache operations (BidirectionalMap and DidHandleCache fully tested)
   - Parser edge cases
   - Error scenarios
 

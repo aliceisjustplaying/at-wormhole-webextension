@@ -1,5 +1,5 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
-import { BidirectionalMap } from '../src/shared/cache';
+import { describe, test, expect, beforeEach, mock } from 'bun:test';
+import { BidirectionalMap, DidHandleCache } from '../src/shared/cache';
 
 describe('BidirectionalMap', () => {
   let map: BidirectionalMap<string, string>;
@@ -155,6 +155,254 @@ describe('BidirectionalMap', () => {
       map.set('🌟did:plc:123', '🦋alice.bsky.social');
       expect(map.getByFirst('🌟did:plc:123')).toBe('🦋alice.bsky.social');
       expect(map.getBySecond('🦋alice.bsky.social')).toBe('🌟did:plc:123');
+    });
+  });
+});
+
+interface MockStorage {
+  local: {
+    get: ReturnType<typeof mock>;
+    set: ReturnType<typeof mock>;
+    clear: ReturnType<typeof mock>;
+    remove: ReturnType<typeof mock>;
+    getBytesInUse?: ReturnType<typeof mock>;
+  };
+}
+
+describe('DidHandleCache', () => {
+  let cache: DidHandleCache;
+  let mockStorage: MockStorage;
+
+  beforeEach(() => {
+    cache = new DidHandleCache();
+
+    mockStorage = {
+      local: {
+        get: mock(() => Promise.resolve({})),
+        set: mock(() => Promise.resolve()),
+        clear: mock(() => Promise.resolve()),
+        remove: mock(() => Promise.resolve()),
+      },
+    };
+
+    (globalThis as unknown as { chrome: { storage: MockStorage } }).chrome = {
+      storage: mockStorage,
+    };
+  });
+
+  describe('initialization and loading', () => {
+    test('should start with empty cache', () => {
+      expect(cache.size).toBe(0);
+      expect(cache.estimatedStorageSize).toBe(0);
+    });
+
+    test('should load data from storage on load()', async () => {
+      mockStorage.local.get.mockResolvedValue({
+        'wormhole-cache': {
+          'did:plc:123': { handle: 'alice.bsky.social', lastAccessed: Date.now() },
+          'did:plc:456': { handle: 'bob.bsky.social', lastAccessed: Date.now() },
+        },
+      });
+
+      await cache.load();
+
+      expect(cache.size).toBe(2);
+      expect(cache.getHandle('did:plc:123')).toBe('alice.bsky.social');
+      expect(cache.getDid('alice.bsky.social')).toBe('did:plc:123');
+    });
+
+    test('should handle missing storage data gracefully', async () => {
+      mockStorage.local.get.mockResolvedValue({});
+
+      await cache.load();
+
+      expect(cache.size).toBe(0);
+    });
+
+    test('should handle corrupted storage data gracefully', async () => {
+      mockStorage.local.get.mockResolvedValue({
+        'wormhole-cache': 'invalid-data',
+      });
+
+      await cache.load();
+
+      expect(cache.size).toBe(0);
+    });
+  });
+
+  describe('set and get operations', () => {
+    test('should store and retrieve handle↔DID mappings', async () => {
+      await cache.set('did:plc:123', 'alice.bsky.social');
+
+      expect(cache.getHandle('did:plc:123')).toBe('alice.bsky.social');
+      expect(cache.getDid('alice.bsky.social')).toBe('did:plc:123');
+      expect(cache.size).toBe(1);
+    });
+
+    test('should immediately persist to storage on set', async () => {
+      await cache.set('did:plc:123', 'alice.bsky.social');
+
+      expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
+    });
+
+    test('should update lastAccessed on get operations', async () => {
+      await cache.set('did:plc:123', 'alice.bsky.social');
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      cache.getHandle('did:plc:123');
+
+      expect(mockStorage.local.set).toHaveBeenCalledTimes(2);
+    });
+
+    test('should return undefined for non-existent mappings', () => {
+      expect(cache.getHandle('did:plc:nonexistent')).toBeUndefined();
+      expect(cache.getDid('nonexistent.bsky.social')).toBeUndefined();
+    });
+  });
+
+  describe('storage size tracking', () => {
+    test('should track estimated storage size', async () => {
+      await cache.set('did:plc:123', 'alice.bsky.social');
+
+      expect(cache.estimatedStorageSize).toBeGreaterThan(0);
+    });
+
+    test('should update size when adding entries', async () => {
+      const initialSize = cache.estimatedStorageSize;
+
+      await cache.set('did:plc:123', 'alice.bsky.social');
+      const afterFirstEntry = cache.estimatedStorageSize;
+
+      await cache.set('did:plc:456', 'bob.bsky.social');
+      const afterSecondEntry = cache.estimatedStorageSize;
+
+      expect(afterFirstEntry).toBeGreaterThan(initialSize);
+      expect(afterSecondEntry).toBeGreaterThan(afterFirstEntry);
+    });
+
+    test('should approximate JSON serialization size', async () => {
+      await cache.set('did:plc:123456789', 'very-long-handle-name.bsky.social');
+
+      const size = cache.estimatedStorageSize;
+      const expectedMinSize = JSON.stringify({
+        'wormhole-cache': {
+          'did:plc:123456789': {
+            handle: 'very-long-handle-name.bsky.social',
+            lastAccessed: Date.now(),
+          },
+        },
+      }).length;
+
+      expect(size).toBeGreaterThanOrEqual(expectedMinSize * 0.8);
+      expect(size).toBeLessThanOrEqual(expectedMinSize * 1.2);
+    });
+  });
+
+  describe('LRU eviction', () => {
+    test('should handle size limits gracefully', async () => {
+      const maxSize = 1000;
+      cache = new DidHandleCache(maxSize);
+
+      await cache.set('did:plc:test1', 'test1.bsky.social');
+      await cache.set('did:plc:test2', 'test2.bsky.social');
+      await cache.set('did:plc:test3', 'test3.bsky.social');
+
+      expect(cache.size).toBe(3);
+      expect(cache.getHandle('did:plc:test1')).toBe('test1.bsky.social');
+      expect(cache.estimatedStorageSize).toBeGreaterThan(0);
+    });
+
+    test('should evict entries when manually triggered', async () => {
+      const maxSize = 100;
+      cache = new DidHandleCache(maxSize);
+
+      await cache.set('did:plc:old', 'old.bsky.social');
+      await cache.set('did:plc:newer', 'newer.bsky.social');
+      await cache.set('did:plc:newest', 'newest.bsky.social');
+
+      cache.evictOldestEntries();
+
+      expect(cache.size).toBeLessThan(3);
+    });
+  });
+
+  describe('clear operations', () => {
+    test('should remove all entries from cache and storage', async () => {
+      await cache.set('did:plc:123', 'alice.bsky.social');
+      await cache.set('did:plc:456', 'bob.bsky.social');
+
+      await cache.clear();
+
+      expect(cache.size).toBe(0);
+      expect(cache.estimatedStorageSize).toBe(0);
+      expect(mockStorage.local.remove).toHaveBeenCalledWith('wormhole-cache');
+    });
+  });
+
+  describe('error handling', () => {
+    test('should handle storage set failures gracefully', async () => {
+      mockStorage.local.set.mockRejectedValue(new Error('Storage quota exceeded'));
+
+      try {
+        await cache.set('did:plc:123', 'alice.bsky.social');
+        expect(false).toBe(true); // Should not reach here
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+      }
+
+      expect(cache.getHandle('did:plc:123')).toBeUndefined();
+    });
+
+    test('should handle storage get failures gracefully', async () => {
+      mockStorage.local.get.mockRejectedValue(new Error('Storage error'));
+
+      try {
+        await cache.load();
+        expect(false).toBe(true); // Should not reach here
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+      }
+    });
+
+    test('should validate DID format', async () => {
+      try {
+        await cache.set('invalid-did', 'alice.bsky.social');
+        expect(false).toBe(true); // Should not reach here
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+      }
+    });
+
+    test('should validate handle format', async () => {
+      try {
+        await cache.set('did:plc:123', 'invalid..handle');
+        expect(false).toBe(true); // Should not reach here
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+      }
+    });
+  });
+
+  describe('Firefox compatibility', () => {
+    test('should work without chrome.storage.local.getBytesInUse', async () => {
+      delete mockStorage.local.getBytesInUse;
+
+      await cache.set('did:plc:123', 'alice.bsky.social');
+
+      expect(cache.estimatedStorageSize).toBeGreaterThan(0);
+    });
+
+    test('should estimate storage size manually when getBytesInUse unavailable', async () => {
+      delete mockStorage.local.getBytesInUse;
+
+      await cache.set('did:plc:123', 'alice.bsky.social');
+      const size1 = cache.estimatedStorageSize;
+
+      await cache.set('did:plc:456', 'bob.bsky.social');
+      const size2 = cache.estimatedStorageSize;
+
+      expect(size2).toBeGreaterThan(size1);
     });
   });
 });
