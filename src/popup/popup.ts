@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
           });
         });
         handleToUse = response.handle;
-        if (handleToUse) {
+        if (handleToUse && import.meta.env.MODE === 'development') {
           debugInfo.textContent = response.fromCache ? 'handle was fetched from cache' : 'was forced to resolve handle';
         }
       } catch (err: unknown) {
@@ -246,7 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
           });
         });
         didToUse = response.did;
-        if (didToUse) {
+        if (didToUse && import.meta.env.MODE === 'development') {
           debugInfo.textContent = response.fromCache ? 'did was fetched from cache' : 'was forced to resolve did';
         }
       } catch (err: unknown) {

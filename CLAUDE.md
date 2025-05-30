@@ -167,6 +167,8 @@ This is a Manifest V3 browser extension that provides "wormhole" navigation betw
 - Delegates cache operations to DidHandleCache module
 - Message handling for popup communication
 - Automatic tab URL monitoring to pre-cache handle/DID pairs
+- Proactive background resolution: resolves DIDs from handles and handles from DIDs
+- Returns cache hit/miss metadata to popup for development debugging
 
 **Popup (`src/popup/popup.ts`)**:
 
@@ -175,6 +177,7 @@ This is a Manifest V3 browser extension that provides "wormhole" navigation betw
 - Cache management controls
 - Firefox theme integration using `theme.getCurrent()` API
 - Runtime debug controls via `window.wormholeDebug`
+- Development-only debug display showing cache hit/miss status for DID/handle resolution
 
 ### Build System
 
