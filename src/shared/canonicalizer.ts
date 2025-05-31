@@ -99,7 +99,7 @@ function isValidHandle(handle: string): boolean {
   if (!handle || handle.length > 253) {
     return false;
   }
-  
+
   // Basic checks: must contain at least one dot (domain requirement)
   // and consist of valid domain characters
   const handleRegex = /^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$/;

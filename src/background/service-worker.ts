@@ -10,8 +10,14 @@ const cache = new DidHandleCache();
 const cacheLoaded = (async () => {
   await Debug.loadRuntimeConfig();
   Debug.serviceWorker('Service worker starting, loading cache...');
-  await cache.load();
-  Debug.serviceWorker('Cache loaded successfully');
+  await cache.load().match(
+    () => {
+      Debug.serviceWorker('Cache loaded successfully');
+    },
+    (error) => {
+      Debug.error('serviceWorker', 'Failed to load cache:', error);
+    },
+  );
 })().catch((error: unknown) => {
   Debug.error('serviceWorker', 'Failed to initialize:', error);
 });
@@ -20,15 +26,15 @@ const cacheLoaded = (async () => {
 chrome.runtime.onMessage.addListener((request: SWMessage, _sender, sendResponse): boolean => {
   // UPDATE_CACHE
   if (request.type === 'UPDATE_CACHE' && typeof request.did === 'string' && typeof request.handle === 'string') {
-    void cache
-      .set(request.did, request.handle)
-      .then(() => {
+    void cache.set(request.did, request.handle).match(
+      () => {
         sendResponse({ success: true });
-      })
-      .catch((error: unknown) => {
+      },
+      (error) => {
         console.error('Failed to update cache via message:', error);
-        sendResponse({ success: false, error: error instanceof Error ? error.message : String(error) });
-      });
+        sendResponse({ success: false, error: error.message });
+      },
+    );
     return true;
   }
 
@@ -45,7 +51,16 @@ chrome.runtime.onMessage.addListener((request: SWMessage, _sender, sendResponse)
         const result = await resolveDidToHandle(request.did);
         await result.match(
           async (handle) => {
-            if (handle) await cache.set(request.did, handle);
+            if (handle) {
+              await cache.set(request.did, handle).match(
+                () => {
+                  // Success - no action needed
+                },
+                (cacheError) => {
+                  console.error('Failed to cache DID->handle mapping:', cacheError);
+                },
+              );
+            }
             sendResponse({ handle, fromCache: false });
           },
           (error) => {
@@ -74,7 +89,16 @@ chrome.runtime.onMessage.addListener((request: SWMessage, _sender, sendResponse)
         const result = await resolveHandleToDid(request.handle);
         await result.match(
           async (did) => {
-            if (did) await cache.set(did, request.handle);
+            if (did) {
+              await cache.set(did, request.handle).match(
+                () => {
+                  // Success - no action needed
+                },
+                (cacheError) => {
+                  console.error('Failed to cache handle->DID mapping:', cacheError);
+                },
+              );
+            }
             sendResponse({ did, fromCache: false });
           },
           (error) => {
@@ -98,15 +122,15 @@ chrome.runtime.onMessage.addListener((request: SWMessage, _sender, sendResponse)
 
   // CLEAR_CACHE
   if (request.type === 'CLEAR_CACHE') {
-    void cache
-      .clear()
-      .then(() => {
+    void cache.clear().match(
+      () => {
         sendResponse({ success: true });
-      })
-      .catch((error: unknown) => {
+      },
+      (error) => {
         console.error('Failed to clear cache:', error);
-        sendResponse({ success: false, error: error instanceof Error ? error.message : String(error) });
-      });
+        sendResponse({ success: false, error: error.message });
+      },
+    );
     return true;
   }
 
@@ -126,7 +150,14 @@ chrome.tabs.onUpdated.addListener((_tabId, info, tab) => {
 
           // Case 1: URL had both DID and handle, cache the pair
           if (data.did && data.handle) {
-            await cache.set(data.did, data.handle);
+            await cache.set(data.did, data.handle).match(
+              () => {
+                // Success - no action needed
+              },
+              (error) => {
+                console.error('Failed to cache DID+handle pair from URL:', error);
+              },
+            );
             return;
           }
 
@@ -139,7 +170,16 @@ chrome.tabs.onUpdated.addListener((_tabId, info, tab) => {
             const result = await resolveDidToHandle(data.did);
             await result.match(
               async (handle) => {
-                if (handle && data.did) await cache.set(data.did, handle);
+                if (handle && data.did) {
+                  await cache.set(data.did, handle).match(
+                    () => {
+                      // Success - no action needed
+                    },
+                    (cacheError) => {
+                      console.error('Failed to cache background DID->handle resolution:', cacheError);
+                    },
+                  );
+                }
               },
               (error) => {
                 console.error('Background DID->handle resolution failed:', error);
@@ -157,7 +197,16 @@ chrome.tabs.onUpdated.addListener((_tabId, info, tab) => {
             const result = await resolveHandleToDid(data.handle);
             await result.match(
               async (did) => {
-                if (did && data.handle) await cache.set(did, data.handle);
+                if (did && data.handle) {
+                  await cache.set(did, data.handle).match(
+                    () => {
+                      // Success - no action needed
+                    },
+                    (cacheError) => {
+                      console.error('Failed to cache background handle->DID resolution:', cacheError);
+                    },
+                  );
+                }
               },
               (error) => {
                 console.error('Background handle->DID resolution failed:', error);

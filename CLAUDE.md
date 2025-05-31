@@ -276,6 +276,7 @@ The codebase has been successfully refactored into a clean, modular architecture
    - `DidHandleCache` with write-through persistence and LRU eviction
    - Service worker reduced from 288 to 139 lines
 5. **Architecture Cleanup**: Made canonicalizer pure (no network calls), proper separation of concerns
+6. **Error Handling System**: Comprehensive neverthrow integration with ResultAsync patterns, discriminated union error types, and explicit error handling enforcement
 
 ### 📈 Results
 
@@ -285,15 +286,27 @@ The codebase has been successfully refactored into a clean, modular architecture
 - **Extensibility**: Adding new services requires only updating `services.ts`
 - **Reliability**: No data loss, proper error handling, cross-browser compatibility
 
-### ⏳ Remaining Tasks
+### 🚨 CRITICAL: Fix Broken neverthrow Implementation
+
+**URGENT - Must fix 121 ESLint errors before any other work:**
+
+1. **service-worker.ts**: Fix all calls to neverthrow functions to properly handle Results
+2. **popup.ts**: Fix parseInput() calls and other neverthrow function usage  
+3. **tests/**: Fix all test files to properly handle Results with .match() patterns
+4. **Validation**: Ensure `bun run lint` passes with zero errors
+
+### ⏳ Remaining Tasks (After Critical Fixes)
 
 - **Type Safety**: Replace remaining `any`/`unknown` types with proper interfaces
-- **Error Handling**: Standardize error patterns across modules (see implementation plan below)
-- **Test Coverage**: Add edge case and error scenario tests
+- **Complete Integration**: Finish neverthrow integration in service-worker.ts and popup.ts  
+- **Popup Error UI**: Implement user-friendly error messages in popup interface
+- **Test Coverage**: Add additional edge case scenarios
 
-## Error Handling Implementation Plan
+## ⚠️ Error Handling Implementation - PARTIALLY IMPLEMENTED (BROKEN)
 
-### Phase 1: Core Infrastructure
+**Status**: neverthrow infrastructure is complete, but integration is broken with 121 ESLint violations.
+
+### ✅ Phase 1: Core Infrastructure - COMPLETED
 
 1. **✅ Install neverthrow and its ESLint plugin**:
 
@@ -434,9 +447,11 @@ The codebase has been successfully refactored into a clean, modular architecture
    }
    ```
 
-### Phase 2: Module Updates (in order)
+### ⚠️ Phase 2: Module Updates - PARTIALLY COMPLETED (BROKEN)
 
-1. **✅ resolver.ts** (highest priority - currently swallows all errors):
+**Mixed implementation status - some modules fully converted, others broken:**
+
+1. **✅ resolver.ts** - Network operations use `ResultAsync<T, WormholeError>` with proper timeout and error handling:
 
    ```typescript
    import { ResultAsync, ok, err } from 'neverthrow';
@@ -452,7 +467,7 @@ The codebase has been successfully refactored into a clean, modular architecture
    }
    ```
 
-2. **✅ parser.ts**:
+2. **✅ parser.ts** - URL parsing operations use `Result<T, WormholeError>` with validation:
 
    ```typescript
    import { Result, ok, err } from 'neverthrow';
@@ -465,7 +480,7 @@ The codebase has been successfully refactored into a clean, modular architecture
    }
    ```
 
-3. **✅ canonicalizer.ts**:
+3. **✅ canonicalizer.ts** - Pure transformation with comprehensive input validation:
 
    ```typescript
    export function canonicalize(info: TransformInfo): Result<TransformInfo, ValidationError> {
@@ -477,10 +492,7 @@ The codebase has been successfully refactored into a clean, modular architecture
    }
    ```
 
-4. **cache.ts**:
-
-   - Keep existing throw patterns for programmer errors (contract violations)
-   - Return `ResultAsync` for I/O operations:
+4. **✅ cache.ts** - I/O operations use `ResultAsync` with rollback logic, validation errors remain as throws:
 
    ```typescript
    export function loadCache(): ResultAsync<CacheData, CacheError> {
@@ -490,7 +502,7 @@ The codebase has been successfully refactored into a clean, modular architecture
    }
    ```
 
-5. **service-worker.ts**:
+5. **❌ service-worker.ts** - BROKEN: calls neverthrow functions but doesn't handle Results (121 ESLint errors):
 
    ```typescript
    // Standardize responses
@@ -511,7 +523,7 @@ The codebase has been successfully refactored into a clean, modular architecture
    );
    ```
 
-6. **popup.ts**:
+6. **❌ popup.ts** - BROKEN: calls neverthrow functions but doesn't handle Results properly:
 
    ```typescript
    // Map errors to user messages
@@ -536,7 +548,9 @@ The codebase has been successfully refactored into a clean, modular architecture
    );
    ```
 
-### Phase 3: Integration Patterns
+### ❌ Phase 3: Integration Patterns - NOT IMPLEMENTED
+
+**Integration patterns designed but not properly implemented across the codebase:**
 
 1. **Chaining Operations**:
 
@@ -565,20 +579,30 @@ The codebase has been successfully refactored into a clean, modular architecture
    fetchFromPrimary(url).orElse((error) => (error.type === 'NETWORK_ERROR' ? fetchFromFallback(url) : err(error)));
    ```
 
-### Phase 4: Testing & Documentation
+### ❌ Phase 4: Testing & Documentation - BROKEN
 
-1. Add tests for error scenarios
-2. Test type discrimination works correctly
-3. Verify error messages are helpful
-4. Document patterns in code comments
+1. **❌ Test files broken** - Tests call neverthrow functions but don't handle Results properly
+2. **✅ Type discrimination verified** - WormholeError discriminated unions work correctly  
+3. **✅ Error message validation** - Structured error types provide helpful debugging information
+4. **❌ Test coverage broken** - Tests pass but violate neverthrow-must-use ESLint rules
 
-### Benefits of This Approach
+**Critical Issue**: **121 ESLint errors** from neverthrow-must-use plugin showing Results are not being handled properly.
 
-- Functional style aligns with neverthrow philosophy
-- Discriminated unions provide excellent TypeScript support
-- Lightweight compared to class hierarchies
-- Easy to pattern match and handle specific errors
-- Forces explicit error handling throughout the codebase
+### ⚠️ Current Implementation Status - MIXED RESULTS
+
+**Infrastructure is complete but integration is broken:**
+
+- **✅ Type Safety**: Error types properly defined with discriminated unions (`WormholeError`)
+- **❌ Explicit Handling**: ESLint rule reveals 121 violations where Results are not handled
+- **✅ Core Modules**: resolver.ts, parser.ts, canonicalizer.ts, cache.ts properly implemented
+- **❌ Integration Modules**: service-worker.ts and popup.ts call neverthrow functions incorrectly
+- **❌ Test Coverage**: Tests pass but violate neverthrow patterns (unhandled Results)
+
+**Critical Issues**:
+- Service worker calls `parseInput()` but doesn't handle the `Result<T, E>` return value
+- Popup calls neverthrow functions with `void` instead of proper `.match()` handling  
+- Tests use neverthrow functions but don't follow `.match()` patterns
+- **121 ESLint errors** must be fixed before the implementation is functional
 
 ### Adding New Services
 
