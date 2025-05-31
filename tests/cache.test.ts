@@ -1,9 +1,6 @@
 import { describe, test, expect, beforeEach, mock } from 'bun:test';
 import { BidirectionalMap, DidHandleCache } from '../src/shared/cache';
 
-// Re-enable DidHandleCache tests with proper ResultAsync handling
-const skipDidHandleTests = false;
-
 describe('BidirectionalMap', () => {
   let map: BidirectionalMap<string, string>;
 
@@ -172,7 +169,7 @@ interface MockStorage {
   };
 }
 
-describe.skipIf(skipDidHandleTests)('DidHandleCache', () => {
+describe('DidHandleCache', () => {
   let cache: DidHandleCache;
   let mockStorage: MockStorage;
 
