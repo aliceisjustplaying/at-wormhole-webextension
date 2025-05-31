@@ -288,295 +288,354 @@ The codebase has been successfully refactored into a clean, modular architecture
 ### ⏳ Remaining Tasks
 
 - **Type Safety**: Replace remaining `any`/`unknown` types with proper interfaces
-- **Error Handling**: Standardize error patterns across modules
+- **Error Handling**: Standardize error patterns across modules (see implementation plan below)
 - **Test Coverage**: Add edge case and error scenario tests
+
+## Error Handling Implementation Plan
+
+### Phase 1: Core Infrastructure
+
+1. **✅ Install neverthrow and its ESLint plugin**:
+
+   ```bash
+   bun add neverthrow
+   bun add -D eslint-plugin-neverthrow-must-use
+   ```
+
+   **Configure ESLint** in `eslint.config.mjs`:
+
+   ```javascript
+   import neverthrowMustUse from 'eslint-plugin-neverthrow-must-use';
+
+   export default [
+     // ... existing config
+     {
+       files: ['**/*.ts', '**/*.tsx'],
+       plugins: {
+         'neverthrow-must-use': neverthrowMustUse,
+       },
+       rules: {
+         'neverthrow-must-use/must-use-result': 'error',
+       },
+     },
+   ];
+   ```
+
+   This enforces that all Result types must be properly handled using `.match()`, `.unwrapOr()`, or `._unsafeUnwrap()`, preventing silent error swallowing.
+
+2. **Create `src/shared/errors.ts`** with discriminated union error types:
+
+   ```typescript
+   // Error types using discriminated unions (idiomatic for neverthrow)
+   export type WormholeError = NetworkError | ParseError | ValidationError | CacheError;
+
+   export type NetworkError = {
+     type: 'NETWORK_ERROR';
+     message: string;
+     url: string;
+     status?: number;
+     cause?: unknown;
+   };
+
+   export type ParseError = {
+     type: 'PARSE_ERROR';
+     message: string;
+     input: string;
+   };
+
+   export type ValidationError = {
+     type: 'VALIDATION_ERROR';
+     message: string;
+     field: string;
+     value: unknown;
+   };
+
+   export type CacheError = {
+     type: 'CACHE_ERROR';
+     message: string;
+     operation: string;
+     cause?: unknown;
+   };
+
+   // Helper functions to create errors
+   export const networkError = (message: string, url: string, status?: number, cause?: unknown): NetworkError => ({
+     type: 'NETWORK_ERROR',
+     message,
+     url,
+     status,
+     cause,
+   });
+
+   export const parseError = (message: string, input: string): ParseError => ({
+     type: 'PARSE_ERROR',
+     message,
+     input,
+   });
+
+   // ... similar helpers for other error types
+   ```
+
+3. **Extend `src/shared/debug.ts`** with centralized error logging:
+
+   ```typescript
+   export const logError = (category: string, error: WormholeError | unknown, context?: Record<string, unknown>) => {
+     const errorInfo = isWormholeError(error) ? { type: error.type, ...error } : { raw: String(error) };
+
+     console.error(`[${category}]`, errorInfo, context);
+
+     if (import.meta.env.DEV) {
+       debugLog(category, 'ERROR', errorInfo, context);
+     }
+   };
+   ```
+
+4. **Create `src/shared/retry.ts`** for network resilience:
+
+   ```typescript
+   import { ResultAsync, ok, err } from 'neverthrow';
+
+   interface RetryOptions {
+     maxAttempts?: number;
+     initialDelay?: number;
+     maxDelay?: number;
+     backoffFactor?: number;
+     shouldRetry?: (error: WormholeError) => boolean;
+   }
+
+   export function withRetry<T>(
+     fn: () => ResultAsync<T, WormholeError>,
+     options: RetryOptions = {},
+   ): ResultAsync<T, WormholeError> {
+     // Implementation using ResultAsync chaining
+   }
+   ```
+
+### Phase 2: Module Updates (in order)
+
+1. **resolver.ts** (highest priority - currently swallows all errors):
+
+   ```typescript
+   import { ResultAsync, ok, err } from 'neverthrow';
+   import { networkError, parseError } from './errors';
+
+   export function resolveHandleToDid(handle: string): ResultAsync<string, WormholeError> {
+     return ResultAsync.fromPromise(fetch(apiUrl, { signal: AbortSignal.timeout(5000) }), (e) =>
+       networkError('Failed to fetch', apiUrl, undefined, e),
+     )
+       .andThen((resp) => (resp.ok ? ok(resp) : err(networkError('Bad response', apiUrl, resp.status))))
+       .andThen((resp) => ResultAsync.fromPromise(resp.json(), () => parseError('Invalid JSON response', apiUrl)))
+       .map((data) => data.did);
+   }
+   ```
+
+2. **parser.ts**:
+
+   ```typescript
+   import { Result, ok, err } from 'neverthrow';
+
+   export function parseInput(input: string): Result<TransformInfo | null, ParseError> {
+     return Result.fromThrowable(
+       () => new URL(input),
+       () => parseError('Invalid URL', input),
+     )().map((url) => extractInfo(url));
+   }
+   ```
+
+3. **canonicalizer.ts**:
+
+   ```typescript
+   export function canonicalize(info: TransformInfo): Result<TransformInfo, ValidationError> {
+     if (!isValidDid(info.did)) {
+       return err(validationError('Invalid DID format', 'did', info.did));
+     }
+     // ... rest of canonicalization
+     return ok(canonicalizedInfo);
+   }
+   ```
+
+4. **cache.ts**:
+
+   - Keep existing throw patterns for programmer errors (contract violations)
+   - Return `ResultAsync` for I/O operations:
+
+   ```typescript
+   export function loadCache(): ResultAsync<CacheData, CacheError> {
+     return ResultAsync.fromPromise(chrome.storage.local.get(STORAGE_KEY), (e) =>
+       cacheError('Failed to load cache', 'load', e),
+     );
+   }
+   ```
+
+5. **service-worker.ts**:
+
+   ```typescript
+   // Standardize responses
+   type MessageResponse<T> =
+     | {
+         success: true;
+         data: T;
+       }
+     | {
+         success: false;
+         error: WormholeError;
+       };
+
+   // Handle messages with proper error propagation
+   handleResolve(request).match(
+     (data) => sendResponse({ success: true, data }),
+     (error) => sendResponse({ success: false, error }),
+   );
+   ```
+
+6. **popup.ts**:
+
+   ```typescript
+   // Map errors to user messages
+   function getErrorMessage(error: WormholeError): string {
+     switch (error.type) {
+       case 'NETWORK_ERROR':
+         return `Network error: ${error.message}`;
+       case 'PARSE_ERROR':
+         return `Invalid input: ${error.message}`;
+       default:
+         return 'An unexpected error occurred';
+     }
+   }
+
+   // Use pattern matching for UI updates
+   resolveIdentifier(input).match(
+     (data) => updateUI(data),
+     (error) => {
+       logError('POPUP', error);
+       showError(getErrorMessage(error));
+     },
+   );
+   ```
+
+### Phase 3: Integration Patterns
+
+1. **Chaining Operations**:
+
+   ```typescript
+   parseInput(url)
+     .andThen((info) => (info ? ok(info) : err(parseError('No info extracted', url))))
+     .andThen((info) => resolveIdentifiers(info))
+     .map((resolved) => buildDestinations(resolved))
+     .match(
+       (destinations) => updateUI(destinations),
+       (error) => showError(error),
+     );
+   ```
+
+2. **Combining Results**:
+
+   ```typescript
+   ResultAsync.combine([resolveHandleToDid(handle), loadOptions()]).map(([did, options]) => ({
+     did,
+     options,
+   }));
+   ```
+
+3. **Error Recovery**:
+   ```typescript
+   fetchFromPrimary(url).orElse((error) => (error.type === 'NETWORK_ERROR' ? fetchFromFallback(url) : err(error)));
+   ```
+
+### Phase 4: Testing & Documentation
+
+1. Add tests for error scenarios
+2. Test type discrimination works correctly
+3. Verify error messages are helpful
+4. Document patterns in code comments
+
+### Benefits of This Approach
+
+- Functional style aligns with neverthrow philosophy
+- Discriminated unions provide excellent TypeScript support
+- Lightweight compared to class hierarchies
+- Easy to pattern match and handle specific errors
+- Forces explicit error handling throughout the codebase
 
 ### Adding New Services
 
-After refactoring, adding a new AT Protocol service should be as simple as:
+To add a new AT Protocol service, update `src/shared/services.ts`:
 
 ```typescript
 // In src/shared/services.ts
 SERVICES.NEW_SERVICE = {
-  url: 'https://example.com',
-  name: '✨ Example Service',
-  patterns: {
-    profile: /\/user\//,
-    post: /\/post\//,
+  emoji: '✨',
+  name: 'example.com',
+  contentSupport: 'full', // or 'profiles-and-posts', 'only-posts', 'only-profiles'
+
+  // Optional: For services that can parse their own URLs
+  parsing: {
+    hostname: 'example.com', // or ['example.com', 'example.net'] for multiple domains
+    patterns: {
+      // Choose the appropriate pattern type(s):
+      profileIdentifier: /^\/profile\/([^/]+)/, // For handle OR DID (flexible)
+      profileHandle: /^\/user\/([^/]+)$/, // For handle-only URLs
+      profileDid: /^\/did\/(did:[^/]+)/, // For DID-only URLs
+      queryParam: 'user', // For extracting from query parameters
+      customParser: (url) => {
+        // For complex URL parsing
+        // Return extracted identifier or null
+        return url.searchParams.get('id') || null;
+      },
+    },
   },
+
+  // Required: Build URLs for this service
   buildUrl: (info) => {
-    // Build URL based on TransformInfo
+    if (!info.handle) return null; // Example: require handle
+    if (info.rkey) {
+      return `https://example.com/user/${info.handle}/post/${info.rkey}`;
+    }
+    return `https://example.com/user/${info.handle}`;
+  },
+
+  // Optional: Restrict what inputs this service accepts
+  requiredFields: {
+    handle: true, // Require handle (no DID-only inputs)
+    rkey: true, // Require rkey (posts only)
+    plcOnly: true, // Only accept did:plc DIDs (not did:web)
   },
 };
 ```
+
+Key fields:
+
+- `emoji`: Service icon (required)
+- `name`: Service display name (required)
+- `contentSupport`: What content types the service supports (required)
+- `parsing`: Optional URL parsing configuration
+  - `hostname`: Domain(s) to match
+  - `patterns`: One or more pattern types for extracting identifiers
+- `buildUrl`: Function to generate destination URLs (required)
+- `requiredFields`: Optional restrictions on accepted inputs
 
 No other code changes should be required!
 
-## ✅ Options Page Implementation - COMPLETED
+## Options System
 
-### Status: COMPLETED ✅
+The extension includes an options page with the following settings:
 
-Options page infrastructure has been successfully implemented with "show emojis" and "strict mode" checkbox settings.
+- **Show Emojis**: Toggle emoji display in service names (default: true)
+- **Strict Mode**: Prevent fallback behavior when viewing content (default: false)
 
-**Completed work:**
+### Implementation Details
 
-- ✅ `src/options/options.html` - Options page structure with checkboxes for both settings
-- ✅ `src/options/options.css` - Clean, extension-appropriate styling
-- ✅ `src/options/options.ts` - Checkbox logic and storage integration for both options
-- ✅ `public/manifest.json` - Added `options_ui` configuration
-- ✅ All validation commands pass (lint, typecheck, tests, build)
+- Options page: `src/options/options.html|ts|css`
+- Storage: Uses `chrome.storage.sync` for cross-device synchronization
+- Shared utility: `src/shared/options.ts` provides centralized options loading with caching
+- Integration: Popup loads options and passes to `buildDestinations()`
 
-**Implementation details:**
+### Service Content Support Levels
 
-- Uses `chrome.storage.sync` for cross-device synchronization
-- Storage keys: `showEmojis` (boolean, defaults to true), `strictMode` (boolean, defaults to false)
-- Follows existing storage patterns from cache system
-- Chrome/Firefox compatible
-- Proper TypeScript types and error handling
+Each service has a `contentSupport` field that determines what content types it can display:
 
-## ✅ Show Emojis Feature Implementation - COMPLETED
+- `'full'` - Supports profiles, posts, feeds, and lists
+- `'profiles-and-posts'` - Supports profiles and posts only
+- `'only-posts'` - Supports posts only (requires rkey)
+- `'only-profiles'` - Supports profiles only
 
-### Feature Status: COMPLETED ✅
-
-The "show emojis" feature has been successfully implemented with clean data separation and proper integration.
-
-**Completed work:**
-
-- ✅ **Updated ServiceConfig interface** - Added separate `emoji` and `name` fields
-- ✅ **Updated all service configurations** - Split labels into emoji + name parts
-- ✅ **Modified buildDestinations()** - Added optional `showEmojis` parameter (defaults to true)
-- ✅ **Created shared options utility** (`src/shared/options.ts`) - Centralized options loading with caching
-- ✅ **Updated popup integration** - Loads options and passes `showEmojis` to buildDestinations
-- ✅ **Added comprehensive tests** - Tests for both emoji enabled/disabled scenarios
-- ✅ **All validation commands pass** - Lint, typecheck, tests, and build all successful
-
-**Implementation details:**
-
-- **Clean data structure**: Each service now has separate `emoji` and `name` fields
-- **Backward compatibility**: `buildDestinations()` defaults to showing emojis (existing behavior)
-- **Efficient options loading**: Options are cached to avoid repeated storage calls
-- **Comprehensive testing**: Added tests to verify emoji display behavior
-- **Type safety**: Full TypeScript support with proper interfaces
-
-**How it works:**
-
-1. **Options page**: User toggles "show emojis" checkbox → setting saved to `chrome.storage.sync`
-2. **Popup initialization**: Loads options via `loadOptions()` utility
-3. **Destination building**: Passes `showEmojis` setting to `buildDestinations()`
-4. **Label generation**: `${showEmojis ? service.emoji : ''} ${service.name}`
-
-**Testing results:**
-
-- All existing tests continue to pass
-- New tests verify emoji functionality works correctly
-- Both enabled (🦋 bsky.app) and disabled (bsky.app) scenarios tested
-
-## 🔧 toolify.blue Service Addition - COMPLETED
-
-### Status: COMPLETED ✅
-
-Successfully added support for toolify.blue, a tools and utility service for AT Protocol/Bluesky users.
-
-**Target URLs:**
-
-- Profile (handle): `https://toolify.blue/profile/alice.mosphere.at`
-- Profile (DID): `https://toolify.blue/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf`
-- Post (handle): `https://toolify.blue/profile/alice.mosphere.at/post/3lqeyxrcx6k2p`
-- Post (DID): `https://toolify.blue/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf/post/3lqeyxrcx6k2p`
-
-**Implementation Plan:**
-
-1. **URL Pattern Analysis** ✅
-
-   - Pattern: `/profile/IDENTIFIER` for profiles, `/profile/IDENTIFIER/post/RKEY` for posts
-   - **IDENTIFIER can be either HANDLE or DID** (like bsky.app, deer.social)
-   - Single regex: `/^\/profile\/([^/]+)(?:\/post\/([^/]+))?$/`
-   - Supports both handle and DID inputs, no resolution restrictions
-
-2. **Service Configuration** ✅
-
-   - ✅ Added `TOOLIFY_BLUE` to `src/shared/services.ts`
-   - ✅ `emoji: '🔧'` (tools theme), `name: 'toolify.blue'`
-   - ✅ `parsing.hostname: 'toolify.blue'`
-   - ✅ `parsing.patterns.profileIdentifier` with combined profile/post regex
-   - ✅ `buildUrl` function for both profile and post URLs using bskyAppPath
-   - ✅ **No requiredFields restrictions** (accepts both handles and DIDs)
-
-3. **Testing Strategy** ✅
-
-   - ✅ Parse profile with handle: `toolify.blue/profile/alice.mosphere.at` → handle extraction
-   - ✅ Parse post with handle: `toolify.blue/profile/alice.mosphere.at/post/3lqeyxrcx6k2p` → handle + rkey
-   - ✅ Parse profile with DID: `toolify.blue/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf` → DID extraction
-   - ✅ Parse post with DID: `toolify.blue/profile/did:plc:xyz/post/3lqeyxrcx6k2p` → DID + rkey
-   - ✅ Verify buildDestinations includes toolify.blue for both handle and DID scenarios
-   - ✅ Test emoji enabled/disabled display behavior
-
-4. **Technical Requirements** ✅
-   - ✅ Works with existing handle→DID resolution system
-   - ✅ Works with both handle-based and DID-based transformations
-   - ✅ All validation commands pass (format, lint, typecheck, test, build:dev)
-   - ✅ Maintains backward compatibility with existing services
-
-**Progress:**
-
-- ✅ Analysis complete - URL patterns identified and documented
-- ✅ Service configuration - TOOLIFY_BLUE added to services.ts
-- ✅ Testing - All 4 parsing tests and 3 buildDestinations tests added and passing
-- ✅ Validation - All commands pass (format, lint, typecheck, test, build:dev)
-- ✅ Documentation update - CLAUDE.md and URL Pattern Recognition updated
-
-**Final Results:**
-
-- **66 total tests passing** (4 new toolify.blue tests added)
-- **Service successfully integrated** into modular architecture
-- **Full handle and DID support** like bsky.app and deer.social
-- **Emoji toggle integration** works correctly (🔧 toolify.blue / toolify.blue)
-- **Documentation updated** in README.md and docs/index.html
-- **No breaking changes** to existing functionality
-
-**Implementation Complete** - toolify.blue is now fully supported in the extension! 🎉
-
-## 🔒 Strict Mode Feature Implementation - COMPLETED
-
-### Status: COMPLETED ✅
-
-Successfully implemented the "strict mode" option to prevent fallback behavior when viewing posts or specific content types. When enabled, the extension only shows services that support the current content level (e.g., posts) rather than falling back to profile-level URLs.
-
-**Current Behavior (Fallback Mode)**:
-
-- When viewing a post on deer.social or pdsls.dev
-- Extension shows destinations for ALL services
-- Services that don't support posts (like cred.blue, tangled.sh) fall back to profile URLs
-- User gets mixed results: some post URLs, some profile URLs
-
-**Strict Mode Behavior**:
-
-- When viewing a post, only show services that support post-level URLs
-- When viewing a profile, show all applicable services
-- No fallback behavior - strict content-type matching
-
-### Service Categorization Analysis
-
-**Full Content Support** (`'full'` - profiles, posts, feeds, lists):
-
-- 🦌 **deer.social** - Uses `bskyAppPath` (supports `/profile/handle/post|feed|lists/xyz`)
-- 🦋 **bsky.app** - Uses `bskyAppPath` (supports `/profile/handle/post|feed|lists/xyz`)
-- ⚙️ **pdsls.dev** - Uses full `atUri` (complete AT Protocol support for all content types)
-- 🛠️ **atp.tools** - Uses full `atUri` (complete AT Protocol support for all content types)
-
-**Profiles and Posts Support** (`'profiles-and-posts'` - profiles and posts only):
-
-- 🔧 **toolify.blue** - Uses `bskyAppPath` (supports `/profile/handle/post/xyz` but not feeds/lists)
-
-**Posts-Only Services** (`'only-posts'` - require rkey, posts only):
-
-- ☁️ **skythread** - Requires `rkey`, returns `null` without it (posts only, not feeds/lists)
-
-**Profile-Only Services** (`'only-profiles'` - profiles only, no content):
-
-- 🍥 **cred.blue** - Only supports handles, no content URLs
-- 🪢 **tangled.sh** - Only supports handles, no content URLs
-- 📰 **frontpage.fyi** - Only supports handles, no content URLs
-- ☀️ **clearsky** - Profile-level DID checking only
-- ⛵ **boat.kelinci** - PLC oplog viewer, profile-level only
-- 🪪 **plc.directory** - PLC directory, profile-level only
-
-**Completed work:**
-
-- ✅ **Updated OptionsData interface** - Added `strictMode: boolean` field (defaults to false)
-- ✅ **Enhanced ServiceConfig interface** - Added `contentSupport` field with values: `'only-profiles'` | `'only-posts'` | `'profiles-and-posts'` | `'full'`
-- ✅ **Updated all service configurations** - Added appropriate contentSupport values for all 12 services
-- ✅ **Modified buildDestinations() function** - Added strictMode parameter with filtering logic for posts/feeds/lists
-- ✅ **Updated options page** - Added strict mode checkbox to HTML/CSS/TS
-- ✅ **Updated popup integration** - Loads and passes strictMode option to buildDestinations
-- ✅ **Added comprehensive tests** - 6 new strict mode tests covering all scenarios
-- ✅ **All validation commands pass** - Format, lint, typecheck, test (72 tests), and build all successful
-
-**Implementation details:**
-
-- **Backward compatibility**: `strictMode` defaults to `false` (maintains existing fallback behavior)
-- **Service categorization**: Each service now has explicit content support level
-- **Smart filtering**: Different logic for posts vs feeds/lists in strict mode
-- **Options integration**: Uses existing options system with shared storage
-- **Comprehensive testing**: Added tests for all content types and combinations
-
-**How it works:**
-
-1. **Options page**: User toggles "strict mode" checkbox → setting saved to `chrome.storage.sync`
-2. **Popup initialization**: Loads options via `loadOptions()` utility
-3. **Content filtering**: When `strictMode = true` and viewing content (posts/feeds/lists):
-   - For posts: Shows services with `'only-posts'`, `'profiles-and-posts'`, or `'full'` support
-   - For feeds/lists: Shows only services with `'full'` support
-   - Excludes services with `'only-profiles'` support
-4. **Profile viewing**: No filtering applied (shows all applicable services)
-
-
-### Content Support Classification
-
-```typescript
-// Example service configurations with contentSupport field
-SERVICES.DEER_SOCIAL = {
-  emoji: '🦌',
-  name: 'deer.social',
-  contentSupport: 'full', // Supports profiles, posts, feeds, lists
-  // ... existing config
-};
-
-SERVICES.TOOLIFY_BLUE = {
-  emoji: '🔧',
-  name: 'toolify.blue',
-  contentSupport: 'profiles-and-posts', // Supports profiles and posts only
-  // ... existing config
-};
-
-SERVICES.CRED_BLUE = {
-  emoji: '🍥',
-  name: 'cred.blue',
-  contentSupport: 'only-profiles', // Profile-only service
-  // ... existing config
-};
-
-SERVICES.SKYTHREAD = {
-  emoji: '☁️',
-  name: 'skythread',
-  contentSupport: 'only-posts', // Posts-only service (no feeds/lists/profiles)
-  // ... existing config
-};
-```
-
-### User Experience Impact
-
-**Strict Mode OFF (Default)**:
-
-- Viewing deer.social post/feed/list → Shows all services (current behavior)
-- Some destinations are content-level, some fall back to profiles
-- Maximum destinations shown, mixed content levels
-
-**Strict Mode ON**:
-
-- Viewing deer.social post/feed/list → Only shows content-capable services
-- All destinations are content-level URLs, no profile fallbacks
-- Fewer but more relevant destinations
-
-**Benefits**:
-
-- Reduces cognitive load when viewing content (posts/feeds/lists)
-- Ensures consistent content-level navigation
-- Users who want post-to-post navigation get cleaner experience
-- Advanced users can enable for more precise behavior
-
-**Testing results:**
-
-- All 72 tests pass (6 new strict mode tests added)
-- Comprehensive coverage of all content types and service combinations
-- Emoji + strict mode combinations work correctly
-- Backward compatibility maintained (defaults to false)
-
-**Final Results:**
-- **Service categorization**: 12 services properly categorized by content support
-- **Smart filtering**: Context-aware service filtering in strict mode
-- **Zero breaking changes**: Existing behavior preserved when strict mode is off
-- **Comprehensive testing**: All scenarios covered with automated tests
-- **Clean options integration**: Follows existing patterns and storage system
-
-**Implementation Complete** - Strict mode is now fully functional in the extension! 🎉
+When strict mode is enabled, the extension only shows services that support the current content type, preventing profile-level fallbacks when viewing posts, feeds, or lists.
