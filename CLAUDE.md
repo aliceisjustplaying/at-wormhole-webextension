@@ -436,7 +436,7 @@ The codebase has been successfully refactored into a clean, modular architecture
 
 ### Phase 2: Module Updates (in order)
 
-1. **resolver.ts** (highest priority - currently swallows all errors):
+1. **✅ resolver.ts** (highest priority - currently swallows all errors):
 
    ```typescript
    import { ResultAsync, ok, err } from 'neverthrow';

@@ -271,27 +271,27 @@ describe('parseInput', () => {
 describe('resolveHandleToDid', () => {
   test('should resolve regular handle to DID', async () => {
     const result = await resolveHandleToDid('alice.mosphere.at');
-    expect(result).toBe('did:plc:by3jhwdqgbtrcc7q4tkkv3cf');
+    expect(result._unsafeUnwrap()).toBe('did:plc:by3jhwdqgbtrcc7q4tkkv3cf');
   });
 
   test('should resolve another handle to DID', async () => {
     const result = await resolveHandleToDid('bob.test');
-    expect(result).toBe('did:plc:bobtestdid');
+    expect(result._unsafeUnwrap()).toBe('did:plc:bobtestdid');
   });
 
   test('should handle did:web successfully', async () => {
     const result = await resolveHandleToDid('did:web:didweb.watch');
-    expect(result).toBe('did:web:didweb.watch');
+    expect(result._unsafeUnwrap()).toBe('did:web:didweb.watch');
   });
 
   test('should handle did:web failure', async () => {
     const result = await resolveHandleToDid('did:web:fail-did-web.com');
-    expect(result).toBe('did:web:fail-did-web.com');
+    expect(result._unsafeUnwrap()).toBe('did:web:fail-did-web.com');
   });
 
   test('should resolve now.alice.mosphere.at', async () => {
     const result = await resolveHandleToDid('now.alice.mosphere.at');
-    expect(result).toBe('did:plc:kkkcb7sys7623hcf7oefcffg');
+    expect(result._unsafeUnwrap()).toBe('did:plc:kkkcb7sys7623hcf7oefcffg');
   });
 });
 

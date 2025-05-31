@@ -42,9 +42,17 @@ chrome.runtime.onMessage.addListener((request: SWMessage, _sender, sendResponse)
           sendResponse({ handle, fromCache: true });
           return;
         }
-        const resolvedHandle = await resolveDidToHandle(request.did);
-        if (resolvedHandle) await cache.set(request.did, resolvedHandle);
-        sendResponse({ handle: resolvedHandle ?? null, fromCache: false });
+        const result = await resolveDidToHandle(request.did);
+        await result.match(
+          async (handle) => {
+            if (handle) await cache.set(request.did, handle);
+            sendResponse({ handle, fromCache: false });
+          },
+          (error) => {
+            console.error('Resolve DID to handle failed:', error);
+            sendResponse({ handle: null, fromCache: false });
+          }
+        );
       } catch (e: unknown) {
         console.error('GET_HANDLE error', e);
         sendResponse({ handle: null, fromCache: false });
@@ -63,9 +71,17 @@ chrome.runtime.onMessage.addListener((request: SWMessage, _sender, sendResponse)
           sendResponse({ did, fromCache: true });
           return;
         }
-        const resolvedDid = await resolveHandleToDid(request.handle);
-        if (resolvedDid) await cache.set(resolvedDid, request.handle);
-        sendResponse({ did: resolvedDid ?? null, fromCache: false });
+        const result = await resolveHandleToDid(request.handle);
+        await result.match(
+          async (did) => {
+            if (did) await cache.set(did, request.handle);
+            sendResponse({ did, fromCache: false });
+          },
+          (error) => {
+            console.error('Resolve handle to DID failed:', error);
+            sendResponse({ did: null, fromCache: false });
+          }
+        );
       } catch {
         sendResponse({ did: null, fromCache: false });
       }
@@ -117,8 +133,15 @@ chrome.tabs.onUpdated.addListener((_tabId, info, tab) => {
         if (cachedHandle) {
           return;
         }
-        const resolvedHandle = await resolveDidToHandle(data.did);
-        if (resolvedHandle) await cache.set(data.did, resolvedHandle);
+        const result = await resolveDidToHandle(data.did);
+        await result.match(
+          async (handle) => {
+            if (handle && data.did) await cache.set(data.did, handle);
+          },
+          (error) => {
+            console.error('Background DID->handle resolution failed:', error);
+          }
+        );
         return;
       }
 
@@ -128,8 +151,15 @@ chrome.tabs.onUpdated.addListener((_tabId, info, tab) => {
         if (cachedDid) {
           return;
         }
-        const resolvedDid = await resolveHandleToDid(data.handle);
-        if (resolvedDid) await cache.set(resolvedDid, data.handle);
+        const result = await resolveHandleToDid(data.handle);
+        await result.match(
+          async (did) => {
+            if (did && data.handle) await cache.set(did, data.handle);
+          },
+          (error) => {
+            console.error('Background handle->DID resolution failed:', error);
+          }
+        );
         return;
       }
     } catch (error: unknown) {
