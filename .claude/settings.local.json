@@ -19,7 +19,8 @@
       "WebFetch(domain:atproto.com)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(bun list:*)"
+      "Bash(bun list:*)",
+      "Bash(bunx eslint:*)"
     ],
     "deny": []
   },

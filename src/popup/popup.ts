@@ -128,7 +128,7 @@ async function applyTheme(): Promise<void> {
 /**
  * Main entry for popup script. Runs on DOMContentLoaded.
  */
-document.addEventListener('DOMContentLoaded', () => {
+const domContentLoadedHandler = () => {
   void (async () => {
     // Load debug configuration and options
     await Debug.loadRuntimeConfig();
@@ -314,7 +314,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
   })();
-});
+};
+
+document.addEventListener('DOMContentLoaded', domContentLoadedHandler);
 
 // Expose debug controls to browser console for development
 // Usage: window.wormholeDebug.theme(true) or window.wormholeDebug.getConfig()

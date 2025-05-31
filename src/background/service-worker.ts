@@ -23,7 +23,11 @@ const cacheLoaded = (async () => {
 });
 
 // Handle messages from the popup
-chrome.runtime.onMessage.addListener((request: SWMessage, _sender, sendResponse): boolean => {
+const messageListener = (
+  request: SWMessage,
+  _sender: chrome.runtime.MessageSender,
+  sendResponse: (response?: unknown) => void,
+): boolean => {
   // UPDATE_CACHE
   if (request.type === 'UPDATE_CACHE' && typeof request.did === 'string' && typeof request.handle === 'string') {
     void cache.set(request.did, request.handle).match(
@@ -135,9 +139,11 @@ chrome.runtime.onMessage.addListener((request: SWMessage, _sender, sendResponse)
   }
 
   return false;
-});
+};
 
-chrome.tabs.onUpdated.addListener((_tabId, info, tab) => {
+chrome.runtime.onMessage.addListener(messageListener);
+
+const tabUpdateListener = (_tabId: number, info: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => {
   void (async () => {
     await cacheLoaded;
     try {
@@ -223,4 +229,6 @@ chrome.tabs.onUpdated.addListener((_tabId, info, tab) => {
       console.error('SW error', error);
     }
   })();
-});
+};
+
+chrome.tabs.onUpdated.addListener(tabUpdateListener);

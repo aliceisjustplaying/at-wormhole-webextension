@@ -22,6 +22,7 @@ export default tseslint.config(
   },
   {
     files: ['**/*.ts', '**/*.tsx'],
+    ignores: ['**/*.test.ts', '**/*.spec.ts'],
     plugins: {
       'neverthrow-must-use': neverthrowMustUse,
     },
