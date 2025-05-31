@@ -299,9 +299,20 @@ The issue was that the `eslint-plugin-neverthrow-must-use` plugin was incorrectl
 ### ⏳ Remaining Tasks
 
 - **Type Safety**: Replace remaining `any`/`unknown` types with proper interfaces
-- **Popup Error UI**: Implement user-friendly error messages in popup interface  
+- **Popup Error UI**: Implement user-friendly error messages in popup interface
 - **Test Coverage**: Add additional edge case scenarios
-- **Retry Logic**: Implement the retry mechanism in `src/shared/retry.ts`
+
+## ✅ Retry Logic Integration - COMPLETED
+
+The retry mechanism has been successfully integrated into all network operations:
+
+- ✅ All fetch operations in `resolver.ts` now use `withNetworkRetry()`
+- ✅ Maintains existing fallback behavior (especially for did:web)
+- ✅ Configuration: 3 attempts, 500ms initial delay, exponential backoff
+- ✅ Retries on: network timeouts, 5xx errors, 429 (rate limiting)
+- ✅ Doesn't retry on: 4xx client errors
+
+All network requests now have automatic retry with exponential backoff, improving reliability when facing transient network issues or server errors.
 
 ## ✅ Error Handling Implementation - COMPLETED
 
@@ -598,6 +609,7 @@ The issue was that the `eslint-plugin-neverthrow-must-use` plugin was incorrectl
 - **✅ Test Coverage**: Tests pass with proper exclusion from neverthrow ESLint rule
 
 **All validation commands pass:**
+
 - `bun run lint` - ✅ No errors
 - `bun run typecheck` - ✅ No errors
 - `bun run test` - ✅ All 72 tests pass

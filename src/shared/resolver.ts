@@ -3,6 +3,7 @@ import { isRecord } from './types';
 import type { WormholeError } from './errors';
 import { networkError, parseError } from './errors';
 import { logError } from './debug';
+import { withNetworkRetry } from './retry';
 
 /**
  * Safely parse JSON and ensure it's an object using ResultAsync
@@ -30,8 +31,10 @@ export function resolveHandleToDid(handle: string): ResultAsync<string, Wormhole
     const parts = handle.split(':');
     if (parts.length === 3) {
       const url = `https://${parts[2]}/.well-known/did.json`;
-      return ResultAsync.fromPromise(fetch(url, { signal: AbortSignal.timeout(5000) }), (e) =>
-        networkError('Failed to fetch did:web document', url, undefined, e),
+      return withNetworkRetry(() =>
+        ResultAsync.fromPromise(fetch(url, { signal: AbortSignal.timeout(5000) }), (e) =>
+          networkError('Failed to fetch did:web document', url, undefined, e),
+        ),
       )
         .andThen((resp) => safeJson<{ id?: string }>(resp, url))
         .map((data) => data.id ?? handle)
@@ -45,8 +48,10 @@ export function resolveHandleToDid(handle: string): ResultAsync<string, Wormhole
   }
 
   const apiUrl = `https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`;
-  return ResultAsync.fromPromise(fetch(apiUrl, { signal: AbortSignal.timeout(5000) }), (e) =>
-    networkError('Failed to fetch handle resolution', apiUrl, undefined, e),
+  return withNetworkRetry(() =>
+    ResultAsync.fromPromise(fetch(apiUrl, { signal: AbortSignal.timeout(5000) }), (e) =>
+      networkError('Failed to fetch handle resolution', apiUrl, undefined, e),
+    ),
   )
     .andThen((resp) => safeJson<{ did?: string }>(resp, apiUrl))
     .andThen((data) => {
@@ -71,8 +76,10 @@ export function resolveDidToHandle(did: string): ResultAsync<string | null, Worm
 
   if (did.startsWith('did:plc:')) {
     const url = `https://plc.directory/${encodeURIComponent(did)}`;
-    return ResultAsync.fromPromise(fetch(url, { signal: AbortSignal.timeout(5000) }), (e) =>
-      networkError('Failed to fetch PLC directory', url, undefined, e),
+    return withNetworkRetry(() =>
+      ResultAsync.fromPromise(fetch(url, { signal: AbortSignal.timeout(5000) }), (e) =>
+        networkError('Failed to fetch PLC directory', url, undefined, e),
+      ),
     )
       .andThen((resp) => safeJson<{ alsoKnownAs?: unknown }>(resp, url))
       .map((data) => _extractHandleFromAlsoKnownAs(data.alsoKnownAs))
@@ -84,8 +91,10 @@ export function resolveDidToHandle(did: string): ResultAsync<string | null, Worm
 
   if (did.startsWith('did:web:')) {
     const url = _getDidWebWellKnownUrl(did);
-    return ResultAsync.fromPromise(fetch(url, { signal: AbortSignal.timeout(5000) }), (e) =>
-      networkError('Failed to fetch did:web document', url, undefined, e),
+    return withNetworkRetry(() =>
+      ResultAsync.fromPromise(fetch(url, { signal: AbortSignal.timeout(5000) }), (e) =>
+        networkError('Failed to fetch did:web document', url, undefined, e),
+      ),
     )
       .andThen((resp) => safeJson<{ alsoKnownAs?: unknown }>(resp, url))
       .map((data) => _extractHandleFromAlsoKnownAs(data.alsoKnownAs))
