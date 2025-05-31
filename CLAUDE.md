@@ -152,549 +152,140 @@ This is a Manifest V3 browser extension that provides "wormhole" navigation betw
 
 ### Core Components
 
-**Transform System (modular architecture)**:
+**Transform System**:
+- **Parser** (`src/shared/parser.ts`) - URL parsing with `parseInput()` that accepts URLs, handles, or DIDs
+- **Canonicalizer** (`src/shared/canonicalizer.ts`) - Pure transformation to standardized TransformInfo structure
+- **Resolver** (`src/shared/resolver.ts`) - Handle/DID resolution with AT Protocol API integration and retry logic
+- **Services** (`src/shared/services.ts`) - Service configuration and URL generation
+- **Cache** (`src/shared/cache.ts`) - BidirectionalMap and DidHandleCache for handle↔DID persistence
+- **Types** (`src/shared/types.ts`) - TypeScript interfaces and type definitions
+- **Constants** (`src/shared/constants.ts`) - Shared constants including NSID shortcuts
+- **Errors** (`src/shared/errors.ts`) - Discriminated union error types for neverthrow
+- **Retry** (`src/shared/retry.ts`) - Network retry logic with exponential backoff
 
-- **Parser (`src/shared/parser.ts`)** - Main entry point with `parseInput()` that accepts URLs, handles, or DIDs and extracts canonical information
-- **Canonicalizer (`src/shared/canonicalizer.ts`)** - Contains `canonicalize()` function that converts any input to standardized TransformInfo structure
-- **Resolver (`src/shared/resolver.ts`)** - Handle/DID resolution functions with AT Protocol API integration
-- **Services (`src/shared/services.ts`)** - Service configuration and `buildDestinations()` function that generates equivalent URLs across different services
-- **Cache (`src/shared/cache.ts`)** - BidirectionalMap and DidHandleCache classes for reliable handle↔DID persistence
-- **Types (`src/shared/types.ts`)** - All TypeScript interfaces and type definitions
-- **Constants (`src/shared/constants.ts`)** - Shared constants including NSID shortcuts
-
-**Service Worker (`src/background/service-worker.ts`)**:
-
-- Delegates cache operations to DidHandleCache module
+**Service Worker** (`src/background/service-worker.ts`):
 - Message handling for popup communication
-- Automatic tab URL monitoring to pre-cache handle/DID pairs
-- Proactive background resolution: resolves DIDs from handles and handles from DIDs
-- Returns cache hit/miss metadata to popup for development debugging
+- Automatic tab URL monitoring with pre-caching
+- Proactive background resolution of handles/DIDs
+- Returns cache hit/miss metadata for debugging
 
-**Popup (`src/popup/popup.ts`)**:
-
-- Main UI that displays destination links for current tab or input
-- Communicates with service worker for handle/DID resolution
+**Popup** (`src/popup/popup.ts`):
+- Main UI displaying destination links
+- Service worker communication for resolution
 - Cache management controls
-- Firefox theme integration using `theme.getCurrent()` API
-- Runtime debug controls via `window.wormholeDebug`
-- Development-only debug display showing cache hit/miss status for DID/handle resolution
+- Firefox theme integration via `theme.getCurrent()`
+- Development debug controls via `window.wormholeDebug`
 
 ### Build System
 
-Uses Vite with @crxjs/vite-plugin for extension building. Special handling:
+- **Framework**: Vite with @crxjs/vite-plugin
+- **Development**: Injects background.scripts for Firefox MV3 compatibility
+- **Firefox Build**: Strips service_worker, adds scripts array, creates zip
+- **Chrome Build**: Standard MV3 manifest with zip output
 
-- Development mode: Injects background.scripts for Firefox MV3 compatibility
-- Firefox build: Strips service_worker, adds scripts array, creates zip
-- Chrome build: Creates zip with standard MV3 manifest
+### Supported Services
 
-### URL Pattern Recognition
+The extension recognizes and transforms URLs from:
+- **bsky.app**, **deer.social** - Native Bluesky clients
+- **cred.blue** - Social credit score service
+- **tangled.sh** - AT Protocol-native git hosting
+- **blue.mackuba.eu/skythread** - Thread viewer
+- **atp.tools**, **pdsls.dev** - Developer tools
+- **clearsky.app** - Block checking service
+- **plc.directory**, **boat.kelinci.net** - DID:PLC information tools
+- **toolify.blue** - Various AT Protocol utilities
 
-The extension recognizes URLs from these services and extracts AT Protocol identifiers:
+### Special Features
 
-- bsky.app, deer.social (native Bluesky)
-- cred.blue (social credit score for Bluesky)
-- tangled.sh (atproto-native git hosting)
-- blue.mackuba.eu/skythread (thread viewer)
-- atp.tools, pdsls.dev (developer tools)
-- clearsky.app (block checking)
-- plc.directory, boat.kelinci.net (did:plc information tools)
-- toolify.blue (tools and utilities for AT Protocol/Bluesky)
+**Firefox Theme Integration**:
+- Automatically adopts Firefox's active theme colors
+- Falls back to `prefers-color-scheme` on Chrome
+- Maintains readability across all theme variations
 
-### Firefox Theme Integration
+**Debug System** (`src/shared/debug.ts`):
+- Categorized logging: 🎨 Theme, 💾 Cache, 📝 Parsing, 🔧 Popup, ⚙️ Service Worker, 🔄 Transform
+- Runtime control via `window.wormholeDebug` in popup console
+- Persistent settings in `chrome.storage.local`
 
-The extension automatically adopts Firefox's active theme colors while maintaining readability:
+**Cache System**:
+- Bidirectional handle↔DID mapping with automatic cleanup
+- Write-through persistence with LRU eviction
+- Proactive background resolution for visited URLs
+- Visual cache hit/miss indicators in development builds
 
-- Uses `theme.getCurrent()` API to retrieve theme colors
-- Maps theme colors to popup elements (background, text, buttons, borders)
-- Falls back to `prefers-color-scheme` media queries on Chrome or when no theme available
-- Chrome/non-themed Firefox continues using light/dark mode detection
+**Options System**:
+- **Show Emojis**: Toggle emoji display (default: true)
+- **Strict Mode**: Content-aware service filtering (default: false)
+- Cross-device sync via `chrome.storage.sync`
 
-### Debug System (`src/shared/debug.ts`)
+### Error Handling
 
-Categorized debug logging system with build-time and runtime controls:
-
-**Categories**:
-
-- `🎨 [THEME]` - Firefox theme detection and application
-- `💾 [CACHE]` - DID/handle cache operations
-- `📝 [PARSING]` - URL parsing and transformation
-- `🔧 [POPUP]` - Popup UI operations
-- `⚙️ [SW]` - Service worker operations
-- `🔄 [TRANSFORM]` - Transform utility functions
-
-**Control Methods**:
-
-- Build-time: Development builds enable all debug by default
-- Environment variables: `VITE_DEBUG_THEME=true`, etc.
-- Runtime: `window.wormholeDebug.theme(false)` in popup console
-- Persistent: Settings saved to `chrome.storage.local`
-
-**Usage**:
-
-```javascript
-// Runtime control (in popup console)
-window.wormholeDebug.theme(false); // Disable theme debug
-window.wormholeDebug.all(true); // Enable all categories
-window.wormholeDebug.getConfig(); // Check current settings
-```
-
-### Cache System (`src/shared/cache.ts`)
-
-Reliable bidirectional handle↔DID persistence with comprehensive features:
-
-- **BidirectionalMap**: Core bidirectional mapping with automatic cleanup
-- **DidHandleCache**: Full cache manager with write-through persistence, LRU eviction, and cross-browser compatibility
-- **Service Worker Integration**: Proactive background resolution for visited URLs
-- **Development Debug**: Visual cache hit/miss indicators (development builds only)
+The extension uses **neverthrow** for comprehensive error handling:
+- All network operations return `ResultAsync<T, WormholeError>`
+- Discriminated union error types (NetworkError, ParseError, ValidationError, CacheError)
+- Explicit error handling enforced by ESLint
+- Automatic retry with exponential backoff for network failures
 
 ### Testing
 
-Tests use mocked fetch responses to simulate AT Protocol API calls and handle resolution. The test suite uses bun's built-in test framework with organized test suites:
+- **Framework**: Bun's built-in test runner
+- **Coverage**: URL parsing, handle resolution, URL generation, cache operations
+- **Mocking**: Simulated AT Protocol API responses
+- **Commands**: `bun run test` or `bun run test:watch`
 
-- **parseInput tests**: URL parsing from all supported services
-- **resolveHandleToDid tests**: Handle→DID resolution including did:web
-- **buildDestinations tests**: URL generation and service fallback behavior
-- **cache tests**: Comprehensive coverage of BidirectionalMap and DidHandleCache
+## Implementation Status
 
-Run tests with `bun run test` or `bun run test:watch` for development.
+### ✅ Completed
 
-## Completed Refactoring
+1. **Modular Architecture** - Transform system split into focused, single-responsibility modules
+2. **neverthrow Integration** - Comprehensive error handling with Result types
+3. **Retry Logic** - Network resilience with exponential backoff
+4. **Cache System** - Reliable bidirectional persistence with LRU eviction
+5. **Firefox Theme Support** - Dynamic theme adoption
+6. **Options System** - User preferences with cross-device sync
+7. **Debug System** - Categorized logging with runtime controls
 
-The codebase has been successfully refactored into a clean, modular architecture:
+### 📋 Remaining Tasks
 
-### ✅ Completed Refactors
+- **Type Safety** - Replace remaining `any`/`unknown` types
+- **Popup Error UI** - User-friendly error messages
+- **Test Coverage** - Additional edge case scenarios
 
-1. **Type System**: Centralized all TypeScript interfaces in `src/shared/types.ts`
-2. **Service Configuration**: Extracted hardcoded service definitions into `src/shared/services.ts` with ServiceConfig interface
-3. **Module Splitting**: Broke down monolithic transform.ts into focused modules:
-   - `parser.ts` - URL parsing logic
-   - `canonicalizer.ts` - Pure AT URI transformation
-   - `resolver.ts` - Network resolution functions
-   - `services.ts` - Service configuration and URL building
-4. **Cache System**: Replaced complex cache with simple, reliable implementation:
-   - `BidirectionalMap` class for handle↔DID mapping
-   - `DidHandleCache` with write-through persistence and LRU eviction
-   - Service worker reduced from 288 to 139 lines
-5. **Architecture Cleanup**: Made canonicalizer pure (no network calls), proper separation of concerns
-6. **Error Handling System**: Comprehensive neverthrow integration with ResultAsync patterns, discriminated union error types, and explicit error handling enforcement
-
-### 📈 Results
-
-- **Modularity**: Each file has single responsibility
-- **Maintainability**: Zero external dependencies, comprehensive test coverage
-- **Performance**: Write-through caching, proactive background resolution
-- **Extensibility**: Adding new services requires only updating `services.ts`
-- **Reliability**: No data loss, proper error handling, cross-browser compatibility
-
-### ✅ neverthrow Implementation - FIXED
-
-**All 121 ESLint errors have been resolved!**
-
-The issue was that the `eslint-plugin-neverthrow-must-use` plugin was incorrectly flagging test framework calls (`describe`, `test`, `expect`) and Chrome API event listener registrations as needing Result handling. This was resolved by:
-
-1. **Excluding test files** from the neverthrow ESLint rule in `eslint.config.mjs`
-2. **Separating event handlers** from their registrations in service-worker.ts and popup.ts to avoid false positives
-3. **Maintaining proper Result handling** for all actual neverthrow function calls
-
-### ⏳ Remaining Tasks
-
-- **Type Safety**: Replace remaining `any`/`unknown` types with proper interfaces
-- **Popup Error UI**: Implement user-friendly error messages in popup interface
-- **Test Coverage**: Add additional edge case scenarios
-
-## ✅ Retry Logic Integration - COMPLETED
-
-The retry mechanism has been successfully integrated into all network operations:
-
-- ✅ All fetch operations in `resolver.ts` now use `withNetworkRetry()`
-- ✅ Maintains existing fallback behavior (especially for did:web)
-- ✅ Configuration: 3 attempts, 500ms initial delay, exponential backoff
-- ✅ Retries on: network timeouts, 5xx errors, 429 (rate limiting)
-- ✅ Doesn't retry on: 4xx client errors
-
-All network requests now have automatic retry with exponential backoff, improving reliability when facing transient network issues or server errors.
-
-## ✅ Error Handling Implementation - COMPLETED
-
-**Status**: neverthrow infrastructure is complete and fully integrated across the codebase.
-
-### ✅ Phase 1: Core Infrastructure - COMPLETED
-
-1. **✅ Install neverthrow and its ESLint plugin**:
-
-   ```bash
-   bun add neverthrow
-   bun add -D eslint-plugin-neverthrow-must-use
-   ```
-
-   **Configure ESLint** in `eslint.config.mjs`:
-
-   ```javascript
-   import neverthrowMustUse from 'eslint-plugin-neverthrow-must-use';
-
-   export default [
-     // ... existing config
-     {
-       files: ['**/*.ts', '**/*.tsx'],
-       plugins: {
-         'neverthrow-must-use': neverthrowMustUse,
-       },
-       rules: {
-         'neverthrow-must-use/must-use-result': 'error',
-       },
-     },
-   ];
-   ```
-
-   This enforces that all Result types must be properly handled using `.match()`, `.unwrapOr()`, or `._unsafeUnwrap()`, preventing silent error swallowing.
-
-2. **✅ Create `src/shared/errors.ts`** with discriminated union error types:
-
-   ```typescript
-   // Error types using discriminated unions (idiomatic for neverthrow)
-   export type WormholeError = NetworkError | ParseError | ValidationError | CacheError;
-
-   export interface NetworkError {
-     type: 'NETWORK_ERROR';
-     message: string;
-     url: string;
-     status?: number;
-     cause?: unknown;
-   }
-
-   export interface ParseError {
-     type: 'PARSE_ERROR';
-     message: string;
-     input: string;
-   }
-
-   export interface ValidationError {
-     type: 'VALIDATION_ERROR';
-     message: string;
-     field: string;
-     value: unknown;
-   }
-
-   export interface CacheError {
-     type: 'CACHE_ERROR';
-     message: string;
-     operation: string;
-     cause?: unknown;
-   }
-
-   // Helper functions to create errors
-   export const networkError = (message: string, url: string, status?: number, cause?: unknown): NetworkError => ({
-     type: 'NETWORK_ERROR',
-     message,
-     url,
-     status,
-     cause,
-   });
-
-   export const parseError = (message: string, input: string): ParseError => ({
-     type: 'PARSE_ERROR',
-     message,
-     input,
-   });
-
-   export const validationError = (message: string, field: string, value: unknown): ValidationError => ({
-     type: 'VALIDATION_ERROR',
-     message,
-     field,
-     value,
-   });
-
-   export const cacheError = (message: string, operation: string, cause?: unknown): CacheError => ({
-     type: 'CACHE_ERROR',
-     message,
-     operation,
-     cause,
-   });
-
-   export const isWormholeError = (error: unknown): error is WormholeError => {
-     return (
-       typeof error === 'object' &&
-       error !== null &&
-       'type' in error &&
-       typeof (error as Record<string, unknown>).type === 'string' &&
-       ['NETWORK_ERROR', 'PARSE_ERROR', 'VALIDATION_ERROR', 'CACHE_ERROR'].includes(
-         (error as Record<string, unknown>).type as string,
-       )
-     );
-   };
-   ```
-
-3. **✅ Extend `src/shared/debug.ts`** with centralized error logging:
-
-   ```typescript
-   export const logError = (category: string, error: WormholeError | unknown, context?: Record<string, unknown>) => {
-     const errorInfo = isWormholeError(error) ? { type: error.type, ...error } : { raw: String(error) };
-
-     console.error(`[${category}]`, errorInfo, context);
-
-     if (import.meta.env.DEV) {
-       debugLog(category, 'ERROR', errorInfo, context);
-     }
-   };
-   ```
-
-4. **✅ Create `src/shared/retry.ts`** for network resilience:
-
-   ```typescript
-   import { ResultAsync, ok, err } from 'neverthrow';
-
-   interface RetryOptions {
-     maxAttempts?: number;
-     initialDelay?: number;
-     maxDelay?: number;
-     backoffFactor?: number;
-     shouldRetry?: (error: WormholeError) => boolean;
-   }
-
-   export function withRetry<T>(
-     fn: () => ResultAsync<T, WormholeError>,
-     options: RetryOptions = {},
-   ): ResultAsync<T, WormholeError> {
-     // Implementation using ResultAsync chaining
-   }
-   ```
-
-### ⚠️ Phase 2: Module Updates - PARTIALLY COMPLETED (BROKEN)
-
-**Mixed implementation status - some modules fully converted, others broken:**
-
-1. **✅ resolver.ts** - Network operations use `ResultAsync<T, WormholeError>` with proper timeout and error handling:
-
-   ```typescript
-   import { ResultAsync, ok, err } from 'neverthrow';
-   import { networkError, parseError } from './errors';
-
-   export function resolveHandleToDid(handle: string): ResultAsync<string, WormholeError> {
-     return ResultAsync.fromPromise(fetch(apiUrl, { signal: AbortSignal.timeout(5000) }), (e) =>
-       networkError('Failed to fetch', apiUrl, undefined, e),
-     )
-       .andThen((resp) => (resp.ok ? ok(resp) : err(networkError('Bad response', apiUrl, resp.status))))
-       .andThen((resp) => ResultAsync.fromPromise(resp.json(), () => parseError('Invalid JSON response', apiUrl)))
-       .map((data) => data.did);
-   }
-   ```
-
-2. **✅ parser.ts** - URL parsing operations use `Result<T, WormholeError>` with validation:
-
-   ```typescript
-   import { Result, ok, err } from 'neverthrow';
-
-   export function parseInput(input: string): Result<TransformInfo | null, ParseError> {
-     return Result.fromThrowable(
-       () => new URL(input),
-       () => parseError('Invalid URL', input),
-     )().map((url) => extractInfo(url));
-   }
-   ```
-
-3. **✅ canonicalizer.ts** - Pure transformation with comprehensive input validation:
-
-   ```typescript
-   export function canonicalize(info: TransformInfo): Result<TransformInfo, ValidationError> {
-     if (!isValidDid(info.did)) {
-       return err(validationError('Invalid DID format', 'did', info.did));
-     }
-     // ... rest of canonicalization
-     return ok(canonicalizedInfo);
-   }
-   ```
-
-4. **✅ cache.ts** - I/O operations use `ResultAsync` with rollback logic, validation errors remain as throws:
-
-   ```typescript
-   export function loadCache(): ResultAsync<CacheData, CacheError> {
-     return ResultAsync.fromPromise(chrome.storage.local.get(STORAGE_KEY), (e) =>
-       cacheError('Failed to load cache', 'load', e),
-     );
-   }
-   ```
-
-5. **✅ service-worker.ts** - FIXED: All neverthrow functions properly handle Results with .match():
-
-   ```typescript
-   // Standardize responses
-   type MessageResponse<T> =
-     | {
-         success: true;
-         data: T;
-       }
-     | {
-         success: false;
-         error: WormholeError;
-       };
-
-   // Handle messages with proper error propagation
-   handleResolve(request).match(
-     (data) => sendResponse({ success: true, data }),
-     (error) => sendResponse({ success: false, error }),
-   );
-   ```
-
-6. **✅ popup.ts** - FIXED: parseInput() and other neverthrow functions properly handle Results:
-
-   ```typescript
-   // Map errors to user messages
-   function getErrorMessage(error: WormholeError): string {
-     switch (error.type) {
-       case 'NETWORK_ERROR':
-         return `Network error: ${error.message}`;
-       case 'PARSE_ERROR':
-         return `Invalid input: ${error.message}`;
-       default:
-         return 'An unexpected error occurred';
-     }
-   }
-
-   // Use pattern matching for UI updates
-   resolveIdentifier(input).match(
-     (data) => updateUI(data),
-     (error) => {
-       logError('POPUP', error);
-       showError(getErrorMessage(error));
-     },
-   );
-   ```
-
-### ✅ Phase 3: Integration Patterns - IMPLEMENTED
-
-**Integration patterns designed but not properly implemented across the codebase:**
-
-1. **Chaining Operations**:
-
-   ```typescript
-   parseInput(url)
-     .andThen((info) => (info ? ok(info) : err(parseError('No info extracted', url))))
-     .andThen((info) => resolveIdentifiers(info))
-     .map((resolved) => buildDestinations(resolved))
-     .match(
-       (destinations) => updateUI(destinations),
-       (error) => showError(error),
-     );
-   ```
-
-2. **Combining Results**:
-
-   ```typescript
-   ResultAsync.combine([resolveHandleToDid(handle), loadOptions()]).map(([did, options]) => ({
-     did,
-     options,
-   }));
-   ```
-
-3. **Error Recovery**:
-   ```typescript
-   fetchFromPrimary(url).orElse((error) => (error.type === 'NETWORK_ERROR' ? fetchFromFallback(url) : err(error)));
-   ```
-
-### ✅ Phase 4: Testing & Documentation - COMPLETED
-
-1. **✅ Test files fixed** - Test framework calls excluded from neverthrow rule via ESLint config
-2. **✅ Type discrimination verified** - WormholeError discriminated unions work correctly
-3. **✅ Error message validation** - Structured error types provide helpful debugging information
-4. **✅ Test coverage working** - All tests pass and ESLint is clean
-
-### ✅ Current Implementation Status - COMPLETED
-
-**neverthrow integration is fully functional:**
-
-- **✅ Type Safety**: Error types properly defined with discriminated unions (`WormholeError`)
-- **✅ Explicit Handling**: All Results are properly handled with .match() patterns
-- **✅ Core Modules**: resolver.ts, parser.ts, canonicalizer.ts, cache.ts properly implemented
-- **✅ Integration Modules**: service-worker.ts and popup.ts correctly handle all Results
-- **✅ Test Coverage**: Tests pass with proper exclusion from neverthrow ESLint rule
-
-**All validation commands pass:**
-
-- `bun run lint` - ✅ No errors
-- `bun run typecheck` - ✅ No errors
-- `bun run test` - ✅ All 72 tests pass
-- `bun run build:dev` - ✅ Builds successfully
-
-### Adding New Services
+## Adding New Services
 
 To add a new AT Protocol service, update `src/shared/services.ts`:
 
 ```typescript
-// In src/shared/services.ts
 SERVICES.NEW_SERVICE = {
   emoji: '✨',
   name: 'example.com',
   contentSupport: 'full', // or 'profiles-and-posts', 'only-posts', 'only-profiles'
 
-  // Optional: For services that can parse their own URLs
+  // Optional: URL parsing configuration
   parsing: {
-    hostname: 'example.com', // or ['example.com', 'example.net'] for multiple domains
+    hostname: 'example.com',
     patterns: {
-      // Choose the appropriate pattern type(s):
-      profileIdentifier: /^\/profile\/([^/]+)/, // For handle OR DID (flexible)
-      profileHandle: /^\/user\/([^/]+)$/, // For handle-only URLs
-      profileDid: /^\/did\/(did:[^/]+)/, // For DID-only URLs
-      queryParam: 'user', // For extracting from query parameters
-      customParser: (url) => {
-        // For complex URL parsing
-        // Return extracted identifier or null
-        return url.searchParams.get('id') || null;
-      },
+      profileIdentifier: /^\/profile\/([^/]+)/,
+      // Additional pattern options available
     },
   },
 
-  // Required: Build URLs for this service
+  // Required: URL generation
   buildUrl: (info) => {
-    if (!info.handle) return null; // Example: require handle
+    if (!info.handle) return null;
     if (info.rkey) {
       return `https://example.com/user/${info.handle}/post/${info.rkey}`;
     }
     return `https://example.com/user/${info.handle}`;
   },
 
-  // Optional: Restrict what inputs this service accepts
+  // Optional: Input restrictions
   requiredFields: {
-    handle: true, // Require handle (no DID-only inputs)
-    rkey: true, // Require rkey (posts only)
-    plcOnly: true, // Only accept did:plc DIDs (not did:web)
+    handle: true,
+    rkey: true,
+    plcOnly: true,
   },
 };
 ```
 
-Key fields:
-
-- `emoji`: Service icon (required)
-- `name`: Service display name (required)
-- `contentSupport`: What content types the service supports (required)
-- `parsing`: Optional URL parsing configuration
-  - `hostname`: Domain(s) to match
-  - `patterns`: One or more pattern types for extracting identifiers
-- `buildUrl`: Function to generate destination URLs (required)
-- `requiredFields`: Optional restrictions on accepted inputs
-
-No other code changes should be required!
-
-## Options System
-
-The extension includes an options page with the following settings:
-
-- **Show Emojis**: Toggle emoji display in service names (default: true)
-- **Strict Mode**: Prevent fallback behavior when viewing content (default: false)
-
-### Implementation Details
-
-- Options page: `src/options/options.html|ts|css`
-- Storage: Uses `chrome.storage.sync` for cross-device synchronization
-- Shared utility: `src/shared/options.ts` provides centralized options loading with caching
-- Integration: Popup loads options and passes to `buildDestinations()`
-
-### Service Content Support Levels
-
-Each service has a `contentSupport` field that determines what content types it can display:
-
-- `'full'` - Supports profiles, posts, feeds, and lists
-- `'profiles-and-posts'` - Supports profiles and posts only
-- `'only-posts'` - Supports posts only (requires rkey)
-- `'only-profiles'` - Supports profiles only
-
-When strict mode is enabled, the extension only shows services that support the current content type, preventing profile-level fallbacks when viewing posts, feeds, or lists.
+No other code changes required!
