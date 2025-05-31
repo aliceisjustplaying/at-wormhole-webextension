@@ -118,7 +118,7 @@ chrome.tabs.onUpdated.addListener((_tabId, info, tab) => {
     await cacheLoaded;
     try {
       if (info.status !== 'complete' || !tab.url) return;
-      
+
       const parseResult = parseInput(tab.url);
       await parseResult.match(
         async (data) => {
@@ -168,7 +168,7 @@ chrome.tabs.onUpdated.addListener((_tabId, info, tab) => {
         },
         (error) => {
           console.error('URL parsing failed in background:', error);
-        }
+        },
       );
     } catch (error: unknown) {
       console.error('SW error', error);

@@ -24,17 +24,13 @@ export function parseInput(raw: string): Result<TransformInfo | null, WormholeEr
   return decodeResult.andThen((str) => {
     // Non-URL inputs (handles, DIDs, AT URIs)
     if (!str.startsWith('http')) {
-      // For now, canonicalize returns TransformInfo | null directly
-      // TODO: This will be updated when we convert canonicalizer.ts to use Result
-      const result = canonicalize(str);
-      return ok(result);
+      return canonicalize(str);
     }
 
     // Check for AT URI embedded in the URL string
     const atMatch = /at:\/\/[\w:.\-/]+/.exec(str);
     if (atMatch) {
-      const result = canonicalize(atMatch[0]);
-      return ok(result);
+      return canonicalize(atMatch[0]);
     }
 
     // Parse URL with proper error handling
@@ -46,15 +42,13 @@ export function parseInput(raw: string): Result<TransformInfo | null, WormholeEr
         // Try service-specific parsing first
         const serviceResult = parseUrlFromServices(url);
         if (serviceResult) {
-          const result = canonicalize(serviceResult);
-          return ok(result);
+          return canonicalize(serviceResult);
         }
 
         // Fallback: generic query parameter check for DIDs
         const qParam = url.searchParams.get('q');
         if (qParam?.startsWith('did:')) {
-          const result = canonicalize(qParam);
-          return ok(result);
+          return canonicalize(qParam);
         }
 
         // Fallback: generic parsing for any /profile/identifier pattern
@@ -65,8 +59,7 @@ export function parseInput(raw: string): Result<TransformInfo | null, WormholeEr
             const rest = parts.slice(i + 1).join('/');
             // Include slash before rest path
             const fragment = rest ? `${p}/${rest}` : p;
-            const result = canonicalize(fragment);
-            return ok(result);
+            return canonicalize(fragment);
           }
         }
 

@@ -212,7 +212,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             handleToUse = response.handle;
             if (handleToUse && import.meta.env.MODE === 'development') {
-              debugInfo.textContent = response.fromCache ? 'handle was fetched from cache' : 'was forced to resolve handle';
+              debugInfo.textContent =
+                response.fromCache ? 'handle was fetched from cache' : 'was forced to resolve handle';
             }
           } catch (err: unknown) {
             console.error('GET_HANDLE error', err);
@@ -270,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
       (error) => {
         console.error('Parse error in popup:', error);
         showStatus('Error parsing URL or input.');
-      }
+      },
     );
 
     emptyBtn.addEventListener('click', (e) => {
