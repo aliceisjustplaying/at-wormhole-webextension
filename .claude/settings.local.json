@@ -16,7 +16,9 @@
       "Bash(find:*)",
       "Bash(ls:*)",
       "Bash(timeout:*)",
-      "WebFetch(domain:atproto.com)"
+      "WebFetch(domain:atproto.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ],
     "deny": []
   },

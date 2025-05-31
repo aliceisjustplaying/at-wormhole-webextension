@@ -63,7 +63,7 @@ export const isWormholeError = (error: unknown): error is WormholeError => {
     'type' in error &&
     typeof (error as Record<string, unknown>).type === 'string' &&
     ['NETWORK_ERROR', 'PARSE_ERROR', 'VALIDATION_ERROR', 'CACHE_ERROR'].includes(
-      (error as Record<string, unknown>).type as string
+      (error as Record<string, unknown>).type as string,
     )
   );
 };

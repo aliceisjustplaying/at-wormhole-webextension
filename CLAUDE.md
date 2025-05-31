@@ -393,13 +393,13 @@ The codebase has been successfully refactored into a clean, modular architecture
        'type' in error &&
        typeof (error as Record<string, unknown>).type === 'string' &&
        ['NETWORK_ERROR', 'PARSE_ERROR', 'VALIDATION_ERROR', 'CACHE_ERROR'].includes(
-         (error as Record<string, unknown>).type as string
+         (error as Record<string, unknown>).type as string,
        )
      );
    };
    ```
 
-3. **Extend `src/shared/debug.ts`** with centralized error logging:
+3. **✅ Extend `src/shared/debug.ts`** with centralized error logging:
 
    ```typescript
    export const logError = (category: string, error: WormholeError | unknown, context?: Record<string, unknown>) => {
