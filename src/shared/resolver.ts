@@ -12,9 +12,8 @@ function safeJson<T extends Record<string, unknown>>(resp: Response, url: string
     return errAsync(networkError('HTTP error', url, resp.status));
   }
 
-  return ResultAsync.fromPromise(
-    resp.json() as Promise<unknown>,
-    () => parseError('Invalid JSON response', url)
+  return ResultAsync.fromPromise(resp.json() as Promise<unknown>, () =>
+    parseError('Invalid JSON response', url),
   ).andThen((raw) => {
     if (isRecord(raw)) {
       return ok(raw as T);

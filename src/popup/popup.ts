@@ -2,7 +2,7 @@ import { parseInput } from '../shared/parser';
 import { buildDestinations } from '../shared/services';
 import { loadOptions } from '../shared/options';
 import Debug from '../shared/debug';
-import type { TransformInfo, BrowserWithTheme, DebugConfig, Destination, WindowWithDebug } from '../shared/types';
+import type { BrowserWithTheme, DebugConfig, Destination, WindowWithDebug } from '../shared/types';
 
 /**
  * Applies Firefox theme colors to the popup if available, falls back to CSS media query
@@ -182,88 +182,96 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const info: TransformInfo | null = parseInput(raw);
-    Debug.parsing('Parse result:', info);
-    if (!info || (!info.did && !info.handle && !info.atUri)) {
-      showStatus('No DID or at:// URI found in current tab.');
-      return;
-    }
-
-    let ds = buildDestinations(info, options.showEmojis, options.strictMode);
-    render(ds);
-
-    if (info.did && !info.handle) {
-      let handleToUse: string | null = null;
-      let errorStatusWasSet = false;
-
-      // Ask SW for a handle (from cache or resolved)
-      showStatus('Resolving...');
-      try {
-        const response = await new Promise<{ handle: string | null; fromCache: boolean }>((resolve, reject) => {
-          chrome.runtime.sendMessage({ type: 'GET_HANDLE', did: info.did }, (res) => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-            } else {
-              resolve(res as { handle: string | null; fromCache: boolean });
-            }
-          });
-        });
-        handleToUse = response.handle;
-        if (handleToUse && import.meta.env.MODE === 'development') {
-          debugInfo.textContent = response.fromCache ? 'handle was fetched from cache' : 'was forced to resolve handle';
+    const parseResult = parseInput(raw);
+    void parseResult.match(
+      async (info) => {
+        Debug.parsing('Parse result:', info);
+        if (!info || (!info.did && !info.handle && !info.atUri)) {
+          showStatus('No DID or at:// URI found in current tab.');
+          return;
         }
-      } catch (err: unknown) {
-        console.error('GET_HANDLE error', err);
-        showStatus('Error resolving');
-        errorStatusWasSet = true;
-      }
 
-      // After attempting to get handle from cache or by fetching:
-      if (handleToUse) {
-        info.handle = handleToUse;
-        ds = buildDestinations(info, options.showEmojis, options.strictMode); // Re-build destinations with the handle
-        render(ds); // Re-render the list
-      } else {
-        // Handle was not obtained. An error status might have already been set.
-        // If the list is still empty and no explicit error status was set, show "No actions available".
-        if (!ds.length && !errorStatusWasSet) {
-          showStatus('No actions available');
-        }
-      }
-    }
-
-    // If we have a handle but no did, resolve DID via SW
-    if (info.handle && !info.did) {
-      let didToUse: string | null = null;
-      let errorStatusWasSet = false;
-      showStatus('Resolving...');
-      try {
-        const response = await new Promise<{ did: string | null; fromCache: boolean }>((resolve, reject) => {
-          chrome.runtime.sendMessage({ type: 'GET_DID', handle: info.handle! }, (res) => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-            } else {
-              resolve(res as { did: string | null; fromCache: boolean });
-            }
-          });
-        });
-        didToUse = response.did;
-        if (didToUse && import.meta.env.MODE === 'development') {
-          debugInfo.textContent = response.fromCache ? 'did was fetched from cache' : 'was forced to resolve did';
-        }
-      } catch (err: unknown) {
-        console.error('GET_DID error', err);
-        showStatus('Error resolving');
-        errorStatusWasSet = true;
-      }
-      if (didToUse) {
-        info.did = didToUse;
-        ds = buildDestinations(info, options.showEmojis, options.strictMode);
+        let ds = buildDestinations(info, options.showEmojis, options.strictMode);
         render(ds);
-      } else if (!ds.length && !errorStatusWasSet) {
-        showStatus('No actions available');
+
+        if (info.did && !info.handle) {
+          let handleToUse: string | null = null;
+          let errorStatusWasSet = false;
+
+          // Ask SW for a handle (from cache or resolved)
+          showStatus('Resolving...');
+          try {
+            const response = await new Promise<{ handle: string | null; fromCache: boolean }>((resolve, reject) => {
+              chrome.runtime.sendMessage({ type: 'GET_HANDLE', did: info.did }, (res) => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
+                } else {
+                  resolve(res as { handle: string | null; fromCache: boolean });
+                }
+              });
+            });
+            handleToUse = response.handle;
+            if (handleToUse && import.meta.env.MODE === 'development') {
+              debugInfo.textContent = response.fromCache ? 'handle was fetched from cache' : 'was forced to resolve handle';
+            }
+          } catch (err: unknown) {
+            console.error('GET_HANDLE error', err);
+            showStatus('Error resolving');
+            errorStatusWasSet = true;
+          }
+
+          // After attempting to get handle from cache or by fetching:
+          if (handleToUse) {
+            info.handle = handleToUse;
+            ds = buildDestinations(info, options.showEmojis, options.strictMode); // Re-build destinations with the handle
+            render(ds); // Re-render the list
+          } else {
+            // Handle was not obtained. An error status might have already been set.
+            // If the list is still empty and no explicit error status was set, show "No actions available".
+            if (!ds.length && !errorStatusWasSet) {
+              showStatus('No actions available');
+            }
+          }
+        }
+
+        // If we have a handle but no did, resolve DID via SW
+        if (info.handle && !info.did) {
+          let didToUse: string | null = null;
+          let errorStatusWasSet = false;
+          showStatus('Resolving...');
+          try {
+            const response = await new Promise<{ did: string | null; fromCache: boolean }>((resolve, reject) => {
+              chrome.runtime.sendMessage({ type: 'GET_DID', handle: info.handle! }, (res) => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
+                } else {
+                  resolve(res as { did: string | null; fromCache: boolean });
+                }
+              });
+            });
+            didToUse = response.did;
+            if (didToUse && import.meta.env.MODE === 'development') {
+              debugInfo.textContent = response.fromCache ? 'did was fetched from cache' : 'was forced to resolve did';
+            }
+          } catch (err: unknown) {
+            console.error('GET_DID error', err);
+            showStatus('Error resolving');
+            errorStatusWasSet = true;
+          }
+          if (didToUse) {
+            info.did = didToUse;
+            ds = buildDestinations(info, options.showEmojis, options.strictMode);
+            render(ds);
+          } else if (!ds.length && !errorStatusWasSet) {
+            showStatus('No actions available');
+          }
+        }
+      },
+      (error) => {
+        console.error('Parse error in popup:', error);
+        showStatus('Error parsing URL or input.');
       }
-    }
+    );
 
     emptyBtn.addEventListener('click', (e) => {
       e.preventDefault();
