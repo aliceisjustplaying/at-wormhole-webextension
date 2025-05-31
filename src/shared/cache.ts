@@ -1,3 +1,8 @@
+import { ResultAsync, ok, err } from 'neverthrow';
+import type { WormholeError } from './errors';
+import { cacheError } from './errors';
+import { logError } from './debug';
+
 export class BidirectionalMap<K1, K2> {
   private forwardMap = new Map<K1, K2>();
   private reverseMap = new Map<K2, K1>();
@@ -65,27 +70,36 @@ export class DidHandleCache {
     this.maxStorageSize = maxStorageSize;
   }
 
-  async load(): Promise<void> {
-    const result = await chrome.storage.local.get(DidHandleCache.STORAGE_KEY);
-    const data: unknown = result[DidHandleCache.STORAGE_KEY];
+  load(): ResultAsync<void, WormholeError> {
+    return ResultAsync.fromPromise(chrome.storage.local.get(DidHandleCache.STORAGE_KEY), (e) =>
+      cacheError('Failed to load cache from storage', 'load', e),
+    )
+      .andThen((result) => {
+        const data: unknown = result[DidHandleCache.STORAGE_KEY];
 
-    if (!data || typeof data !== 'object') {
-      return;
-    }
-
-    try {
-      for (const [did, entry] of Object.entries(data as Record<string, CacheEntry>)) {
-        if (this.isValidDid(did) && this.isValidCacheEntry(entry)) {
-          this.cache.set(did, entry.handle);
-          this.lastAccessTime.set(did, entry.lastAccessed);
+        if (!data || typeof data !== 'object') {
+          return ok(undefined);
         }
-      }
-    } catch (error: unknown) {
-      console.warn('Failed to load cache data:', error);
-    }
+
+        try {
+          for (const [did, entry] of Object.entries(data as Record<string, CacheEntry>)) {
+            if (this.isValidDid(did) && this.isValidCacheEntry(entry)) {
+              this.cache.set(did, entry.handle);
+              this.lastAccessTime.set(did, entry.lastAccessed);
+            }
+          }
+          return ok(undefined);
+        } catch (error: unknown) {
+          const err = cacheError('Failed to parse cache data', 'load', error);
+          logError('CACHE', err);
+          return ok(undefined); // Continue with empty cache on parse errors
+        }
+      })
+      .map(() => undefined);
   }
 
-  async set(did: string, handle: string): Promise<void> {
+  set(did: string, handle: string): ResultAsync<void, WormholeError> {
+    // Validation errors are programmer errors - keep as throws
     if (!this.isValidDid(did)) {
       throw new Error('Invalid DID format');
     }
@@ -97,13 +111,14 @@ export class DidHandleCache {
     const previousHandle = this.cache.getByFirst(did);
     const previousLastAccessed = this.lastAccessTime.get(did);
 
-    try {
-      this.cache.set(did, handle);
-      this.lastAccessTime.set(did, Date.now());
+    // Update cache immediately
+    this.cache.set(did, handle);
+    this.lastAccessTime.set(did, Date.now());
+    this.checkSizeAndEvict();
 
-      this.checkSizeAndEvict();
-      await this.persist();
-    } catch (error) {
+    // Attempt to persist - if it fails, rollback and return error
+    return this.persist().orElse((error) => {
+      // Rollback on persistence failure
       if (previousHandle !== undefined) {
         this.cache.set(did, previousHandle);
         if (previousLastAccessed !== undefined) {
@@ -116,8 +131,8 @@ export class DidHandleCache {
         }
         this.lastAccessTime.delete(did);
       }
-      throw error;
-    }
+      return err(error);
+    });
   }
 
   getHandle(did: string): string | undefined {
@@ -136,10 +151,12 @@ export class DidHandleCache {
     return did;
   }
 
-  async clear(): Promise<void> {
+  clear(): ResultAsync<void, WormholeError> {
     this.cache.clear();
     this.lastAccessTime.clear();
-    await chrome.storage.local.remove(DidHandleCache.STORAGE_KEY);
+    return ResultAsync.fromPromise(chrome.storage.local.remove(DidHandleCache.STORAGE_KEY), (e) =>
+      cacheError('Failed to clear cache from storage', 'clear', e),
+    ).map(() => undefined);
   }
 
   get size(): number {
@@ -178,9 +195,15 @@ export class DidHandleCache {
   private updateLastAccessed(did: string): void {
     this.lastAccessTime.set(did, Date.now());
 
-    void this.persist().catch((error: unknown) => {
-      console.warn('Failed to persist last accessed time:', error);
-    });
+    // Fire-and-forget persistence with error logging
+    void this.persist().match(
+      () => {
+        // Success - no action needed
+      },
+      (error) => {
+        logError('CACHE', error, { operation: 'updateLastAccessed', did });
+      },
+    );
   }
 
   private checkSizeAndEvict(): void {
@@ -207,7 +230,7 @@ export class DidHandleCache {
     }
   }
 
-  private async persist(): Promise<void> {
+  private persist(): ResultAsync<void, WormholeError> {
     const data: Record<string, CacheEntry> = {};
 
     for (const [did, lastAccessed] of this.lastAccessTime.entries()) {
@@ -217,9 +240,12 @@ export class DidHandleCache {
       }
     }
 
-    await chrome.storage.local.set({
-      [DidHandleCache.STORAGE_KEY]: data,
-    });
+    return ResultAsync.fromPromise(
+      chrome.storage.local.set({
+        [DidHandleCache.STORAGE_KEY]: data,
+      }),
+      (e) => cacheError('Failed to persist cache to storage', 'persist', e),
+    ).map(() => undefined);
   }
 
   private isValidDid(did: string): boolean {
