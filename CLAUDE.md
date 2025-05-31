@@ -153,6 +153,7 @@ This is a Manifest V3 browser extension that provides "wormhole" navigation betw
 ### Core Components
 
 **Transform System**:
+
 - **Parser** (`src/shared/parser.ts`) - URL parsing with `parseInput()` that accepts URLs, handles, or DIDs
 - **Canonicalizer** (`src/shared/canonicalizer.ts`) - Pure transformation to standardized TransformInfo structure
 - **Resolver** (`src/shared/resolver.ts`) - Handle/DID resolution with AT Protocol API integration and retry logic
@@ -164,12 +165,14 @@ This is a Manifest V3 browser extension that provides "wormhole" navigation betw
 - **Retry** (`src/shared/retry.ts`) - Network retry logic with exponential backoff
 
 **Service Worker** (`src/background/service-worker.ts`):
+
 - Message handling for popup communication
 - Automatic tab URL monitoring with pre-caching
 - Proactive background resolution of handles/DIDs
 - Returns cache hit/miss metadata for debugging
 
 **Popup** (`src/popup/popup.ts`):
+
 - Main UI displaying destination links
 - Service worker communication for resolution
 - Cache management controls
@@ -186,6 +189,7 @@ This is a Manifest V3 browser extension that provides "wormhole" navigation betw
 ### Supported Services
 
 The extension recognizes and transforms URLs from:
+
 - **bsky.app**, **deer.social** - Native Bluesky clients
 - **cred.blue** - Social credit score service
 - **tangled.sh** - AT Protocol-native git hosting
@@ -198,22 +202,26 @@ The extension recognizes and transforms URLs from:
 ### Special Features
 
 **Firefox Theme Integration**:
+
 - Automatically adopts Firefox's active theme colors
 - Falls back to `prefers-color-scheme` on Chrome
 - Maintains readability across all theme variations
 
 **Debug System** (`src/shared/debug.ts`):
+
 - Categorized logging: 🎨 Theme, 💾 Cache, 📝 Parsing, 🔧 Popup, ⚙️ Service Worker, 🔄 Transform
 - Runtime control via `window.wormholeDebug` in popup console
 - Persistent settings in `chrome.storage.local`
 
 **Cache System**:
+
 - Bidirectional handle↔DID mapping with automatic cleanup
 - Write-through persistence with LRU eviction
 - Proactive background resolution for visited URLs
 - Visual cache hit/miss indicators in development builds
 
 **Options System**:
+
 - **Show Emojis**: Toggle emoji display (default: true)
 - **Strict Mode**: Content-aware service filtering (default: false)
 - Cross-device sync via `chrome.storage.sync`
@@ -221,6 +229,7 @@ The extension recognizes and transforms URLs from:
 ### Error Handling
 
 The extension uses **neverthrow** for comprehensive error handling:
+
 - All network operations return `ResultAsync<T, WormholeError>`
 - Discriminated union error types (NetworkError, ParseError, ValidationError, CacheError)
 - Explicit error handling enforced by ESLint
