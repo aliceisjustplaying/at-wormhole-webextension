@@ -263,6 +263,7 @@ The extension uses **neverthrow** for comprehensive error handling:
 ## Migration Plan: neverthrow → Effect
 
 ### Phase 1: Foundation Setup
+
 1. **Install Effect** and configure TypeScript for Effect's requirements
 2. **Create Effect error types** - Port WormholeError discriminated union to Effect's Data.TaggedEnum
 3. **Create utility module** - Helper functions for common Effect patterns in this codebase
@@ -271,6 +272,7 @@ The extension uses **neverthrow** for comprehensive error handling:
 #### Phase 1 Detailed Implementation Instructions
 
 ##### Prerequisites
+
 - Ensure you're on the `neverthrow-refactor` branch
 - Run all validation commands to confirm clean starting state
 - Create a new feature branch: `git checkout -b effect-migration`
@@ -278,12 +280,14 @@ The extension uses **neverthrow** for comprehensive error handling:
 ##### Step 1: Install Effect and Required Dependencies
 
 **1.1. Add Effect to package.json:**
+
 ```bash
 bun add effect
 bun add -D @effect/eslint-plugin @effect/language-service
 ```
 
 **1.2. Verify installation:**
+
 - Check that `package.json` now includes `"effect": "^3.x.x"` in dependencies
 - Run `bun install` to ensure lockfile is updated
 - Run a quick build to ensure no immediate issues: `bun run build:dev`
@@ -305,12 +309,8 @@ export class NetworkError extends Data.TaggedError('NetworkError')<{
   readonly status?: number;
   readonly cause?: unknown;
 }> {
-  static make = (params: {
-    message: string;
-    url: string;
-    status?: number;
-    cause?: unknown;
-  }) => new NetworkError(params);
+  static make = (params: { message: string; url: string; status?: number; cause?: unknown }) =>
+    new NetworkError(params);
 }
 
 export class ParseError extends Data.TaggedError('ParseError')<{
@@ -325,11 +325,7 @@ export class ValidationError extends Data.TaggedError('ValidationError')<{
   readonly field: string;
   readonly value: unknown;
 }> {
-  static make = (params: {
-    message: string;
-    field: string;
-    value: unknown;
-  }) => new ValidationError(params);
+  static make = (params: { message: string; field: string; value: unknown }) => new ValidationError(params);
 }
 
 export class CacheError extends Data.TaggedError('CacheError')<{
@@ -337,11 +333,7 @@ export class CacheError extends Data.TaggedError('CacheError')<{
   readonly operation: string;
   readonly cause?: unknown;
 }> {
-  static make = (params: {
-    message: string;
-    operation: string;
-    cause?: unknown;
-  }) => new CacheError(params);
+  static make = (params: { message: string; operation: string; cause?: unknown }) => new CacheError(params);
 }
 
 // Union type for all wormhole errors
@@ -349,35 +341,37 @@ export type WormholeError = NetworkError | ParseError | ValidationError | CacheE
 
 // Schema for URL validation
 export const UrlSchema = Schema.String.pipe(
-  Schema.filter((s): s is string => {
-    try {
-      new URL(s);
-      return true;
-    } catch {
-      return false;
-    }
-  }, { message: () => 'Invalid URL format' })
+  Schema.filter(
+    (s): s is string => {
+      try {
+        new URL(s);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    { message: () => 'Invalid URL format' },
+  ),
 );
 
 // Schema for DID validation
 export const DidSchema = Schema.String.pipe(
   Schema.startsWith('did:'),
-  Schema.filter(
-    (s): s is string => s.includes(':') && s.split(':').length >= 3,
-    { message: () => 'Invalid DID format' }
-  )
+  Schema.filter((s): s is string => s.includes(':') && s.split(':').length >= 3, {
+    message: () => 'Invalid DID format',
+  }),
 );
 
-// Schema for handle validation  
+// Schema for handle validation
 export const HandleSchema = Schema.String.pipe(
-  Schema.filter(
-    (s): s is string => /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(s.replace(/^@/, '')),
-    { message: () => 'Invalid handle format' }
-  )
+  Schema.filter((s): s is string => /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(s.replace(/^@/, '')), {
+    message: () => 'Invalid handle format',
+  }),
 );
 ```
 
 **2.2. Validate the new error types:**
+
 - Run `bun run typecheck` to ensure no TypeScript errors
 - The file should have zero imports from neverthrow
 - These errors should be compatible with Effect's error channel
@@ -408,49 +402,55 @@ export const HttpServiceLive = Layer.succeed(
       Effect.gen(function* () {
         yield* Schema.decodeUnknown(UrlSchema)(url);
         return yield* Effect.tryPromise({
-          try: () => fetch(url, { 
-            ...options, 
-            signal: AbortSignal.timeout(5000) 
-          }),
-          catch: (e) => NetworkError.make({
-            message: 'Fetch failed',
-            url,
-            cause: e
-          })
+          try: () =>
+            fetch(url, {
+              ...options,
+              signal: AbortSignal.timeout(5000),
+            }),
+          catch: (e) =>
+            NetworkError.make({
+              message: 'Fetch failed',
+              url,
+              cause: e,
+            }),
         });
       }),
-    
+
     fetchJson: <T>(url: string, schema: Schema.Schema<T>) =>
       Effect.gen(function* () {
         const response = yield* HttpService.fetch(url);
-        
+
         if (!response.ok) {
-          return yield* Effect.fail(NetworkError.make({
-            message: 'HTTP error',
-            url,
-            status: response.status
-          }));
+          return yield* Effect.fail(
+            NetworkError.make({
+              message: 'HTTP error',
+              url,
+              status: response.status,
+            }),
+          );
         }
-        
+
         const text = yield* Effect.tryPromise({
           try: () => response.text(),
-          catch: () => ParseError.make({
-            message: 'Failed to read response body',
-            input: url
-          })
+          catch: () =>
+            ParseError.make({
+              message: 'Failed to read response body',
+              input: url,
+            }),
         });
-        
+
         const json = yield* Effect.try({
           try: () => JSON.parse(text),
-          catch: () => ParseError.make({
-            message: 'Invalid JSON response',
-            input: text
-          })
+          catch: () =>
+            ParseError.make({
+              message: 'Invalid JSON response',
+              input: text,
+            }),
         });
-        
+
         return yield* Schema.decodeUnknown(schema)(json);
-      })
-  })
+      }),
+  }),
 );
 
 // Cache Service for browser storage
@@ -469,28 +469,26 @@ export const CacheServiceLive = Layer.succeed(
       Effect.gen(function* () {
         const result = yield* Effect.promise(() => chrome.storage.local.get(key));
         const data = result[key];
-        
+
         if (data == null) {
           return null;
         }
-        
-        return yield* Schema.decodeUnknown(schema)(data).pipe(
-          Effect.catchAll(() => Effect.succeed(null))
-        );
+
+        return yield* Schema.decodeUnknown(schema)(data).pipe(Effect.catchAll(() => Effect.succeed(null)));
       }),
-    
+
     set: <T>(key: string, value: T) =>
       Effect.promise(() => chrome.storage.local.set({ [key]: value })).pipe(
         Effect.asVoid,
-        Effect.catchAll(() => Effect.void)
+        Effect.catchAll(() => Effect.void),
       ),
-    
+
     remove: (key: string) =>
       Effect.promise(() => chrome.storage.local.remove(key)).pipe(
         Effect.asVoid,
-        Effect.catchAll(() => Effect.void)
-      )
-  })
+        Effect.catchAll(() => Effect.void),
+      ),
+  }),
 );
 
 // Debug Service for logging
@@ -508,23 +506,20 @@ export const DebugServiceLive = Layer.succeed(
       Effect.sync(() => {
         console.log(`🔍 [${category}] ${message}`, context);
       }),
-    
+
     error: (category, error, context) =>
       Effect.sync(() => {
         console.error(`❌ [${category}]`, error, context);
-      })
-  })
+      }),
+  }),
 );
 
 // Main application layer
-export const AppLayer = Layer.mergeAll(
-  HttpServiceLive,
-  CacheServiceLive,
-  DebugServiceLive
-);
+export const AppLayer = Layer.mergeAll(HttpServiceLive, CacheServiceLive, DebugServiceLive);
 ```
 
 **3.2. Validate the utility module:**
+
 - Run `bun run typecheck`
 - Ensure no circular dependencies with existing modules
 - The utilities should facilitate gradual migration
@@ -540,7 +535,7 @@ import effectPlugin from '@effect/eslint-plugin';
 // In the config array, add Effect plugin configuration
 export default [
   // ... existing configs ...
-  
+
   // Add Effect plugin rules
   {
     plugins: {
@@ -549,15 +544,18 @@ export default [
     rules: {
       // Effect-specific rules
       '@effect/no-direct-effect-import': 'error',
-      
+
       // During migration, we'll have both systems
       // Temporarily disable the neverthrow rule for Effect files
-      'neverthrow/must-use-result': ['error', {
-        ignore: ['**/effect-utils.ts', '**/*-effect.ts'],
-      }],
+      'neverthrow/must-use-result': [
+        'error',
+        {
+          ignore: ['**/effect-utils.ts', '**/*-effect.ts'],
+        },
+      ],
     },
   },
-  
+
   // ... rest of config ...
 ];
 ```
@@ -578,12 +576,14 @@ Check if Effect requires any specific TypeScript compiler options. Usually Effec
 # Effect Migration Status
 
 ## Phase 1: Foundation Setup ✅
+
 - [x] Effect installed
 - [x] Effect error types created (errors-effect.ts)
 - [x] Utility module created (effect-utils.ts)
 - [x] ESLint configured for Effect
 
 ## Phase 2: Core Module Migration
+
 - [ ] types.ts
 - [ ] errors.ts (replace with errors-effect.ts)
 - [ ] parser.ts
@@ -591,31 +591,36 @@ Check if Effect requires any specific TypeScript compiler options. Usually Effec
 - [ ] retry.ts
 
 ## Phase 3: Async Operations Migration
+
 - [ ] resolver.ts
 - [ ] cache.ts
 - [ ] services.ts
 
 ## Phase 4: Integration Points
+
 - [ ] service-worker.ts
 - [ ] popup.ts
 - [ ] options.ts
 - [ ] debug.ts
 
 ## Phase 5: Testing and Cleanup
+
 - [ ] Update all tests
 - [ ] Remove neverthrow
 - [ ] Bundle size check
 - [ ] Performance testing
 
 ## Migration Notes
+
 - Started: [DATE]
 - Branch: effect-migration
-- 
+-
 ```
 
 ##### Step 6: Validation and Commit
 
 **6.1. Run ALL validation commands:**
+
 ```bash
 bun run format
 bun run lint
@@ -625,11 +630,13 @@ bun run build:dev
 ```
 
 **6.2. Fix any issues:**
+
 - If ESLint complains about new Effect files, ensure the ignore patterns are correct
 - If TypeScript has issues, check that Effect types are properly imported
 - Tests should still pass as we haven't changed any actual functionality
 
 **6.3. Commit the foundation:**
+
 ```bash
 git add package.json bun.lockb
 git add src/shared/errors-effect.ts
@@ -642,6 +649,7 @@ git commit -m "Phase 1: Set up Effect foundation with error types and utilities"
 ##### Verification Checklist for Junior Engineer
 
 Before proceeding to Phase 2:
+
 1. [ ] Can you import from 'effect' without errors?
 2. [ ] Does `bun run typecheck` pass?
 3. [ ] Does `bun run lint` pass?
@@ -652,21 +660,27 @@ Before proceeding to Phase 2:
 ##### Common Issues and Solutions
 
 **Issue**: "Cannot find module 'effect'"
+
 - **Solution**: Run `bun install` again
 
 **Issue**: ESLint errors in Effect files
+
 - **Solution**: Check that the ignore pattern in eslint.config.mjs is correct
 
 **Issue**: TypeScript errors about Effect types
+
 - **Solution**: Ensure you're importing from 'effect' not 'effect/index'
 
 **Issue**: Tests fail after changes
+
 - **Solution**: We haven't changed any logic yet - if tests fail, revert and check what was modified
 
 ##### Next Steps
+
 Once Phase 1 is complete and all validation passes, we can begin Phase 2 by migrating the first core module (types.ts). The junior engineer should NOT proceed to Phase 2 until all Phase 1 validation passes.
 
 ### Phase 2: Core Module Migration (Bottom-up approach)
+
 1. **Migrate types.ts** - Convert core type definitions to Effect-compatible structures
 2. **Migrate errors.ts** - Implement Effect error constructors and type guards
 3. **Migrate parser.ts** - Convert Result<T, E> to Effect<T, E, never> for sync operations
@@ -676,17 +690,20 @@ Once Phase 1 is complete and all validation passes, we can begin Phase 2 by migr
 #### Phase 2 Detailed Implementation Instructions
 
 ##### Prerequisites
+
 - Phase 1 MUST be complete with all validation passing
 - You should be on the `effect-migration` branch
 - Verify Effect imports work: `import { Effect } from 'effect'` should not error
 
 ##### Overview
+
 Phase 2 migrates the core modules that have no dependencies on async operations. We'll work bottom-up, starting with types, then errors, then the modules that use them.
 
 ##### Step 1: Migrate types.ts
 
 **1.1. Analyze current types.ts:**
 First, read the current file to understand what needs migration:
+
 ```bash
 cat src/shared/types.ts
 ```
@@ -702,6 +719,7 @@ Since types.ts contains only TypeScript interfaces and types (no neverthrow impo
 
 **1.3. Update imports in effect-utils.ts:**
 If needed, update effect-utils.ts to import from types-effect.ts:
+
 ```typescript
 // In effect-utils.ts, change:
 import type { SomeType } from './types.js';
@@ -710,11 +728,13 @@ import type { SomeType } from './types-effect.js';
 ```
 
 **1.4. Validation:**
+
 ```bash
 bun run typecheck
 ```
 
 **1.5. Commit:**
+
 ```bash
 git add src/shared/types-effect.ts
 git commit -m "Phase 2.1: Create Effect-compatible types module"
@@ -724,6 +744,7 @@ git commit -m "Phase 2.1: Create Effect-compatible types module"
 
 **2.1. Update all imports:**
 Find all files that import from errors.ts and prepare a list:
+
 ```bash
 grep -r "from './errors" src/ --include="*.ts" --include="*.tsx"
 grep -r 'from "./errors' src/ --include="*.ts" --include="*.tsx"
@@ -750,19 +771,16 @@ async function migrateErrorImports() {
 
   for (const file of filesToUpdate) {
     let content = await readFile(file, 'utf-8');
-    
+
     // Replace error imports
-    content = content.replace(
-      /from ['"]\.\/errors(\.js)?['"]/g,
-      `from './errors-effect.js'`
-    );
-    
+    content = content.replace(/from ['"]\.\/errors(\.js)?['"]/g, `from './errors-effect.js'`);
+
     // Replace error type imports
     content = content.replace(
       /import type \{ WormholeError \}/g,
-      `import type { WormholeEffectError as WormholeError }`
+      `import type { WormholeEffectError as WormholeError }`,
     );
-    
+
     await writeFile(file, content);
   }
 }
@@ -771,17 +789,20 @@ migrateErrorImports().catch(console.error);
 ```
 
 **2.3. Run the migration:**
+
 ```bash
 bun scripts/migrate-errors.ts
 ```
 
 **2.4. Delete old errors.ts:**
+
 ```bash
 rm src/shared/errors.ts
 ```
 
 **2.5. Update ESLint config:**
 Remove the temporary ignore pattern since we're now fully using Effect errors:
+
 ```javascript
 // In eslint.config.mjs, update the neverthrow rule:
 'neverthrow/must-use-result': ['error', {
@@ -790,6 +811,7 @@ Remove the temporary ignore pattern since we're now fully using Effect errors:
 ```
 
 **2.6. Validation:**
+
 ```bash
 bun run format
 bun run lint
@@ -801,6 +823,7 @@ gtimeout 10 bun run test
 If tests fail due to error type mismatches, update test files to use Effect error types.
 
 **2.8. Commit:**
+
 ```bash
 git add -A
 git commit -m "Phase 2.2: Replace neverthrow errors with Effect errors"
@@ -809,6 +832,7 @@ git commit -m "Phase 2.2: Replace neverthrow errors with Effect errors"
 ##### Step 3: Migrate parser.ts
 
 **3.1. Read and understand current implementation:**
+
 ```bash
 cat src/shared/parser.ts
 ```
@@ -826,45 +850,49 @@ import { SERVICES, findServiceByHostname } from './services.js';
 const ParsedInputSchema = Schema.Union(
   Schema.Struct({
     type: Schema.Literal('did'),
-    did: DidSchema
+    did: DidSchema,
   }),
   Schema.Struct({
     type: Schema.Literal('handle'),
-    handle: HandleSchema
+    handle: HandleSchema,
   }),
   Schema.Struct({
     type: Schema.Literal('url'),
     url: UrlSchema,
     hostname: Schema.String,
-    pathname: Schema.String
+    pathname: Schema.String,
   }),
   Schema.Struct({
     type: Schema.Literal('at-uri'),
     uri: Schema.String,
     authority: Schema.String,
     collection: Schema.optional(Schema.String),
-    rkey: Schema.optional(Schema.String)
-  })
+    rkey: Schema.optional(Schema.String),
+  }),
 );
 
 export const parseInput = (input: string): Effect.Effect<ParsedInput, ParseError | ValidationError> =>
   Effect.gen(function* () {
     const trimmed = input.trim();
-    
+
     if (!trimmed) {
-      return yield* Effect.fail(ParseError.make({
-        message: 'Input is empty',
-        input
-      }));
+      return yield* Effect.fail(
+        ParseError.make({
+          message: 'Input is empty',
+          input,
+        }),
+      );
     }
 
     // Handle DID
     if (trimmed.startsWith('did:')) {
       const did = yield* Schema.decodeUnknown(DidSchema)(trimmed).pipe(
-        Effect.mapError(() => ParseError.make({
-          message: 'Invalid DID format',
-          input: trimmed
-        }))
+        Effect.mapError(() =>
+          ParseError.make({
+            message: 'Invalid DID format',
+            input: trimmed,
+          }),
+        ),
       );
       return { type: 'did', did } as const;
     }
@@ -877,9 +905,9 @@ export const parseInput = (input: string): Effect.Effect<ParsedInput, ParseError
     // Handle URL
     const urlResult = yield* Effect.try({
       try: () => new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`),
-      catch: () => null
+      catch: () => null,
     });
-    
+
     if (urlResult) {
       return yield* parseUrl(urlResult);
     }
@@ -887,31 +915,33 @@ export const parseInput = (input: string): Effect.Effect<ParsedInput, ParseError
     // Handle as potential handle
     const handleResult = yield* Schema.decodeUnknown(HandleSchema)(trimmed.replace(/^@/, '')).pipe(
       Effect.match({
-        onSuccess: (handle) => ({ type: 'handle', handle } as const),
-        onFailure: () => null
-      })
+        onSuccess: (handle) => ({ type: 'handle', handle }) as const,
+        onFailure: () => null,
+      }),
     );
-    
+
     if (handleResult) {
       return handleResult;
     }
-    
-    return yield* Effect.fail(ParseError.make({
-      message: 'Invalid input format - not a valid URL, handle, DID, or AT URI',
-      input
-    }));
+
+    return yield* Effect.fail(
+      ParseError.make({
+        message: 'Invalid input format - not a valid URL, handle, DID, or AT URI',
+        input,
+      }),
+    );
   });
 
 const parseUrl = (url: URL): Effect.Effect<ParsedInput, ParseError> =>
   Effect.gen(function* () {
     const service = findServiceByHostname(url.hostname);
-    
+
     if (!service?.parsing) {
       return {
         type: 'url',
         url: url.href,
         hostname: url.hostname,
-        pathname: url.pathname
+        pathname: url.pathname,
       } as const;
     }
 
@@ -923,22 +953,24 @@ const parseUrl = (url: URL): Effect.Effect<ParsedInput, ParseError> =>
 const parseAtUri = (uri: string): Effect.Effect<ParsedInput, ParseError> =>
   Effect.gen(function* () {
     const match = uri.match(/^at:\/\/([^/]+)(?:\/([^/]+)(?:\/(.+))?)?$/);
-    
+
     if (!match) {
-      return yield* Effect.fail(ParseError.make({
-        message: 'Invalid AT URI format',
-        input: uri
-      }));
+      return yield* Effect.fail(
+        ParseError.make({
+          message: 'Invalid AT URI format',
+          input: uri,
+        }),
+      );
     }
 
     const [, authority, collection, rkey] = match;
-    
+
     return {
       type: 'at-uri',
       uri,
       authority,
       collection,
-      rkey
+      rkey,
     } as const;
   });
 
@@ -949,13 +981,14 @@ const extractFromUrl = (url: URL, patterns: ServiceParsingConfig): Effect.Effect
     return {
       type: 'url',
       url: url.href,
-      hostname: url.hostname, 
-      pathname: url.pathname
+      hostname: url.hostname,
+      pathname: url.pathname,
     } as const;
   });
 ```
 
 **3.3. Update imports in other files:**
+
 ```bash
 # Find files importing from parser
 grep -r "from './parser" src/ --include="*.ts"
@@ -964,6 +997,7 @@ grep -r "from './parser" src/ --include="*.ts"
 For each file found, update to import from parser-effect.ts and handle Effect types.
 
 **3.4. Remove old parser.ts:**
+
 ```bash
 rm src/shared/parser.ts
 mv src/shared/parser-effect.ts src/shared/parser.ts
@@ -975,18 +1009,27 @@ In files that use parseInput, update from Result patterns to Effect patterns:
 ```typescript
 // Before:
 parseInput(input).match(
-  (parsed) => { /* success */ },
-  (error) => { /* error */ }
+  (parsed) => {
+    /* success */
+  },
+  (error) => {
+    /* error */
+  },
 );
 
 // After:
 Effect.match(parseInput(input), {
-  onSuccess: (parsed) => { /* success */ },
-  onFailure: (error) => { /* error */ }
+  onSuccess: (parsed) => {
+    /* success */
+  },
+  onFailure: (error) => {
+    /* error */
+  },
 });
 ```
 
 **3.6. Validation:**
+
 ```bash
 bun run format
 bun run lint
@@ -995,6 +1038,7 @@ gtimeout 10 bun run test
 ```
 
 **3.7. Commit:**
+
 ```bash
 git add -A
 git commit -m "Phase 2.3: Migrate parser to Effect"
@@ -1003,6 +1047,7 @@ git commit -m "Phase 2.3: Migrate parser to Effect"
 ##### Step 4: Migrate canonicalizer.ts
 
 **4.1. Read current implementation:**
+
 ```bash
 cat src/shared/canonicalizer.ts
 ```
@@ -1022,81 +1067,87 @@ const TransformInfoSchema = Schema.Struct({
   did: Schema.optional(Schema.String),
   nsid: Schema.optional(Schema.String),
   rkey: Schema.optional(Schema.String),
-  cid: Schema.optional(Schema.String)
+  cid: Schema.optional(Schema.String),
 });
 
-export const canonicalize = (
-  parsed: ParsedInput,
-): Effect.Effect<TransformInfo, ValidationError | ParseError> =>
+export const canonicalize = (parsed: ParsedInput): Effect.Effect<TransformInfo, ValidationError | ParseError> =>
   Effect.gen(function* () {
     yield* DebugService.log('CANONICALIZER', 'Canonicalizing input', { parsed });
-    
+
     return yield* pipe(
       parsed,
       Match.value,
-      Match.when({ type: 'handle' }, (p) => 
-        Effect.succeed({ handle: p.handle })
-      ),
-      Match.when({ type: 'did' }, (p) => 
-        Effect.succeed({ did: p.did })
-      ),
-      Match.when({ type: 'url' }, (p) => 
-        canonicalizeUrl(p)
-      ),
-      Match.when({ type: 'at-uri' }, (p) => 
-        canonicalizeAtUri(p)
-      ),
-      Match.exhaustive
+      Match.when({ type: 'handle' }, (p) => Effect.succeed({ handle: p.handle })),
+      Match.when({ type: 'did' }, (p) => Effect.succeed({ did: p.did })),
+      Match.when({ type: 'url' }, (p) => canonicalizeUrl(p)),
+      Match.when({ type: 'at-uri' }, (p) => canonicalizeAtUri(p)),
+      Match.exhaustive,
     );
   });
 
-const canonicalizeUrl = (parsed: { type: 'url'; url: string; hostname: string; pathname: string }): Effect.Effect<TransformInfo, ValidationError | ParseError> =>
+const canonicalizeUrl = (parsed: {
+  type: 'url';
+  url: string;
+  hostname: string;
+  pathname: string;
+}): Effect.Effect<TransformInfo, ValidationError | ParseError> =>
   Effect.gen(function* () {
     const service = findServiceByHostname(parsed.hostname);
-    
+
     if (!service?.parsing) {
-      return yield* Effect.fail(ValidationError.make({
-        message: 'No parsing configuration for hostname',
-        field: 'hostname',
-        value: parsed.hostname
-      }));
+      return yield* Effect.fail(
+        ValidationError.make({
+          message: 'No parsing configuration for hostname',
+          field: 'hostname',
+          value: parsed.hostname,
+        }),
+      );
     }
 
     // Extract structured information using service patterns
     const info = yield* extractStructuredInfo(parsed.pathname, service.parsing);
-    
+
     yield* DebugService.log('CANONICALIZER', 'Extracted info from URL', { info });
-    
+
     return info;
   });
 
-const canonicalizeAtUri = (parsed: { type: 'at-uri'; uri: string; authority: string; collection?: string; rkey?: string }): Effect.Effect<TransformInfo, ValidationError> =>
+const canonicalizeAtUri = (parsed: {
+  type: 'at-uri';
+  uri: string;
+  authority: string;
+  collection?: string;
+  rkey?: string;
+}): Effect.Effect<TransformInfo, ValidationError> =>
   Effect.gen(function* () {
     const info: TransformInfo = {
       handle: parsed.authority.startsWith('did:') ? undefined : parsed.authority,
-      did: parsed.authority.startsWith('did:') ? parsed.authority : undefined
+      did: parsed.authority.startsWith('did:') ? parsed.authority : undefined,
     };
-    
+
     if (parsed.collection) {
       info.nsid = parsed.collection;
     }
-    
+
     if (parsed.rkey) {
       info.rkey = parsed.rkey;
     }
-    
+
     yield* DebugService.log('CANONICALIZER', 'Canonicalized AT URI', { info });
-    
+
     return info;
   });
 
-const extractStructuredInfo = (pathname: string, config: ServiceParsingConfig): Effect.Effect<TransformInfo, ParseError> =>
+const extractStructuredInfo = (
+  pathname: string,
+  config: ServiceParsingConfig,
+): Effect.Effect<TransformInfo, ParseError> =>
   Effect.gen(function* () {
     // Implementation for extracting handles, DIDs, rkeys from URL patterns
     // This would use regex patterns from service configuration
-    
+
     const info: TransformInfo = {};
-    
+
     // Extract handle/identifier if pattern matches
     if (config.patterns?.profileIdentifier) {
       const match = pathname.match(config.patterns.profileIdentifier);
@@ -1104,7 +1155,7 @@ const extractStructuredInfo = (pathname: string, config: ServiceParsingConfig): 
         info.handle = match[1];
       }
     }
-    
+
     // Extract post rkey if pattern matches
     if (config.patterns?.postIdentifier) {
       const match = pathname.match(config.patterns.postIdentifier);
@@ -1114,14 +1165,16 @@ const extractStructuredInfo = (pathname: string, config: ServiceParsingConfig): 
         info.nsid = 'app.bsky.feed.post';
       }
     }
-    
+
     if (Object.keys(info).length === 0) {
-      return yield* Effect.fail(ParseError.make({
-        message: 'No extractable information from pathname',
-        input: pathname
-      }));
+      return yield* Effect.fail(
+        ParseError.make({
+          message: 'No extractable information from pathname',
+          input: pathname,
+        }),
+      );
     }
-    
+
     return info;
   });
 ```
@@ -1130,6 +1183,7 @@ const extractStructuredInfo = (pathname: string, config: ServiceParsingConfig): 
 Follow the same process as with parser.ts.
 
 **4.4. Validation and commit:**
+
 ```bash
 bun run format
 bun run lint
@@ -1142,6 +1196,7 @@ git commit -m "Phase 2.4: Migrate canonicalizer to Effect"
 ##### Step 5: Migrate retry.ts
 
 **5.1. Read current implementation:**
+
 ```bash
 cat src/shared/retry.ts
 ```
@@ -1162,27 +1217,25 @@ export const RetryPolicies = {
     Schedule.intersect(Schedule.spaced(Duration.seconds(5))),
     Schedule.whileInput((error: WormholeError) => error._tag === 'NetworkError'),
     Schedule.upTo(Duration.seconds(30)),
-    Schedule.jittered // Add jitter to prevent thundering herd
+    Schedule.jittered, // Add jitter to prevent thundering herd
   ),
-  
+
   // Cache operations: fast retry with linear backoff
   cache: pipe(
     Schedule.linear(Duration.millis(50)),
     Schedule.whileInput((error: WormholeError) => error._tag === 'CacheError'),
-    Schedule.upTo(Duration.seconds(5))
+    Schedule.upTo(Duration.seconds(5)),
   ),
-  
+
   // Parse operations: immediate retry up to 2 times (for transient issues)
   parse: pipe(
     Schedule.recurs(2),
-    Schedule.whileInput((error: WormholeError) => error._tag === 'ParseError')
-  )
+    Schedule.whileInput((error: WormholeError) => error._tag === 'ParseError'),
+  ),
 };
 
 // Smart retry that chooses policy based on error type
-export const withSmartRetry = <A, E extends WormholeError>(
-  effect: Effect.Effect<A, E>
-): Effect.Effect<A, E> =>
+export const withSmartRetry = <A, E extends WormholeError>(effect: Effect.Effect<A, E>): Effect.Effect<A, E> =>
   Effect.gen(function* () {
     return yield* pipe(
       effect,
@@ -1190,41 +1243,30 @@ export const withSmartRetry = <A, E extends WormholeError>(
         pipe(
           Schedule.union(RetryPolicies.network, RetryPolicies.cache),
           Schedule.union(RetryPolicies.parse),
-          Schedule.tapInput((error) => 
-            DebugService.log('RETRY', 'Retrying operation', { error })
-          )
-        )
-      )
+          Schedule.tapInput((error) => DebugService.log('RETRY', 'Retrying operation', { error })),
+        ),
+      ),
     );
   });
 
 // Specific retry functions for common use cases
-export const withNetworkRetry = <A>(
-  effect: Effect.Effect<A, NetworkError>
-): Effect.Effect<A, NetworkError> =>
+export const withNetworkRetry = <A>(effect: Effect.Effect<A, NetworkError>): Effect.Effect<A, NetworkError> =>
   Effect.retry(effect, RetryPolicies.network);
 
-export const withCacheRetry = <A, E extends WormholeError>(
-  effect: Effect.Effect<A, E>
-): Effect.Effect<A, E> =>
+export const withCacheRetry = <A, E extends WormholeError>(effect: Effect.Effect<A, E>): Effect.Effect<A, E> =>
   Effect.retry(effect, RetryPolicies.cache);
 
 // Circuit breaker pattern for repeated failures
 export const withCircuitBreaker = <A, E extends WormholeError>(
   effect: Effect.Effect<A, E>,
   failureThreshold = 5,
-  resetTimeout = Duration.minutes(1)
+  resetTimeout = Duration.minutes(1),
 ) => {
   // This would implement a proper circuit breaker using Effect's Ref for state
   // For now, simplified version
   return pipe(
     effect,
-    Effect.retry(
-      pipe(
-        Schedule.recurs(failureThreshold),
-        Schedule.intersect(Schedule.spaced(resetTimeout))
-      )
-    )
+    Effect.retry(pipe(Schedule.recurs(failureThreshold), Schedule.intersect(Schedule.spaced(resetTimeout)))),
   );
 };
 
@@ -1232,17 +1274,13 @@ export const withCircuitBreaker = <A, E extends WormholeError>(
 export const withTimeoutAndRetry = <A, E extends WormholeError>(
   effect: Effect.Effect<A, E>,
   timeout = Duration.seconds(5),
-  schedule = RetryPolicies.network
-): Effect.Effect<A, E> =>
-  pipe(
-    effect,
-    Effect.timeout(timeout),
-    Effect.retry(schedule)
-  );
+  schedule = RetryPolicies.network,
+): Effect.Effect<A, E> => pipe(effect, Effect.timeout(timeout), Effect.retry(schedule));
 ```
 
 **5.3. Update consumers:**
 Files using withRetry will need updates:
+
 ```typescript
 // Before:
 withRetry(() => ResultAsync.fromPromise(...))
@@ -1252,6 +1290,7 @@ withRetry(Effect.tryPromise(...))
 ```
 
 **5.4. Validation and commit:**
+
 ```bash
 bun run format
 bun run lint
@@ -1265,6 +1304,7 @@ git commit -m "Phase 2.5: Migrate retry to Effect with Schedule API"
 
 ```markdown
 ## Phase 2: Core Module Migration ✅
+
 - [x] types.ts - Created Effect-compatible version
 - [x] errors.ts - Replaced with errors-effect.ts
 - [x] parser.ts - Converted to Effect
@@ -1275,6 +1315,7 @@ git commit -m "Phase 2.5: Migrate retry to Effect with Schedule API"
 ##### Step 7: Final Phase 2 Validation
 
 **7.1. Run full validation suite:**
+
 ```bash
 bun run format
 bun run lint
@@ -1284,11 +1325,13 @@ bun run build:dev
 ```
 
 **7.2. Check bundle size:**
+
 ```bash
 ls -lh dist/
 ```
 
 **7.3. Manual testing:**
+
 - Load the extension in development mode
 - Test basic functionality still works
 - Verify no console errors
@@ -1296,25 +1339,30 @@ ls -lh dist/
 ##### Troubleshooting Guide
 
 **Issue**: "Cannot find module" errors after migration
+
 - **Solution**: Check all import paths end with `.js` extension
 
 **Issue**: Type mismatch between Effect and neverthrow in tests
+
 - **Solution**: Update test to use Effect.runSync or Effect.runPromise
 
 **Issue**: ESLint "must-use-result" errors
+
 - **Solution**: Ensure the file is properly using Effect types, not Result
 
 **Issue**: Test timeout
+
 - **Solution**: Effect might need explicit runtime. Wrap test in Effect.runPromise
 
 ##### Common Patterns for Migration
 
 **Pattern 1: Converting Result.match**
+
 ```typescript
 // Before:
 result.match(
   (value) => console.log(value),
-  (error) => console.error(error)
+  (error) => console.error(error),
 );
 
 // After:
@@ -1322,46 +1370,45 @@ pipe(
   effect,
   Effect.match({
     onSuccess: (value) => console.log(value),
-    onFailure: (error) => console.error(error)
+    onFailure: (error) => console.error(error),
   }),
-  Effect.runSync
+  Effect.runSync,
 );
 ```
 
 **Pattern 2: Converting ResultAsync.fromPromise**
+
 ```typescript
 // Before:
-ResultAsync.fromPromise(
-  fetch(url),
-  (e) => networkError('Failed', url, e)
-);
+ResultAsync.fromPromise(fetch(url), (e) => networkError('Failed', url, e));
 
 // After:
 Effect.tryPromise({
   try: () => fetch(url),
-  catch: (e) => networkError('Failed', url, undefined, e)
+  catch: (e) => networkError('Failed', url, undefined, e),
 });
 ```
 
 **Pattern 3: Chaining operations**
+
 ```typescript
 // Before:
-result
-  .andThen((value) => nextOperation(value))
-  .map((value) => transform(value));
+result.andThen((value) => nextOperation(value)).map((value) => transform(value));
 
 // After:
 pipe(
   effect,
   Effect.flatMap((value) => nextOperation(value)),
-  Effect.map((value) => transform(value))
+  Effect.map((value) => transform(value)),
 );
 ```
 
 ##### Next Steps
+
 Once Phase 2 is complete with all core modules migrated, proceed to Phase 3 for async operations (resolver.ts, cache.ts). Do NOT proceed until all validation passes and manual testing confirms the extension still works.
 
 ### Phase 3: Async Operations Migration
+
 1. **Migrate resolver.ts** - Convert ResultAsync to Effect, use Effect's timeout/retry
 2. **Migrate cache.ts** - Port chrome.storage operations to Effect
 3. **Update services.ts** - Ensure buildUrl functions work with Effect types
@@ -1369,22 +1416,26 @@ Once Phase 2 is complete with all core modules migrated, proceed to Phase 3 for 
 #### Phase 3 Detailed Implementation Instructions
 
 ##### Prerequisites
+
 - Phase 1 and Phase 2 MUST be complete with all validation passing
 - You should be on the `effect-migration` branch
 - Verify async Effect patterns work: `Effect.tryPromise` should be available
 - All core modules (parser, canonicalizer, retry) should already be using Effect
 
 ##### Overview
+
 Phase 3 migrates the async operation modules that handle network requests, browser storage, and service configuration. These modules are critical for the extension's functionality and require careful handling of async operations.
 
 ##### Step 1: Migrate resolver.ts
 
 **1.1. Analyze current resolver.ts:**
+
 ```bash
 cat src/shared/resolver.ts
 ```
 
 Key observations:
+
 - Uses `ResultAsync` for all network operations
 - Has custom retry logic via `withNetworkRetry`
 - Uses `AbortSignal.timeout(5000)` for request timeouts
@@ -1402,12 +1453,12 @@ import { withNetworkRetry, withTimeoutAndRetry } from './retry.js';
 
 // Schemas for API responses
 const BlueskyResolveHandleResponseSchema = Schema.Struct({
-  did: Schema.String
+  did: Schema.String,
 });
 
 const DidDocumentSchema = Schema.Struct({
   id: Schema.optional(Schema.String),
-  alsoKnownAs: Schema.optional(Schema.Array(Schema.String))
+  alsoKnownAs: Schema.optional(Schema.Array(Schema.String)),
 });
 
 // Service interface for resolver
@@ -1424,160 +1475,152 @@ export const ResolverServiceLive = Layer.effect(
   Effect.gen(function* () {
     const http = yield* HttpService;
     const debug = yield* DebugService;
-    
+
     return ResolverService.of({
       resolveHandleToDid: (handle: string) =>
         Effect.gen(function* () {
           // Validate input
-          const validatedHandle = yield* Schema.decodeUnknown(HandleSchema)(
-            handle.replace(/^@/, '')
-          ).pipe(
-            Effect.mapError(() => ParseError.make({
-              message: 'Invalid handle format',
-              input: handle
-            }))
+          const validatedHandle = yield* Schema.decodeUnknown(HandleSchema)(handle.replace(/^@/, '')).pipe(
+            Effect.mapError(() =>
+              ParseError.make({
+                message: 'Invalid handle format',
+                input: handle,
+              }),
+            ),
           );
-          
+
           yield* debug.log('RESOLVER', 'Resolving handle to DID', { handle: validatedHandle });
-          
+
           return yield* pipe(
             validatedHandle,
             Match.value,
             Match.when(
               (h) => h.startsWith('did:web:'),
-              (didWeb) => resolveDidWeb(didWeb, http, debug)
+              (didWeb) => resolveDidWeb(didWeb, http, debug),
             ),
-            Match.orElse((h) => resolveHandleViaBsky(h, http, debug))
+            Match.orElse((h) => resolveHandleViaBsky(h, http, debug)),
           );
         }),
-      
+
       resolveDidToHandle: (did: string) =>
         Effect.gen(function* () {
           if (!did) return null;
-          
+
           // Validate DID format
           const validatedDid = yield* Schema.decodeUnknown(DidSchema)(did).pipe(
-            Effect.mapError(() => ParseError.make({
-              message: 'Invalid DID format', 
-              input: did
-            }))
+            Effect.mapError(() =>
+              ParseError.make({
+                message: 'Invalid DID format',
+                input: did,
+              }),
+            ),
           );
-          
+
           yield* debug.log('RESOLVER', 'Resolving DID to handle', { did: validatedDid });
-          
+
           return yield* pipe(
             validatedDid,
             Match.value,
             Match.when(
               (d) => d.startsWith('did:plc:'),
-              (didPlc) => resolveDidPlc(didPlc, http, debug)
+              (didPlc) => resolveDidPlc(didPlc, http, debug),
             ),
             Match.when(
               (d) => d.startsWith('did:web:'),
-              (didWeb) => resolveDidWebToHandle(didWeb, http, debug)
+              (didWeb) => resolveDidWebToHandle(didWeb, http, debug),
             ),
-            Match.orElse(() => Effect.succeed(null))
+            Match.orElse(() => Effect.succeed(null)),
           );
-        })
+        }),
     });
-  })
+  }),
 ).pipe(Layer.provide(Layer.mergeAll(HttpService, DebugService)));
 
 // Helper functions using services
 const resolveDidWeb = (
   didWeb: string,
   http: HttpService.Service,
-  debug: DebugService.Service
+  debug: DebugService.Service,
 ): Effect.Effect<string, NetworkError | ParseError> =>
   Effect.gen(function* () {
     const parts = didWeb.split(':');
     if (parts.length !== 3) {
       return didWeb;
     }
-    
+
     const url = `https://${parts[2]}/.well-known/did.json`;
     yield* debug.log('RESOLVER', 'Fetching did:web document', { url });
-    
-    const response = yield* withTimeoutAndRetry(
-      http.fetchJson(url, DidDocumentSchema)
-    ).pipe(
+
+    const response = yield* withTimeoutAndRetry(http.fetchJson(url, DidDocumentSchema)).pipe(
       Effect.catchAll((error) => {
-        yield* debug.error('RESOLVER', 'did:web resolution failed, using fallback', { error, didWeb });
+        yield * debug.error('RESOLVER', 'did:web resolution failed, using fallback', { error, didWeb });
         return Effect.succeed({ id: didWeb });
-      })
+      }),
     );
-    
+
     return response.id ?? didWeb;
   });
 
 const resolveHandleViaBsky = (
   handle: string,
   http: HttpService.Service,
-  debug: DebugService.Service
+  debug: DebugService.Service,
 ): Effect.Effect<string, NetworkError | ParseError> =>
   Effect.gen(function* () {
     const apiUrl = `https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`;
-    
+
     yield* debug.log('RESOLVER', 'Resolving via Bluesky API', { handle, apiUrl });
-    
-    const response = yield* withNetworkRetry(
-      http.fetchJson(apiUrl, BlueskyResolveHandleResponseSchema)
-    );
-    
+
+    const response = yield* withNetworkRetry(http.fetchJson(apiUrl, BlueskyResolveHandleResponseSchema));
+
     yield* debug.log('RESOLVER', 'Handle resolved successfully', { handle, did: response.did });
-    
+
     return response.did;
   });
 
 const resolveDidPlc = (
   did: string,
   http: HttpService.Service,
-  debug: DebugService.Service
+  debug: DebugService.Service,
 ): Effect.Effect<string | null, NetworkError | ParseError> =>
   Effect.gen(function* () {
     const url = `https://plc.directory/${encodeURIComponent(did)}`;
-    
-    const response = yield* withNetworkRetry(
-      http.fetchJson(url, DidDocumentSchema)
-    ).pipe(
+
+    const response = yield* withNetworkRetry(http.fetchJson(url, DidDocumentSchema)).pipe(
       Effect.catchAll((error) => {
-        yield* debug.error('RESOLVER', 'PLC resolution failed', { error, did });
+        yield * debug.error('RESOLVER', 'PLC resolution failed', { error, did });
         return Effect.succeed(null);
-      })
+      }),
     );
-    
+
     if (!response?.alsoKnownAs) {
       return null;
     }
-    
+
     return extractHandleFromAlsoKnownAs(response.alsoKnownAs);
   });
 
 const resolveDidWebToHandle = (
   did: string,
   http: HttpService.Service,
-  debug: DebugService.Service
+  debug: DebugService.Service,
 ): Effect.Effect<string | null, NetworkError | ParseError> =>
   Effect.gen(function* () {
     const url = getDidWebWellKnownUrl(did);
-    
-    const response = yield* withNetworkRetry(
-      http.fetchJson(url, DidDocumentSchema)
-    ).pipe(
+
+    const response = yield* withNetworkRetry(http.fetchJson(url, DidDocumentSchema)).pipe(
       Effect.catchAll((error) => {
-        yield* debug.error('RESOLVER', 'did:web resolution failed, using fallback', { error, did });
+        yield * debug.error('RESOLVER', 'did:web resolution failed, using fallback', { error, did });
         // Fallback to decoding the did:web identifier
-        const fallbackHandle = decodeURIComponent(
-          did.substring('did:web:'.length).split('#')[0]
-        );
+        const fallbackHandle = decodeURIComponent(did.substring('did:web:'.length).split('#')[0]);
         return Effect.succeed(fallbackHandle);
-      })
+      }),
     );
-    
+
     if (typeof response === 'string') {
       return response; // fallback case
     }
-    
+
     return response?.alsoKnownAs ? extractHandleFromAlsoKnownAs(response.alsoKnownAs) : null;
   });
 
@@ -1595,9 +1638,7 @@ const extractHandleFromAlsoKnownAs = (alsoKnownAs: string[]): string | null => {
 };
 
 const getDidWebWellKnownUrl = (did: string): string => {
-  const methodSpecificId = decodeURIComponent(
-    did.substring('did:web:'.length).split('#')[0]
-  );
+  const methodSpecificId = decodeURIComponent(did.substring('did:web:'.length).split('#')[0]);
   const parts = methodSpecificId.split(':');
   const hostAndPort = parts[0];
   let path = '';
@@ -1613,43 +1654,55 @@ const getDidWebWellKnownUrl = (did: string): string => {
 // Export convenience functions that use the service
 export const resolveHandleToDid = (handle: string) =>
   Effect.flatMap(ResolverService, (service) => service.resolveHandleToDid(handle));
-  
+
 export const resolveDidToHandle = (did: string) =>
   Effect.flatMap(ResolverService, (service) => service.resolveDidToHandle(did));
 ```
 
 **1.3. Update imports in consumer files:**
 Find all files that use resolver functions:
+
 ```bash
 grep -r "resolveHandleToDid\|resolveDidToHandle" src/ --include="*.ts"
 ```
 
 **1.4. Replace and update imports:**
+
 ```bash
 rm src/shared/resolver.ts
 mv src/shared/resolver-effect.ts src/shared/resolver.ts
 ```
 
 **1.5. Update consumer code to handle Effect returns:**
+
 ```typescript
 // Before:
 resolveHandleToDid(handle).match(
-  (did) => { /* success */ },
-  (error) => { /* error */ }
+  (did) => {
+    /* success */
+  },
+  (error) => {
+    /* error */
+  },
 );
 
 // After:
 pipe(
   resolveHandleToDid(handle),
   Effect.match({
-    onSuccess: (did) => { /* success */ },
-    onFailure: (error) => { /* error */ }
+    onSuccess: (did) => {
+      /* success */
+    },
+    onFailure: (error) => {
+      /* error */
+    },
   }),
-  Effect.runPromise
+  Effect.runPromise,
 );
 ```
 
 **1.6. Validation and commit:**
+
 ```bash
 bun run format
 bun run lint
@@ -1663,6 +1716,7 @@ git commit -m "Phase 3.1: Migrate resolver to Effect with timeout and retry"
 
 **2.1. Analyze current cache.ts:**
 The cache module has two main components:
+
 - `BidirectionalMap`: A pure data structure (no async operations)
 - `DidHandleCache`: Uses chrome.storage API with ResultAsync
 
@@ -1678,7 +1732,7 @@ import { DidSchema, HandleSchema } from './errors-effect.js';
 const CacheEntrySchema = Schema.Struct({
   handle: HandleSchema,
   lastAccessed: Schema.Number,
-  accessCount: Schema.optional(Schema.Number)
+  accessCount: Schema.optional(Schema.Number),
 });
 
 const CacheDataSchema = Schema.Record(DidSchema, CacheEntrySchema);
@@ -1713,7 +1767,7 @@ const defaultConfig: DidHandleCacheConfig = {
   maxStorageSize: 4 * 1024 * 1024, // 4MB
   maxEntries: 10000,
   ttlMillis: Duration.days(7).value, // 7 days
-  storageKey: 'wormhole-cache'
+  storageKey: 'wormhole-cache',
 };
 
 // Service interface for DID-Handle cache
@@ -1745,27 +1799,27 @@ export const DidHandleCacheServiceLive = (config: DidHandleCacheConfig = default
       const accessTimes = yield* Ref.make(new Map<string, number>());
       const debug = yield* DebugService;
       const storage = yield* CacheService;
-      
+
       // Helper to validate and clean expired entries
       const cleanExpired = Effect.gen(function* () {
         const now = Date.now();
         const times = yield* Ref.get(accessTimes);
         const expiredKeys: string[] = [];
-        
+
         for (const [did, lastAccessed] of times) {
           if (now - lastAccessed > config.ttlMillis) {
             expiredKeys.push(did);
           }
         }
-        
+
         if (expiredKeys.length > 0) {
           yield* debug.log('CACHE', 'Cleaning expired entries', { count: expiredKeys.length });
-          
+
           for (const did of expiredKeys) {
             const cacheMap = yield* Ref.get(cache);
             const reverseCacheMap = yield* Ref.get(reverseCache);
             const handle = cacheMap.get(did);
-            
+
             if (handle) {
               yield* Ref.update(cache, (map) => {
                 map.delete(did);
@@ -1776,37 +1830,36 @@ export const DidHandleCacheServiceLive = (config: DidHandleCacheConfig = default
                 return new Map(map);
               });
             }
-            
+
             yield* Ref.update(accessTimes, (map) => {
               map.delete(did);
               return new Map(map);
             });
           }
         }
-        
+
         return expiredKeys.length;
       });
-      
+
       // Helper to evict LRU entries if over capacity
       const evictLRU = Effect.gen(function* () {
         const cacheMap = yield* Ref.get(cache);
         const times = yield* Ref.get(accessTimes);
-        
+
         if (cacheMap.size <= config.maxEntries) {
           return;
         }
-        
-        const sortedByAccess = Array.from(times.entries())
-          .sort(([, a], [, b]) => a - b);
-        
+
+        const sortedByAccess = Array.from(times.entries()).sort(([, a], [, b]) => a - b);
+
         const toEvict = sortedByAccess.slice(0, cacheMap.size - config.maxEntries);
-        
+
         yield* debug.log('CACHE', 'Evicting LRU entries', { count: toEvict.length });
-        
+
         for (const [did] of toEvict) {
           const reverseCacheMap = yield* Ref.get(reverseCache);
           const handle = cacheMap.get(did);
-          
+
           if (handle) {
             yield* Ref.update(cache, (map) => {
               map.delete(did);
@@ -1817,145 +1870,145 @@ export const DidHandleCacheServiceLive = (config: DidHandleCacheConfig = default
               return new Map(map);
             });
           }
-          
+
           yield* Ref.update(accessTimes, (map) => {
             map.delete(did);
             return new Map(map);
           });
         }
       });
-      
+
       return DidHandleCacheService.of({
         get: (did: string) =>
           Effect.gen(function* () {
             // Validate DID format
             yield* Schema.decodeUnknown(DidSchema)(did);
-            
+
             const cacheMap = yield* Ref.get(cache);
             const handle = cacheMap.get(did);
-            
+
             if (handle) {
               // Update access time
               yield* Ref.update(accessTimes, (map) => {
                 map.set(did, Date.now());
                 return new Map(map);
               });
-              
+
               yield* debug.log('CACHE', 'Cache hit for DID', { did, handle });
             }
-            
+
             return handle ?? null;
           }),
-        
+
         getReverse: (handle: string) =>
           Effect.gen(function* () {
             // Validate handle format
             yield* Schema.decodeUnknown(HandleSchema)(handle);
-            
+
             const reverseCacheMap = yield* Ref.get(reverseCache);
             const did = reverseCacheMap.get(handle);
-            
+
             if (did) {
               // Update access time
               yield* Ref.update(accessTimes, (map) => {
                 map.set(did, Date.now());
                 return new Map(map);
               });
-              
+
               yield* debug.log('CACHE', 'Reverse cache hit for handle', { handle, did });
             }
-            
+
             return did ?? null;
           }),
-        
+
         set: (did: string, handle: string) =>
           Effect.gen(function* () {
             // Validate inputs
             yield* Schema.decodeUnknown(DidSchema)(did);
             yield* Schema.decodeUnknown(HandleSchema)(handle);
-            
+
             const now = Date.now();
-            
+
             // Update both caches atomically
             yield* Ref.update(cache, (map) => {
               map.set(did, handle);
               return new Map(map);
             });
-            
+
             yield* Ref.update(reverseCache, (map) => {
               map.set(handle, did);
               return new Map(map);
             });
-            
+
             yield* Ref.update(accessTimes, (map) => {
               map.set(did, now);
               return new Map(map);
             });
-            
+
             yield* debug.log('CACHE', 'Cache entry set', { did, handle });
-            
+
             // Clean up if needed
             yield* evictLRU;
           }),
-        
+
         load: Effect.gen(function* () {
           yield* debug.log('CACHE', 'Loading cache from storage');
-          
+
           const data = yield* storage.get(config.storageKey, CacheDataSchema);
-          
+
           if (!data) {
             yield* debug.log('CACHE', 'No cached data found');
             return;
           }
-          
+
           let loadedCount = 0;
           const now = Date.now();
-          
+
           for (const [did, entry] of Object.entries(data)) {
             // Skip expired entries
             if (now - entry.lastAccessed > config.ttlMillis) {
               continue;
             }
-            
+
             yield* Ref.update(cache, (map) => {
               map.set(did, entry.handle);
               return new Map(map);
             });
-            
+
             yield* Ref.update(reverseCache, (map) => {
               map.set(entry.handle, did);
               return new Map(map);
             });
-            
+
             yield* Ref.update(accessTimes, (map) => {
               map.set(did, entry.lastAccessed);
               return new Map(map);
             });
-            
+
             loadedCount++;
           }
-          
-          yield* debug.log('CACHE', 'Cache loaded successfully', { 
+
+          yield* debug.log('CACHE', 'Cache loaded successfully', {
             totalEntries: Object.keys(data).length,
-            loadedEntries: loadedCount 
+            loadedEntries: loadedCount,
           });
         }),
-        
+
         persist: Effect.gen(function* () {
           const cacheMap = yield* Ref.get(cache);
           const times = yield* Ref.get(accessTimes);
-          
+
           const data: Record<string, CacheEntry> = {};
-          
+
           for (const [did, handle] of cacheMap) {
             const lastAccessed = times.get(did) ?? Date.now();
             data[did] = { handle, lastAccessed };
           }
-          
+
           yield* storage.set(config.storageKey, data);
           yield* debug.log('CACHE', 'Cache persisted', { entryCount: Object.keys(data).length });
         }),
-        
+
         clear: Effect.gen(function* () {
           yield* Ref.set(cache, new Map());
           yield* Ref.set(reverseCache, new Map());
@@ -1963,58 +2016,67 @@ export const DidHandleCacheServiceLive = (config: DidHandleCacheConfig = default
           yield* storage.remove(config.storageKey);
           yield* debug.log('CACHE', 'Cache cleared');
         }),
-        
+
         evictExpired: cleanExpired,
-        
+
         stats: Effect.gen(function* () {
           const cacheMap = yield* Ref.get(cache);
           const times = yield* Ref.get(accessTimes);
-          
+
           const accessTimeValues = Array.from(times.values());
-          
+
           return {
             size: cacheMap.size,
             estimatedStorageSize: JSON.stringify(Object.fromEntries(cacheMap)).length,
             oldestEntry: accessTimeValues.length > 0 ? Math.min(...accessTimeValues) : null,
-            newestEntry: accessTimeValues.length > 0 ? Math.max(...accessTimeValues) : null
+            newestEntry: accessTimeValues.length > 0 ? Math.max(...accessTimeValues) : null,
           };
-        })
+        }),
       });
-    })
+    }),
   ).pipe(Layer.provide(Layer.mergeAll(CacheService, DebugService)));
 
 // Export convenience functions
-export const getCachedHandle = (did: string) =>
-  Effect.flatMap(DidHandleCacheService, (cache) => cache.get(did));
-  
+export const getCachedHandle = (did: string) => Effect.flatMap(DidHandleCacheService, (cache) => cache.get(did));
+
 export const getCachedDid = (handle: string) =>
   Effect.flatMap(DidHandleCacheService, (cache) => cache.getReverse(handle));
-  
+
 export const setCacheEntry = (did: string, handle: string) =>
   Effect.flatMap(DidHandleCacheService, (cache) => cache.set(did, handle));
 ```
 
 **2.3. Update imports and consumer code:**
 Files that use the cache will need to handle Effect returns for async operations:
+
 ```typescript
 // Before:
 cache.load().match(
-  () => { /* loaded */ },
-  (error) => { /* error */ }
+  () => {
+    /* loaded */
+  },
+  (error) => {
+    /* error */
+  },
 );
 
 // After:
 await pipe(
   cache.load(),
   Effect.match({
-    onSuccess: () => { /* loaded */ },
-    onFailure: (error) => { /* error */ }
+    onSuccess: () => {
+      /* loaded */
+    },
+    onFailure: (error) => {
+      /* error */
+    },
   }),
-  Effect.runPromise
+  Effect.runPromise,
 );
 ```
 
 **2.4. Validation and commit:**
+
 ```bash
 bun run format
 bun run lint
@@ -2030,6 +2092,7 @@ git commit -m "Phase 3.2: Migrate cache to Effect with chrome.storage operations
 The services module is mostly pure configuration with type definitions. The main consideration is ensuring it works with the new Effect-based types.
 
 **3.2. Update type imports:**
+
 ```typescript
 // src/shared/services.ts
 import type { TransformInfo } from './types-effect.js';
@@ -2051,10 +2114,12 @@ export function findServiceByHostname(hostname: string): ServiceConfig | null {
 
 **3.3. Verify compatibility:**
 Since services.ts is mainly configuration and pure functions, minimal changes are needed. The main updates are:
+
 - Import path changes to use Effect-compatible types
 - Any helper functions that return errors should use Effect error types
 
 **3.4. Validation and commit:**
+
 ```bash
 bun run format
 bun run lint
@@ -2068,6 +2133,7 @@ git commit -m "Phase 3.3: Update services module for Effect compatibility"
 
 ```markdown
 ## Phase 3: Async Operations Migration ✅
+
 - [x] resolver.ts - Converted network operations to Effect
 - [x] cache.ts - Ported chrome.storage to Effect
 - [x] services.ts - Updated imports for Effect types
@@ -2076,6 +2142,7 @@ git commit -m "Phase 3.3: Update services module for Effect compatibility"
 ##### Step 5: Final Phase 3 Validation
 
 **5.1. Run full validation suite:**
+
 ```bash
 bun run format
 bun run lint
@@ -2086,12 +2153,14 @@ bun run build:dev
 
 **5.2. Integration testing:**
 Test critical async operations:
+
 - Load the extension and verify handle/DID resolution works
 - Check that cache persists across extension reloads
 - Verify network retries work correctly
 - Test timeout behavior with slow connections
 
 **5.3. Performance check:**
+
 - Monitor memory usage during cache operations
 - Verify no regression in network request performance
 - Check that Effect's retry mechanism doesn't add significant overhead
@@ -2099,57 +2168,62 @@ Test critical async operations:
 ##### Troubleshooting Guide
 
 **Issue**: Chrome storage API type conflicts
+
 - **Solution**: Ensure chrome types are installed and Effect.tryPromise properly types the API
 
 **Issue**: Effect runtime not available in async contexts
+
 - **Solution**: Use Effect.runPromise at integration boundaries, not within library functions
 
 **Issue**: Cache rollback logic fails
+
 - **Solution**: Verify the rollback state is captured before mutations
 
 **Issue**: Network timeouts not working
+
 - **Solution**: Verify AbortSignal.timeout is supported in your runtime
 
 ##### Common Patterns for Phase 3
 
 **Pattern 1: Browser API wrapping**
+
 ```typescript
 // Wrap browser APIs with Effect.tryPromise
 Effect.tryPromise({
   try: () => chrome.storage.local.get(key),
-  catch: (e) => cacheError('Storage operation failed', 'get', e)
-})
+  catch: (e) => cacheError('Storage operation failed', 'get', e),
+});
 ```
 
 **Pattern 2: Fire-and-forget with logging**
+
 ```typescript
 // For operations that shouldn't block but should log errors
 void pipe(
   someEffect,
   Effect.match({
     onSuccess: () => {},
-    onFailure: (error) => logError('CONTEXT', error)
+    onFailure: (error) => logError('CONTEXT', error),
   }),
-  Effect.runPromise
+  Effect.runPromise,
 );
 ```
 
 **Pattern 3: Fallback values for resilience**
+
 ```typescript
 // Provide fallback values for non-critical failures
 pipe(
   riskyOperation,
-  Effect.catchAll(() => Effect.succeed(fallbackValue))
-)
+  Effect.catchAll(() => Effect.succeed(fallbackValue)),
+);
 ```
 
 **Pattern 4: Combining multiple async operations**
+
 ```typescript
 // Use Effect.all for parallel operations
-Effect.all([
-  resolveHandleToDid(handle1),
-  resolveHandleToDid(handle2)
-], { concurrency: 2 })
+Effect.all([resolveHandleToDid(handle1), resolveHandleToDid(handle2)], { concurrency: 2 });
 ```
 
 ##### Key Considerations for Async Operations
@@ -2165,9 +2239,11 @@ Effect.all([
 5. **Testing**: Update tests to use `Effect.runPromise` or `Effect.runSync` as appropriate. Consider using Effect's test utilities for better testing.
 
 ##### Next Steps
+
 Once Phase 3 is complete with all async operations migrated, proceed to Phase 4 for integration points (service-worker.ts, popup.ts, options.ts, debug.ts). These files interface directly with the browser extension APIs and user interface.
 
 ### Phase 4: Integration Points
+
 1. **Migrate service-worker.ts** - Convert message handling to Effect runtime
 2. **Migrate popup.ts** - Update UI communication with Effect
 3. **Migrate options.ts** - Simple conversion for options handling
@@ -2176,18 +2252,21 @@ Once Phase 3 is complete with all async operations migrated, proceed to Phase 4 
 #### Phase 4 Detailed Implementation Instructions
 
 ##### Prerequisites
+
 - Phases 1, 2, and 3 MUST be complete with all validation passing
 - You should be on the `effect-migration` branch
 - All library modules (parser, resolver, cache, etc.) should be using Effect
 - Understand that integration points are where Effect runtime is created
 
 ##### Overview
+
 Phase 4 migrates the integration points that interface with browser APIs and user interactions. These files are the boundaries where Effect runtime is created and managed. This is the most critical phase as it connects the Effect-based library code with the browser extension environment.
 
 ##### Step 1: Migrate service-worker.ts
 
 **1.1. Analyze current service-worker.ts:**
 Key observations:
+
 - Uses neverthrow's `.match()` pattern throughout
 - Handles async Chrome runtime messages
 - Manages cache initialization on startup
@@ -2210,31 +2289,27 @@ const SWMessageSchema = Schema.Union(
   Schema.Struct({
     type: Schema.Literal('UPDATE_CACHE'),
     did: Schema.String,
-    handle: Schema.String
+    handle: Schema.String,
   }),
   Schema.Struct({
     type: Schema.Literal('GET_HANDLE'),
-    did: Schema.String
+    did: Schema.String,
   }),
   Schema.Struct({
     type: Schema.Literal('GET_DID'),
-    handle: Schema.String
+    handle: Schema.String,
   }),
   Schema.Struct({
-    type: Schema.Literal('CLEAR_CACHE')
+    type: Schema.Literal('CLEAR_CACHE'),
   }),
   Schema.Struct({
     type: Schema.Literal('DEBUG_LOG'),
-    message: Schema.String
-  })
+    message: Schema.String,
+  }),
 );
 
 // Application layer with all dependencies
-const ServiceWorkerLayer = Layer.mergeAll(
-  AppLayer,
-  ResolverServiceLive,
-  DidHandleCacheServiceLive()
-);
+const ServiceWorkerLayer = Layer.mergeAll(AppLayer, ResolverServiceLive, DidHandleCacheServiceLive());
 
 // Create runtime with proper layer provision
 const runtime = Runtime.make(ServiceWorkerLayer);
@@ -2244,7 +2319,7 @@ const BackgroundResolverService = Effect.gen(function* () {
   const resolver = yield* ResolverService;
   const cache = yield* DidHandleCacheService;
   const debug = yield* DebugService;
-  
+
   return {
     resolveAndCache: (did: string, handle?: string) =>
       Effect.gen(function* () {
@@ -2253,23 +2328,23 @@ const BackgroundResolverService = Effect.gen(function* () {
           yield* cache.set(did, handle);
           return { did, handle, fromCache: false };
         }
-        
+
         // Check cache first
         const cachedHandle = yield* cache.get(did);
         if (cachedHandle) {
           return { did, handle: cachedHandle, fromCache: true };
         }
-        
+
         // Resolve and cache
         const resolvedHandle = yield* resolver.resolveDidToHandle(did);
         if (resolvedHandle) {
           yield* cache.set(did, resolvedHandle);
           return { did, handle: resolvedHandle, fromCache: false };
         }
-        
+
         return { did, handle: null, fromCache: false };
       }),
-    
+
     resolveHandleAndCache: (handle: string, did?: string) =>
       Effect.gen(function* () {
         if (did) {
@@ -2277,22 +2352,22 @@ const BackgroundResolverService = Effect.gen(function* () {
           yield* cache.set(did, handle);
           return { did, handle, fromCache: false };
         }
-        
+
         // Check cache first
         const cachedDid = yield* cache.getReverse(handle);
         if (cachedDid) {
           return { did: cachedDid, handle, fromCache: true };
         }
-        
+
         // Resolve and cache
         const resolvedDid = yield* resolver.resolveHandleToDid(handle);
         if (resolvedDid) {
           yield* cache.set(resolvedDid, handle);
           return { did: resolvedDid, handle, fromCache: false };
         }
-        
+
         return { did: null, handle, fromCache: false };
-      })
+      }),
   };
 });
 
@@ -2300,25 +2375,23 @@ const BackgroundResolverService = Effect.gen(function* () {
 const initializeServiceWorker = Effect.gen(function* () {
   const debug = yield* DebugService;
   const cache = yield* DidHandleCacheService;
-  
+
   yield* debug.log('SERVICE_WORKER', 'Initializing service worker');
-  
+
   // Load cache on startup
   yield* cache.load;
-  
+
   // Set up periodic cache maintenance
   yield* Effect.fork(
     Effect.repeat(
       pipe(
         cache.evictExpired,
-        Effect.flatMap((evicted) => 
-          debug.log('SERVICE_WORKER', 'Cache maintenance completed', { evicted })
-        )
+        Effect.flatMap((evicted) => debug.log('SERVICE_WORKER', 'Cache maintenance completed', { evicted })),
       ),
-      Schedule.spaced(Duration.hours(1))
-    )
+      Schedule.spaced(Duration.hours(1)),
+    ),
   );
-  
+
   yield* debug.log('SERVICE_WORKER', 'Service worker initialized successfully');
 });
 
@@ -2326,20 +2399,20 @@ const initializeServiceWorker = Effect.gen(function* () {
 const handleMessage = (
   request: unknown,
   sender: chrome.runtime.MessageSender,
-  sendResponse: (response?: unknown) => void
+  sendResponse: (response?: unknown) => void,
 ): boolean => {
   const effect = Effect.gen(function* () {
     const debug = yield* DebugService;
     const cache = yield* DidHandleCacheService;
     const backgroundResolver = yield* BackgroundResolverService;
-    
+
     // Validate and parse message
     const message = yield* Schema.decodeUnknown(SWMessageSchema)(request).pipe(
-      Effect.mapError(() => new Error('Invalid message format'))
+      Effect.mapError(() => new Error('Invalid message format')),
     );
-    
+
     yield* debug.log('SERVICE_WORKER', 'Processing message', { type: message.type, sender: sender.id });
-    
+
     return yield* pipe(
       message,
       Match.value,
@@ -2347,39 +2420,39 @@ const handleMessage = (
         Effect.gen(function* () {
           yield* cache.set(msg.did, msg.handle);
           return { success: true };
-        })
+        }),
       ),
       Match.when({ type: 'GET_HANDLE' }, (msg) =>
         Effect.gen(function* () {
           const result = yield* backgroundResolver.resolveAndCache(msg.did);
-          return { 
-            handle: result.handle, 
-            fromCache: result.fromCache 
+          return {
+            handle: result.handle,
+            fromCache: result.fromCache,
           };
-        })
+        }),
       ),
       Match.when({ type: 'GET_DID' }, (msg) =>
         Effect.gen(function* () {
           const result = yield* backgroundResolver.resolveHandleAndCache(msg.handle);
           return {
             did: result.did,
-            fromCache: result.fromCache
+            fromCache: result.fromCache,
           };
-        })
+        }),
       ),
       Match.when({ type: 'CLEAR_CACHE' }, () =>
         Effect.gen(function* () {
           yield* cache.clear;
           return { success: true };
-        })
+        }),
       ),
       Match.when({ type: 'DEBUG_LOG' }, (msg) =>
         Effect.gen(function* () {
           yield* debug.log('POPUP', msg.message);
           return { success: true };
-        })
+        }),
       ),
-      Match.exhaustive
+      Match.exhaustive,
     );
   }).pipe(
     Effect.catchAll((error) =>
@@ -2387,72 +2460,66 @@ const handleMessage = (
         const debug = yield* DebugService;
         yield* debug.error('SERVICE_WORKER', 'Message handler error', { error, request });
         return { success: false, error: String(error) };
-      })
-    )
+      }),
+    ),
   );
-  
+
   // Run the effect and send response
   Runtime.runPromise(runtime)(effect).then(sendResponse);
-  
+
   return true; // Indicates async response
 };
 
 // Tab update handler for proactive caching
-const handleTabUpdate = (
-  tabId: number,
-  changeInfo: chrome.tabs.TabChangeInfo,
-  tab: chrome.tabs.Tab
-) => {
+const handleTabUpdate = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => {
   if (changeInfo.status !== 'complete' || !tab.url) {
     return;
   }
-  
+
   const effect = Effect.gen(function* () {
     const debug = yield* DebugService;
     const backgroundResolver = yield* BackgroundResolverService;
-    
+
     // Parse the URL to see if it contains identifiers
-    const parsed = yield* parseInput(tab.url).pipe(
-      Effect.catchAll(() => Effect.succeed(null))
-    );
-    
+    const parsed = yield* parseInput(tab.url).pipe(Effect.catchAll(() => Effect.succeed(null)));
+
     if (!parsed) {
       return;
     }
-    
-    yield* debug.log('SERVICE_WORKER', 'Proactively resolving from tab URL', { 
-      tabId, 
-      url: tab.url, 
-      parsed 
+
+    yield* debug.log('SERVICE_WORKER', 'Proactively resolving from tab URL', {
+      tabId,
+      url: tab.url,
+      parsed,
     });
-    
+
     // Handle different cases based on what we found
     return yield* pipe(
       parsed,
       Match.value,
       Match.when(
         (p) => 'did' in p && 'handle' in p,
-        (p) => backgroundResolver.resolveAndCache(p.did, p.handle)
+        (p) => backgroundResolver.resolveAndCache(p.did, p.handle),
       ),
       Match.when(
         (p) => 'did' in p && !('handle' in p),
-        (p) => backgroundResolver.resolveAndCache(p.did)
+        (p) => backgroundResolver.resolveAndCache(p.did),
       ),
       Match.when(
         (p) => 'handle' in p && !('did' in p),
-        (p) => backgroundResolver.resolveHandleAndCache(p.handle)
+        (p) => backgroundResolver.resolveHandleAndCache(p.handle),
       ),
-      Match.orElse(() => Effect.void)
+      Match.orElse(() => Effect.void),
     );
   }).pipe(
     Effect.catchAll((error) =>
       Effect.gen(function* () {
         const debug = yield* DebugService;
         yield* debug.error('SERVICE_WORKER', 'Tab update handler error', { error, tabId, url: tab.url });
-      })
-    )
+      }),
+    ),
   );
-  
+
   // Fire and forget
   Runtime.runFork(runtime)(effect);
 };
@@ -2461,18 +2528,19 @@ const handleTabUpdate = (
 Effect.runSync(runtime)(
   Effect.gen(function* () {
     yield* initializeServiceWorker;
-    
+
     // Register Chrome API event listeners
     chrome.runtime.onMessage.addListener(handleMessage);
     chrome.tabs.onUpdated.addListener(handleTabUpdate);
-    
+
     const debug = yield* DebugService;
     yield* debug.log('SERVICE_WORKER', 'Event listeners registered');
-  })
+  }),
 );
 ```
 
 **1.3. Key changes in the migration:**
+
 - Create a single `Runtime.defaultRuntime` for the service worker
 - Replace `.match()` with `Effect.match()` inside pipe
 - Use `Effect.gen` for complex async flows
@@ -2481,12 +2549,14 @@ Effect.runSync(runtime)(
 - Convert void promises with `Effect.void`
 
 **1.4. Replace and update imports:**
+
 ```bash
 rm src/background/service-worker.ts
 mv src/background/service-worker-effect.ts src/background/service-worker.ts
 ```
 
 **1.5. Validation and commit:**
+
 ```bash
 bun run format
 bun run lint
@@ -2501,6 +2571,7 @@ git commit -m "Phase 4.1: Migrate service-worker to Effect runtime"
 
 **2.1. Analyze current popup.ts:**
 The popup file is large and handles:
+
 - Firefox theme integration
 - Service worker communication
 - UI updates
@@ -2535,7 +2606,7 @@ async function transform(inputUrl?: string): Promise<void> {
           try: () => chrome.tabs.query({ active: true, currentWindow: true }),
           catch: () => new Error('Failed to query tabs'),
         });
-        
+
         currentUrl = tabs[0]?.url;
         if (currentUrl) {
           inputEl.value = currentUrl;
@@ -2567,7 +2638,7 @@ async function transform(inputUrl?: string): Promise<void> {
 
         // Resolve handle/DID if needed
         const resolved = yield* resolveIdentity(normalized);
-        
+
         // Build destinations
         const destinations = buildDestinations(resolved, options.showEmojis, options.strictMode);
         const isStrictFiltered = options.strictMode && hasStrictFiltering(resolved);
@@ -2581,10 +2652,10 @@ async function transform(inputUrl?: string): Promise<void> {
       const errorEl = getElement('error');
       errorEl.textContent = getErrorMessage(error);
       errorEl.classList.remove('hidden');
-      
+
       const destEl = getElement('dest');
       destEl.innerHTML = '';
-      
+
       return Effect.void;
     }),
     Runtime.runPromise(runtime),
@@ -2595,11 +2666,11 @@ async function transform(inputUrl?: string): Promise<void> {
 async function resolveIdentity(info: TransformInfo): Effect.Effect<TransformInfo, WormholeEffectError> {
   return Effect.gen(function* () {
     const swResult = yield* sendMessageToServiceWorker(info);
-    
+
     if (swResult.did && swResult.handle) {
       return { did: swResult.did, handle: swResult.handle, ...info };
     }
-    
+
     // Fallback to direct resolution if SW didn't provide complete data
     if (info.did && !info.handle) {
       const handle = yield* pipe(
@@ -2608,19 +2679,19 @@ async function resolveIdentity(info: TransformInfo): Effect.Effect<TransformInfo
       );
       return { ...info, handle };
     }
-    
+
     if (info.handle && !info.did) {
       const did = yield* resolveHandleToDid(info.handle);
       return { ...info, did };
     }
-    
+
     return info;
   });
 }
 
 // Convert sendMessageToServiceWorker to Effect
 function sendMessageToServiceWorker(
-  info: TransformInfo
+  info: TransformInfo,
 ): Effect.Effect<{ did?: string; handle?: string; fromCache?: boolean }, never> {
   return Effect.tryPromise({
     try: async () => {
@@ -2637,6 +2708,7 @@ function sendMessageToServiceWorker(
 ```
 
 **2.3. Key considerations for popup migration:**
+
 - Keep non-async code unchanged to minimize risk
 - Focus on converting async operations that use ResultAsync
 - Create runtime at module level for reuse
@@ -2644,6 +2716,7 @@ function sendMessageToServiceWorker(
 - Maintain existing error handling behavior
 
 **2.4. Validation and commit:**
+
 ```bash
 bun run format
 bun run lint
@@ -2658,6 +2731,7 @@ git commit -m "Phase 4.2: Migrate popup async operations to Effect"
 
 **3.1. Analyze current options.ts:**
 Options.ts has simple async operations:
+
 - Loading options from chrome.storage.sync
 - Saving options to chrome.storage.sync
 - No neverthrow usage, just try-catch
@@ -2753,12 +2827,14 @@ if (document.readyState === 'loading') {
 ```
 
 **3.3. Replace and update:**
+
 ```bash
 rm src/options/options.ts
 mv src/options/options-effect.ts src/options/options.ts
 ```
 
 **3.4. Validation and commit:**
+
 ```bash
 bun run format
 bun run lint
@@ -2772,6 +2848,7 @@ git commit -m "Phase 4.3: Migrate options to Effect"
 
 **4.1. Analyze current debug.ts:**
 The debug module:
+
 - Uses neverthrow's `isWormholeError` type guard
 - Handles error logging with context
 - Manages debug configuration
@@ -2813,12 +2890,13 @@ export const debugLog = (category: string, level: string, ...args: unknown[]): v
  * Updated to work with Effect's error types
  */
 export const logError = (category: string, error: unknown, context?: Record<string, unknown>): void => {
-  const errorInfo = isWormholeEffectError(error) 
-    ? { 
+  const errorInfo =
+    isWormholeEffectError(error) ?
+      {
         type: error._tag,
         message: error.message,
-        ...error 
-      } 
+        ...error,
+      }
     : { raw: String(error) };
 
   console.error(`❌ [${category}]`, errorInfo, context);
@@ -2830,12 +2908,14 @@ export const logError = (category: string, error: unknown, context?: Record<stri
 ```
 
 **4.3. Update imports in files using debug:**
+
 ```bash
 # Update imports in all files using debug
 grep -r "from './debug" src/ --include="*.ts"
 ```
 
 **4.4. Validation and commit:**
+
 ```bash
 bun run format
 bun run lint
@@ -2848,11 +2928,13 @@ git commit -m "Phase 4.4: Update debug module for Effect errors"
 ##### Step 5: Update shared/options.ts (the shared module)
 
 **5.1. Check if shared/options.ts uses neverthrow:**
+
 ```bash
 cat src/shared/options.ts
 ```
 
 **5.2. If it uses ResultAsync, convert to Effect:**
+
 ```typescript
 // src/shared/options-effect.ts
 import { Effect } from 'effect';
@@ -2874,14 +2956,14 @@ export function loadOptions(): Effect.Effect<Options, never> {
     try: async () => {
       const result = await chrome.storage.sync.get(STORAGE_KEY);
       const stored = result[STORAGE_KEY];
-      
+
       if (stored && typeof stored === 'object') {
         return {
           showEmojis: stored.showEmojis ?? DEFAULT_OPTIONS.showEmojis,
           strictMode: stored.strictMode ?? DEFAULT_OPTIONS.strictMode,
         };
       }
-      
+
       return DEFAULT_OPTIONS;
     },
     catch: () => DEFAULT_OPTIONS, // Always return defaults on error
@@ -2893,6 +2975,7 @@ export function loadOptions(): Effect.Effect<Options, never> {
 
 ```markdown
 ## Phase 4: Integration Points ✅
+
 - [x] service-worker.ts - Created Effect runtime for message handling
 - [x] popup.ts - Migrated async operations to Effect
 - [x] options.ts - Converted storage operations to Effect
@@ -2902,6 +2985,7 @@ export function loadOptions(): Effect.Effect<Options, never> {
 ##### Step 7: Final Phase 4 Validation
 
 **7.1. Run full validation suite:**
+
 ```bash
 bun run format
 bun run lint
@@ -2914,6 +2998,7 @@ bun run build:firefox
 
 **7.2. Extension functionality testing:**
 Critical tests to perform manually:
+
 1. Load extension in Chrome and Firefox
 2. Test popup opens and transforms URLs correctly
 3. Verify cache persistence across browser restarts
@@ -2923,6 +3008,7 @@ Critical tests to perform manually:
 7. Test error handling with invalid inputs
 
 **7.3. Performance validation:**
+
 - Check popup response time
 - Verify no memory leaks in service worker
 - Monitor console for unexpected errors
@@ -2931,20 +3017,25 @@ Critical tests to perform manually:
 ##### Troubleshooting Guide
 
 **Issue**: "chrome is not defined" in tests
+
 - **Solution**: Mock chrome APIs or skip integration tests that require browser environment
 
 **Issue**: Service worker doesn't respond to messages
+
 - **Solution**: Check that Runtime.runPromise is called and promises are handled
 
 **Issue**: Effect runtime errors in console
+
 - **Solution**: Ensure all Effects are run with Runtime.runPromise at boundaries
 
 **Issue**: TypeScript errors about Effect vs ResultAsync
+
 - **Solution**: Verify all imports are updated to Effect versions
 
 ##### Common Patterns for Integration Points
 
 **Pattern 1: Creating Effect runtime**
+
 ```typescript
 // Create once at module level
 const runtime = Runtime.defaultRuntime;
@@ -2954,11 +3045,10 @@ Runtime.runPromise(runtime)(effect);
 ```
 
 **Pattern 2: Chrome API integration**
+
 ```typescript
 // Wrap Chrome APIs that use callbacks
-function chromeApiToEffect<T>(
-  fn: (callback: (result: T) => void) => void
-): Effect.Effect<T, Error> {
+function chromeApiToEffect<T>(fn: (callback: (result: T) => void) => void): Effect.Effect<T, Error> {
   return Effect.async((resume) => {
     fn((result) => resume(Effect.succeed(result)));
   });
@@ -2966,29 +3056,31 @@ function chromeApiToEffect<T>(
 ```
 
 **Pattern 3: Message passing with Effect**
+
 ```typescript
 // Send message and handle response
 pipe(
   Effect.tryPromise({
     try: () => chrome.runtime.sendMessage(message),
-    catch: (e) => new Error(`Message failed: ${e}`)
+    catch: (e) => new Error(`Message failed: ${e}`),
   }),
   Effect.flatMap(processResponse),
-  Runtime.runPromise(runtime)
-)
+  Runtime.runPromise(runtime),
+);
 ```
 
 **Pattern 4: UI updates from Effect**
+
 ```typescript
 // Keep UI updates outside Effect pipeline
 pipe(
   effectOperation,
   Effect.match({
     onSuccess: (data) => updateUI(data),
-    onFailure: (error) => showError(error)
+    onFailure: (error) => showError(error),
   }),
-  Runtime.runPromise(runtime)
-)
+  Runtime.runPromise(runtime),
+);
 ```
 
 ##### Key Architectural Decisions
@@ -3002,8 +3094,9 @@ pipe(
 ##### Integration Testing Checklist
 
 Before considering Phase 4 complete:
+
 - [ ] Extension loads without errors in Chrome
-- [ ] Extension loads without errors in Firefox  
+- [ ] Extension loads without errors in Firefox
 - [ ] Popup transforms URLs correctly
 - [ ] Service worker handles all message types
 - [ ] Cache persists across browser restarts
@@ -3013,9 +3106,11 @@ Before considering Phase 4 complete:
 - [ ] Performance is comparable to neverthrow version
 
 ##### Next Steps
+
 Once Phase 4 is complete with all integration points migrated, proceed to Phase 5 for testing, cleanup, and final validation. This final phase will remove neverthrow completely and ensure the migration is successful.
 
 ### Phase 5: Testing and Cleanup
+
 1. **Update all tests** - Convert test assertions for Effect types
 2. **Remove neverthrow** - Uninstall package and remove from package.json
 3. **Verify bundle size** - Ensure Effect doesn't bloat the extension too much
@@ -3024,23 +3119,27 @@ Once Phase 4 is complete with all integration points migrated, proceed to Phase 
 #### Phase 5 Detailed Implementation Instructions
 
 ##### Prerequisites
+
 - Phases 1, 2, 3, and 4 MUST be complete with all validation passing
 - You should be on the `effect-migration` branch
 - The extension should be fully functional with Effect
 - All modules should be migrated to use Effect instead of neverthrow
 
 ##### Overview
+
 Phase 5 is the final cleanup phase where we remove neverthrow completely, update all tests to use Effect patterns, and ensure the migration hasn't negatively impacted performance or bundle size. This phase ensures the migration is production-ready.
 
 ##### Step 1: Update Test Files
 
 **1.1. Identify all test files:**
+
 ```bash
 find tests/ -name "*.test.ts" -type f
 find src/ -name "*.test.ts" -type f
 ```
 
 **1.2. Read existing tests to understand patterns:**
+
 ```bash
 cat tests/cache.test.ts
 cat tests/transform.test.ts
@@ -3049,6 +3148,7 @@ cat tests/transform.test.ts
 **1.3. Update test imports and patterns:**
 
 For each test file, you'll need to update:
+
 - Import statements from neverthrow to Effect
 - Test assertions to work with Effect types
 - Mock implementations to return Effect types
@@ -3066,7 +3166,7 @@ describe('parseInput', () => {
     expect(result.isOk()).toBe(true);
     expect(result._unsafeUnwrap()).toEqual({
       type: 'handle',
-      handle: 'alice.bsky.social'
+      handle: 'alice.bsky.social',
     });
   });
 
@@ -3089,7 +3189,7 @@ describe('parseInput', () => {
     if (result._tag === 'Success') {
       expect(result.value).toEqual({
         type: 'handle',
-        handle: 'alice.bsky.social'
+        handle: 'alice.bsky.social',
       });
     }
   });
@@ -3122,16 +3222,15 @@ import { HttpService, CacheService, DebugService } from '../src/shared/services.
 export const TestHttpService = Layer.succeed(
   HttpService,
   HttpService.of({
-    fetch: (url: string, options?: RequestInit) =>
-      Effect.succeed(new Response('{}', { status: 200 })),
-    
+    fetch: (url: string, options?: RequestInit) => Effect.succeed(new Response('{}', { status: 200 })),
+
     fetchJson: <T>(url: string, schema: Schema.Schema<T>) =>
       Effect.gen(function* () {
         // Default successful response - can be overridden in tests
         const mockData = { did: 'did:plc:test123' };
         return yield* Schema.decodeUnknown(schema)(mockData);
-      })
-  })
+      }),
+  }),
 );
 
 // Mock cache service using Ref for in-memory storage
@@ -3139,35 +3238,33 @@ export const TestCacheService = Layer.effect(
   CacheService,
   Effect.gen(function* () {
     const storage = yield* Ref.make(new Map<string, unknown>());
-    
+
     return CacheService.of({
       get: <T>(key: string, schema: Schema.Schema<T>) =>
         Effect.gen(function* () {
           const store = yield* Ref.get(storage);
           const data = store.get(key);
-          
+
           if (data == null) {
             return null;
           }
-          
-          return yield* Schema.decodeUnknown(schema)(data).pipe(
-            Effect.catchAll(() => Effect.succeed(null))
-          );
+
+          return yield* Schema.decodeUnknown(schema)(data).pipe(Effect.catchAll(() => Effect.succeed(null)));
         }),
-      
+
       set: <T>(key: string, value: T) =>
         Effect.flatMap(Ref.get(storage), (store) => {
           store.set(key, value);
           return Effect.void;
         }),
-      
+
       remove: (key: string) =>
         Effect.flatMap(Ref.get(storage), (store) => {
           store.delete(key);
           return Effect.void;
-        })
+        }),
     });
-  })
+  }),
 );
 
 // Silent debug service for tests
@@ -3175,39 +3272,26 @@ export const TestDebugService = Layer.succeed(
   DebugService,
   DebugService.of({
     log: () => Effect.void,
-    error: () => Effect.void
-  })
+    error: () => Effect.void,
+  }),
 );
 
 // Complete test layer
-export const TestLayer = Layer.mergeAll(
-  TestHttpService,
-  TestCacheService,
-  TestDebugService
-);
+export const TestLayer = Layer.mergeAll(TestHttpService, TestCacheService, TestDebugService);
 
 /**
  * Test utilities
  */
 
 // Run Effect with test environment
-export const runTestEffect = <A, E>(
-  effect: Effect.Effect<A, E>,
-  layer: Layer.Layer = TestLayer
-): Exit.Exit<A, E> => {
-  return Effect.provide(effect, layer).pipe(
-    Effect.runSyncExit
-  );
+export const runTestEffect = <A, E>(effect: Effect.Effect<A, E>, layer: Layer.Layer = TestLayer): Exit.Exit<A, E> => {
+  return Effect.provide(effect, layer).pipe(Effect.runSyncExit);
 };
 
 // Assert Effect success with proper typing
-export const expectSuccess = <A, E>(
-  effect: Effect.Effect<A, E>,
-  expected: A,
-  layer: Layer.Layer = TestLayer
-): void => {
+export const expectSuccess = <A, E>(effect: Effect.Effect<A, E>, expected: A, layer: Layer.Layer = TestLayer): void => {
   const result = runTestEffect(effect, layer);
-  
+
   if (Exit.isSuccess(result)) {
     expect(result.value).toEqual(expected);
   } else {
@@ -3219,10 +3303,10 @@ export const expectSuccess = <A, E>(
 export const expectFailure = <A, E extends WormholeError>(
   effect: Effect.Effect<A, E>,
   errorTag: E['_tag'],
-  layer: Layer.Layer = TestLayer
+  layer: Layer.Layer = TestLayer,
 ): void => {
   const result = runTestEffect(effect, layer);
-  
+
   if (Exit.isFailure(result)) {
     expect(result.cause._tag).toBe(errorTag);
   } else {
@@ -3242,7 +3326,7 @@ export const createMockHttpService = (responses: Record<string, unknown>) =>
         }
         return Effect.succeed(new Response(JSON.stringify(data), { status: 200 }));
       },
-      
+
       fetchJson: <T>(url: string, schema: Schema.Schema<T>) =>
         Effect.gen(function* () {
           const data = responses[url];
@@ -3250,30 +3334,30 @@ export const createMockHttpService = (responses: Record<string, unknown>) =>
             return yield* Effect.fail(new Error(`No mock response for ${url}`));
           }
           return yield* Schema.decodeUnknown(schema)(data);
-        })
-    })
+        }),
+    }),
   );
 
 // Performance testing utilities
 export const measureEffect = <A, E>(
   effect: Effect.Effect<A, E>,
-  layer: Layer.Layer = TestLayer
+  layer: Layer.Layer = TestLayer,
 ): { result: Exit.Exit<A, E>; duration: number } => {
   const start = performance.now();
   const result = runTestEffect(effect, layer);
   const duration = performance.now() - start;
-  
+
   return { result, duration };
 };
 
 // Concurrent testing utilities
 export const runConcurrentEffects = <A, E>(
   effects: Array<Effect.Effect<A, E>>,
-  layer: Layer.Layer = TestLayer
+  layer: Layer.Layer = TestLayer,
 ): Array<Exit.Exit<A, E>> => {
   const concurrentEffect = Effect.all(effects, { concurrency: 'unbounded' });
   const result = runTestEffect(concurrentEffect, layer);
-  
+
   if (Exit.isSuccess(result)) {
     return result.value.map(Effect.exitSucceed);
   } else {
@@ -3287,31 +3371,23 @@ export const generateTestData = {
   validHandle: () => `user${Math.random().toString(36).substring(2)}.bsky.social`,
   invalidDid: () => `invalid-did-${Math.random()}`,
   invalidHandle: () => `invalid.handle.${Math.random()}`,
-  validUrl: () => `https://bsky.app/profile/user${Math.random().toString(36).substring(2)}.bsky.social`
+  validUrl: () => `https://bsky.app/profile/user${Math.random().toString(36).substring(2)}.bsky.social`,
 };
 ```
 
 **1.5. Update each test file systematically:**
 
 For `tests/cache.test.ts` with proper Effect testing patterns:
+
 ```typescript
 // tests/cache.test.ts
 import { describe, expect, it, beforeEach } from 'bun:test';
 import { Effect, Layer } from 'effect';
 import { DidHandleCacheService, DidHandleCacheServiceLive } from '../src/shared/cache.js';
-import { 
-  expectSuccess, 
-  expectFailure, 
-  TestLayer, 
-  runTestEffect, 
-  generateTestData 
-} from './effect-test-utils.js';
+import { expectSuccess, expectFailure, TestLayer, runTestEffect, generateTestData } from './effect-test-utils.js';
 
 // Test layer with cache service
-const CacheTestLayer = Layer.provide(
-  DidHandleCacheServiceLive(),
-  TestLayer
-);
+const CacheTestLayer = Layer.provide(DidHandleCacheServiceLive(), TestLayer);
 
 describe('DidHandleCacheService', () => {
   describe('basic operations', () => {
@@ -3321,31 +3397,35 @@ describe('DidHandleCacheService', () => {
         const stats = yield* cache.stats;
         return stats.size;
       });
-      
+
       expectSuccess(effect, 0, CacheTestLayer);
     });
 
     it('should set and get DID-handle pairs', () => {
       const did = generateTestData.validDid();
       const handle = generateTestData.validHandle();
-      
+
       const effect = Effect.gen(function* () {
         const cache = yield* DidHandleCacheService;
-        
+
         // Set the pair
         yield* cache.set(did, handle);
-        
+
         // Get both directions
         const retrievedHandle = yield* cache.get(did);
         const retrievedDid = yield* cache.getReverse(handle);
-        
+
         return { retrievedHandle, retrievedDid };
       });
-      
-      expectSuccess(effect, {
-        retrievedHandle: handle,
-        retrievedDid: did
-      }, CacheTestLayer);
+
+      expectSuccess(
+        effect,
+        {
+          retrievedHandle: handle,
+          retrievedDid: did,
+        },
+        CacheTestLayer,
+      );
     });
 
     it('should return null for non-existent entries', () => {
@@ -3354,7 +3434,7 @@ describe('DidHandleCacheService', () => {
         const result = yield* cache.get('did:plc:nonexistent');
         return result;
       });
-      
+
       expectSuccess(effect, null, CacheTestLayer);
     });
 
@@ -3363,7 +3443,7 @@ describe('DidHandleCacheService', () => {
         const cache = yield* DidHandleCacheService;
         yield* cache.set('invalid-did', 'valid.handle.com');
       });
-      
+
       expectFailure(effect, 'ValidationError', CacheTestLayer);
     });
 
@@ -3372,7 +3452,7 @@ describe('DidHandleCacheService', () => {
         const cache = yield* DidHandleCacheService;
         yield* cache.set('did:plc:valid123', 'invalid-handle');
       });
-      
+
       expectFailure(effect, 'ValidationError', CacheTestLayer);
     });
   });
@@ -3381,25 +3461,25 @@ describe('DidHandleCacheService', () => {
     it('should persist and load cache data', () => {
       const did = generateTestData.validDid();
       const handle = generateTestData.validHandle();
-      
+
       const effect = Effect.gen(function* () {
         const cache = yield* DidHandleCacheService;
-        
+
         // Set and persist
         yield* cache.set(did, handle);
         yield* cache.persist;
-        
+
         // Clear memory cache
         yield* cache.clear;
-        
+
         // Load from storage
         yield* cache.load;
-        
+
         // Should retrieve the data
         const retrievedHandle = yield* cache.get(did);
         return retrievedHandle;
       });
-      
+
       expectSuccess(effect, handle, CacheTestLayer);
     });
 
@@ -3407,15 +3487,15 @@ describe('DidHandleCacheService', () => {
       // This would test schema validation during load
       const effect = Effect.gen(function* () {
         const cache = yield* DidHandleCacheService;
-        
+
         // Simulate loading corrupted data
         // (In real implementation, this would involve mocking storage with bad data)
         yield* cache.load;
-        
+
         const stats = yield* cache.stats;
         return stats.size;
       });
-      
+
       expectSuccess(effect, 0, CacheTestLayer);
     });
   });
@@ -3424,27 +3504,27 @@ describe('DidHandleCacheService', () => {
     it('should evict expired entries', () => {
       const effect = Effect.gen(function* () {
         const cache = yield* DidHandleCacheService;
-        
+
         // This test would need to manipulate time or use a cache with very short TTL
         const evicted = yield* cache.evictExpired;
         return evicted;
       });
-      
+
       expectSuccess(effect, 0, CacheTestLayer); // No expired entries initially
     });
 
     it('should provide accurate statistics', () => {
       const effect = Effect.gen(function* () {
         const cache = yield* DidHandleCacheService;
-        
+
         // Add some entries
         yield* cache.set(generateTestData.validDid(), generateTestData.validHandle());
         yield* cache.set(generateTestData.validDid(), generateTestData.validHandle());
-        
+
         const stats = yield* cache.stats;
         return stats.size;
       });
-      
+
       expectSuccess(effect, 2, CacheTestLayer);
     });
   });
@@ -3453,21 +3533,18 @@ describe('DidHandleCacheService', () => {
     it('should handle concurrent operations safely', () => {
       const effect = Effect.gen(function* () {
         const cache = yield* DidHandleCacheService;
-        
+
         // Create multiple concurrent set operations
         const operations = Array.from({ length: 10 }, (_, i) =>
-          cache.set(
-            generateTestData.validDid(),
-            generateTestData.validHandle()
-          )
+          cache.set(generateTestData.validDid(), generateTestData.validHandle()),
         );
-        
+
         yield* Effect.all(operations, { concurrency: 'unbounded' });
-        
+
         const stats = yield* cache.stats;
         return stats.size;
       });
-      
+
       expectSuccess(effect, 10, CacheTestLayer);
     });
   });
@@ -3475,34 +3552,24 @@ describe('DidHandleCacheService', () => {
 ```
 
 For `tests/transform.test.ts` with comprehensive Effect testing:
+
 ```typescript
 // tests/transform.test.ts
 import { describe, it } from 'bun:test';
 import { Effect, pipe } from 'effect';
 import { parseInput } from '../src/shared/parser.js';
 import { canonicalize } from '../src/shared/canonicalizer.js';
-import { 
-  expectSuccess, 
-  expectFailure, 
-  TestLayer, 
-  generateTestData,
-  measureEffect 
-} from './effect-test-utils.js';
+import { expectSuccess, expectFailure, TestLayer, generateTestData, measureEffect } from './effect-test-utils.js';
 
 describe('URL transformation pipeline', () => {
   describe('parseInput with schema validation', () => {
     it('should parse valid handles', () => {
-      const testCases = [
-        'alice.bsky.social',
-        '@alice.bsky.social',
-        'user.example.com',
-        'test123.domain.co.uk'
-      ];
-      
-      testCases.forEach(input => {
+      const testCases = ['alice.bsky.social', '@alice.bsky.social', 'user.example.com', 'test123.domain.co.uk'];
+
+      testCases.forEach((input) => {
         const effect = parseInput(input);
         const { result } = measureEffect(effect, TestLayer);
-        
+
         if (Exit.isSuccess(result)) {
           expect(result.value.type).toBe('handle');
           expect(result.value.handle).toBe(input.replace(/^@/, ''));
@@ -3513,30 +3580,30 @@ describe('URL transformation pipeline', () => {
     });
 
     it('should parse valid DIDs', () => {
-      const testCases = [
-        'did:plc:abc123def456',
-        'did:web:example.com',
-        'did:web:example.com:path:to:identity'
-      ];
-      
-      testCases.forEach(did => {
-        expectSuccess(parseInput(did), {
-          type: 'did',
-          did
-        }, TestLayer);
+      const testCases = ['did:plc:abc123def456', 'did:web:example.com', 'did:web:example.com:path:to:identity'];
+
+      testCases.forEach((did) => {
+        expectSuccess(
+          parseInput(did),
+          {
+            type: 'did',
+            did,
+          },
+          TestLayer,
+        );
       });
     });
 
     it('should parse AT URIs with proper structure', () => {
       const effect = parseInput('at://alice.bsky.social/app.bsky.feed.post/abc123');
-      
+
       const result = runTestEffect(effect, TestLayer);
       if (Exit.isSuccess(result)) {
         expect(result.value).toMatchObject({
           type: 'at-uri',
           authority: 'alice.bsky.social',
           collection: 'app.bsky.feed.post',
-          rkey: 'abc123'
+          rkey: 'abc123',
         });
       }
     });
@@ -3545,13 +3612,13 @@ describe('URL transformation pipeline', () => {
       const testUrls = [
         'https://bsky.app/profile/alice.bsky.social',
         'https://bsky.app/profile/alice.bsky.social/post/abc123',
-        'https://staging.bsky.app/profile/did:plc:test123'
+        'https://staging.bsky.app/profile/did:plc:test123',
       ];
-      
-      testUrls.forEach(url => {
+
+      testUrls.forEach((url) => {
         const effect = parseInput(url);
         const result = runTestEffect(effect, TestLayer);
-        
+
         if (Exit.isSuccess(result)) {
           expect(result.value.type).toBe('url');
           expect(result.value.url).toBe(url);
@@ -3560,31 +3627,17 @@ describe('URL transformation pipeline', () => {
     });
 
     it('should validate and reject malformed inputs', () => {
-      const invalidInputs = [
-        '',
-        '   ',
-        'not-a-valid-input',
-        '123',
-        'did:invalid',
-        'at://incomplete',
-        'https://'
-      ];
-      
-      invalidInputs.forEach(input => {
+      const invalidInputs = ['', '   ', 'not-a-valid-input', '123', 'did:invalid', 'at://incomplete', 'https://'];
+
+      invalidInputs.forEach((input) => {
         expectFailure(parseInput(input), 'ParseError', TestLayer);
       });
     });
 
     it('should handle edge cases gracefully', () => {
-      const edgeCases = [
-        'did:web:',
-        'at://',
-        '@',
-        'https://bsky.app',
-        'did:plc:'
-      ];
-      
-      edgeCases.forEach(input => {
+      const edgeCases = ['did:web:', 'at://', '@', 'https://bsky.app', 'did:plc:'];
+
+      edgeCases.forEach((input) => {
         const effect = parseInput(input);
         const result = runTestEffect(effect, TestLayer);
         expect(Exit.isFailure(result)).toBe(true);
@@ -3599,10 +3652,14 @@ describe('URL transformation pipeline', () => {
         const canonicalized = yield* canonicalize(parsed);
         return canonicalized;
       });
-      
-      expectSuccess(effect, {
-        handle: 'alice.bsky.social'
-      }, TestLayer);
+
+      expectSuccess(
+        effect,
+        {
+          handle: 'alice.bsky.social',
+        },
+        TestLayer,
+      );
     });
 
     it('should canonicalize DID inputs directly', () => {
@@ -3611,10 +3668,14 @@ describe('URL transformation pipeline', () => {
         const canonicalized = yield* canonicalize(parsed);
         return canonicalized;
       });
-      
-      expectSuccess(effect, {
-        did: 'did:plc:abc123'
-      }, TestLayer);
+
+      expectSuccess(
+        effect,
+        {
+          did: 'did:plc:abc123',
+        },
+        TestLayer,
+      );
     });
 
     it('should extract structured data from URLs', () => {
@@ -3623,7 +3684,7 @@ describe('URL transformation pipeline', () => {
         const canonicalized = yield* canonicalize(parsed);
         return canonicalized;
       });
-      
+
       // This would depend on the service configuration having proper patterns
       const result = runTestEffect(effect, TestLayer);
       if (Exit.isSuccess(result)) {
@@ -3638,13 +3699,13 @@ describe('URL transformation pipeline', () => {
         const canonicalized = yield* canonicalize(parsed);
         return canonicalized;
       });
-      
+
       const result = runTestEffect(effect, TestLayer);
       if (Exit.isSuccess(result)) {
         expect(result.value).toMatchObject({
           handle: 'alice.bsky.social',
           nsid: 'app.bsky.feed.post',
-          rkey: 'abc123'
+          rkey: 'abc123',
         });
       }
     });
@@ -3655,18 +3716,16 @@ describe('URL transformation pipeline', () => {
       const testUrls = [
         'https://bsky.app/profile/alice.bsky.social/post/abc123',
         'https://staging.bsky.app/profile/bob.test.social',
-        'at://carol.bsky.social/app.bsky.feed.like/xyz789'
+        'at://carol.bsky.social/app.bsky.feed.like/xyz789',
       ];
-      
-      testUrls.forEach(url => {
+
+      testUrls.forEach((url) => {
         const effect = pipe(
           parseInput(url),
           Effect.flatMap(canonicalize),
-          Effect.tap((result) =>
-            Effect.log(`Transformed ${url} to`, result)
-          )
+          Effect.tap((result) => Effect.log(`Transformed ${url} to`, result)),
         );
-        
+
         const result = runTestEffect(effect, TestLayer);
         expect(Exit.isSuccess(result)).toBe(true);
       });
@@ -3676,9 +3735,9 @@ describe('URL transformation pipeline', () => {
       const effect = pipe(
         parseInput('https://unknown-service.com/profile/test'),
         Effect.flatMap(canonicalize),
-        Effect.catchAll((error) => Effect.succeed({ error: error._tag }))
+        Effect.catchAll((error) => Effect.succeed({ error: error._tag })),
       );
-      
+
       const result = runTestEffect(effect, TestLayer);
       if (Exit.isSuccess(result)) {
         expect(result.value).toHaveProperty('error');
@@ -3694,13 +3753,10 @@ describe('URL transformation pipeline', () => {
         if (type < 0.75) return generateTestData.validUrl();
         return `at://${generateTestData.validHandle()}/app.bsky.feed.post/test123`;
       });
-      
-      inputs.forEach(input => {
-        const effect = pipe(
-          parseInput(input),
-          Effect.flatMap(canonicalize)
-        );
-        
+
+      inputs.forEach((input) => {
+        const effect = pipe(parseInput(input), Effect.flatMap(canonicalize));
+
         const result = runTestEffect(effect, TestLayer);
         // Should either succeed with valid TransformInfo or fail with known error
         if (Exit.isFailure(result)) {
@@ -3713,14 +3769,14 @@ describe('URL transformation pipeline', () => {
   describe('performance characteristics', () => {
     it('should parse inputs efficiently', () => {
       const inputs = Array.from({ length: 1000 }, () => generateTestData.validHandle());
-      
+
       const effect = Effect.all(
-        inputs.map(input => parseInput(input)),
-        { concurrency: 'unbounded' }
+        inputs.map((input) => parseInput(input)),
+        { concurrency: 'unbounded' },
       );
-      
+
       const { duration } = measureEffect(effect, TestLayer);
-      
+
       // Should complete 1000 parses in under 100ms
       expect(duration).toBeLessThan(100);
     });
@@ -3728,18 +3784,16 @@ describe('URL transformation pipeline', () => {
     it('should canonicalize efficiently', () => {
       const effect = Effect.gen(function* () {
         const inputs = Array.from({ length: 500 }, () => generateTestData.validDid());
-        const parsed = yield* Effect.all(
-          inputs.map(input => parseInput(input))
-        );
-        
+        const parsed = yield* Effect.all(inputs.map((input) => parseInput(input)));
+
         return yield* Effect.all(
-          parsed.map(p => canonicalize(p)),
-          { concurrency: 'unbounded' }
+          parsed.map((p) => canonicalize(p)),
+          { concurrency: 'unbounded' },
         );
       });
-      
+
       const { duration } = measureEffect(effect, TestLayer);
-      
+
       // Should complete 500 canonicalizations in under 50ms
       expect(duration).toBeLessThan(50);
     });
@@ -3748,6 +3802,7 @@ describe('URL transformation pipeline', () => {
 ```
 
 **1.6. Run tests and fix any failures:**
+
 ```bash
 bun run test
 ```
@@ -3756,6 +3811,7 @@ bun run test
 Check `package.json` to ensure test scripts work with the new test structure.
 
 **1.8. Commit test updates:**
+
 ```bash
 git add tests/
 git add -A
@@ -3765,6 +3821,7 @@ git commit -m "Phase 5.1: Update all tests to use Effect patterns"
 ##### Step 2: Remove neverthrow Dependencies
 
 **2.1. Check for any remaining neverthrow imports:**
+
 ```bash
 # Search for neverthrow imports
 grep -r "neverthrow" src/ --include="*.ts" --include="*.tsx"
@@ -3773,6 +3830,7 @@ grep -r "_unsafeUnwrap\|isOk\|isErr" src/ --include="*.ts" --include="*.tsx"
 ```
 
 **2.2. Remove neverthrow from package.json:**
+
 ```bash
 bun remove neverthrow
 bun remove eslint-plugin-neverthrow
@@ -3790,6 +3848,7 @@ Remove all neverthrow-related rules from `eslint.config.mjs`:
 ```
 
 **2.4. Clean up any migration helpers:**
+
 ```bash
 # Remove temporary migration files if any exist
 rm -f src/shared/effect-utils.ts  # Only if no longer needed
@@ -3797,12 +3856,14 @@ rm -f scripts/migrate-*.ts
 ```
 
 **2.5. Verify no neverthrow references remain:**
+
 ```bash
 # This should return no results
 grep -r "neverthrow" . --exclude-dir=node_modules --exclude-dir=.git --exclude="*.lock"
 ```
 
 **2.6. Run full validation:**
+
 ```bash
 bun run format
 bun run lint
@@ -3812,6 +3873,7 @@ bun run build:dev
 ```
 
 **2.7. Commit neverthrow removal:**
+
 ```bash
 git add package.json bun.lockb
 git add eslint.config.mjs
@@ -3822,6 +3884,7 @@ git commit -m "Phase 5.2: Remove neverthrow and all related dependencies"
 ##### Step 3: Bundle Size Analysis
 
 **3.1. Build production bundles:**
+
 ```bash
 # Clean previous builds
 rm -rf dist/
@@ -3835,6 +3898,7 @@ mv dist dist-firefox
 ```
 
 **3.2. Measure bundle sizes:**
+
 ```bash
 # Create a size report
 echo "## Bundle Size Report" > BUNDLE_SIZE_REPORT.md
@@ -3855,6 +3919,7 @@ echo "- Firefox: $(du -sh dist-firefox | cut -f1)" >> BUNDLE_SIZE_REPORT.md
 ```
 
 **3.3. Analyze JavaScript bundle sizes:**
+
 ```bash
 # Find all JS files and report sizes
 echo "" >> BUNDLE_SIZE_REPORT.md
@@ -3866,6 +3931,7 @@ echo "\`\`\`" >> BUNDLE_SIZE_REPORT.md
 
 **3.4. Compare with pre-migration size (if available):**
 If you have the bundle sizes from before the migration, compare them. A reasonable increase would be:
+
 - Less than 50KB for the Effect runtime
 - No more than 20% total bundle size increase
 
@@ -3873,6 +3939,7 @@ If you have the bundle sizes from before the migration, compare them. A reasonab
 If bundle size increased significantly:
 
 a) Check if tree-shaking is working:
+
 ```typescript
 // vite.config.ts - ensure these optimizations are enabled
 export default defineConfig({
@@ -3896,14 +3963,16 @@ export default defineConfig({
 ```
 
 b) Use Effect's production build:
+
 ```typescript
 // Ensure you're not importing development-only features
 // Use specific imports instead of barrel imports
-import { Effect, pipe } from 'effect';  // Good
+import { Effect, pipe } from 'effect'; // Good
 // import * as Effect from 'effect';     // Bad - imports everything
 ```
 
 **3.6. Document findings:**
+
 ```bash
 git add BUNDLE_SIZE_REPORT.md
 git commit -m "Phase 5.3: Analyze and document bundle sizes"
@@ -3914,6 +3983,7 @@ git commit -m "Phase 5.3: Analyze and document bundle sizes"
 **4.1. Create performance test scenarios:**
 
 Create `tests/performance.test.ts`:
+
 ```typescript
 // tests/performance.test.ts
 import { describe, it, expect } from 'bun:test';
@@ -3931,17 +4001,17 @@ describe('Performance benchmarks', () => {
         'did:plc:abc123',
         'at://alice.bsky.social/app.bsky.feed.post/123',
       ];
-      
+
       const start = performance.now();
-      
+
       for (let i = 0; i < 1000; i++) {
         const url = testUrls[i % testUrls.length];
         Effect.runSync(parseInput(url));
       }
-      
+
       const duration = performance.now() - start;
       console.log(`Parsed 1000 URLs in ${duration.toFixed(2)}ms`);
-      
+
       // Should complete in under 100ms
       expect(duration).toBeLessThan(100);
     });
@@ -3951,24 +4021,22 @@ describe('Performance benchmarks', () => {
     it('should handle 1000 cache operations quickly', async () => {
       const cache = new DidHandleCache();
       await Effect.runPromise(cache.load());
-      
+
       const start = performance.now();
-      
+
       // Write 500 entries
       for (let i = 0; i < 500; i++) {
-        await Effect.runPromise(
-          cache.set(`did:plc:test${i}`, `user${i}.bsky.social`)
-        );
+        await Effect.runPromise(cache.set(`did:plc:test${i}`, `user${i}.bsky.social`));
       }
-      
+
       // Read 500 entries
       for (let i = 0; i < 500; i++) {
         cache.getHandle(`did:plc:test${i}`);
       }
-      
+
       const duration = performance.now() - start;
       console.log(`Completed 1000 cache operations in ${duration.toFixed(2)}ms`);
-      
+
       // Should complete in under 500ms
       expect(duration).toBeLessThan(500);
     });
@@ -3979,24 +4047,24 @@ describe('Performance benchmarks', () => {
       if (global.gc) {
         global.gc(); // Force garbage collection if available
       }
-      
+
       const initialMemory = process.memoryUsage().heapUsed;
-      
+
       // Perform many operations
       for (let i = 0; i < 10000; i++) {
         const effect = parseInput(`user${i}.bsky.social`);
         Effect.runSync(effect);
       }
-      
+
       if (global.gc) {
         global.gc(); // Force garbage collection
       }
-      
+
       const finalMemory = process.memoryUsage().heapUsed;
       const memoryIncrease = (finalMemory - initialMemory) / 1024 / 1024; // MB
-      
+
       console.log(`Memory increase: ${memoryIncrease.toFixed(2)}MB`);
-      
+
       // Should not increase by more than 10MB
       expect(memoryIncrease).toBeLessThan(10);
     });
@@ -4005,6 +4073,7 @@ describe('Performance benchmarks', () => {
 ```
 
 **4.2. Run performance tests:**
+
 ```bash
 # Run with gc exposed to test memory
 bun test tests/performance.test.ts
@@ -4013,6 +4082,7 @@ bun test tests/performance.test.ts
 **4.3. Manual performance testing in browser:**
 
 Create a test script for the extension:
+
 ```javascript
 // In popup console (window.wormholeDebug context)
 console.time('Transform 100 URLs');
@@ -4025,6 +4095,7 @@ console.timeEnd('Transform 100 URLs');
 ```
 
 **4.4. Test startup performance:**
+
 1. Disable the extension
 2. Clear browser cache
 3. Enable the extension
@@ -4032,6 +4103,7 @@ console.timeEnd('Transform 100 URLs');
 5. Should be under 100ms
 
 **4.5. Test memory leaks:**
+
 1. Open browser task manager
 2. Note extension memory usage
 3. Use extension heavily for 5 minutes
@@ -4040,29 +4112,36 @@ console.timeEnd('Transform 100 URLs');
 6. Verify memory returns to baseline
 
 **4.6. Document performance results:**
+
 ```markdown
 ## Performance Test Results
 
 ### Parsing Performance
+
 - 1000 URL parses: XXXms (Effect) vs YYYms (neverthrow baseline)
 
-### Cache Performance  
+### Cache Performance
+
 - 1000 cache operations: XXXms
 
 ### Memory Usage
+
 - Baseline: XXXMB
 - After 10k operations: XXXMB
 - No significant memory leaks detected
 
 ### Startup Time
+
 - Time to interactive: XXXms
 
 ### Real-world Usage
+
 - Popup response time: <50ms
 - Background resolution: <100ms average
 ```
 
 **4.7. Commit performance results:**
+
 ```bash
 git add tests/performance.test.ts
 git add PERFORMANCE_RESULTS.md
@@ -4075,8 +4154,10 @@ git commit -m "Phase 5.4: Add performance tests and document results"
 Remove any references to neverthrow and update development setup instructions.
 
 **5.2. Update MIGRATION_STATUS.md:**
+
 ```markdown
 ## Phase 5: Testing and Cleanup ✅
+
 - [x] Update all tests to Effect patterns
 - [x] Remove neverthrow dependencies
 - [x] Bundle size analysis
@@ -4086,6 +4167,7 @@ Remove any references to neverthrow and update development setup instructions.
 ## Migration Complete! 🎉
 
 ### Summary
+
 - Started: [DATE]
 - Completed: [DATE]
 - All modules successfully migrated to Effect
@@ -4094,12 +4176,14 @@ Remove any references to neverthrow and update development setup instructions.
 - Performance: Comparable to neverthrow version
 
 ### Key Learnings
+
 - [Document any important learnings]
 - [Note any patterns that worked well]
 - [List any challenges overcome]
 ```
 
 **5.3. Clean up any temporary files:**
+
 ```bash
 # Remove any .bak files
 find . -name "*.bak" -delete
@@ -4109,11 +4193,13 @@ find . -name "*.bak" -delete
 ```
 
 **5.4. Create final migration summary:**
+
 ```bash
 git log --oneline | grep -E "Phase [1-5]" > MIGRATION_COMMITS.txt
 ```
 
 **5.5. Run final validation suite:**
+
 ```bash
 bun run format
 bun run lint
@@ -4125,6 +4211,7 @@ bun run build:firefox
 ```
 
 **5.6. Test extension thoroughly:**
+
 1. Install fresh in Chrome and Firefox
 2. Test all features:
    - URL transformation
@@ -4136,6 +4223,7 @@ bun run build:firefox
 4. Check DevTools for performance issues
 
 **5.7. Final commit:**
+
 ```bash
 git add -A
 git commit -m "Phase 5.5: Final cleanup and documentation"
@@ -4146,12 +4234,14 @@ git commit -m "Phase 5.5: Final cleanup and documentation"
 Before considering the migration complete:
 
 **Code Quality:**
+
 - [ ] All ESLint rules pass without any disabled rules
 - [ ] TypeScript strict mode passes
 - [ ] No `any` types remaining
 - [ ] All tests pass
 
 **Functionality:**
+
 - [ ] Extension works in Chrome
 - [ ] Extension works in Firefox
 - [ ] All features work as before
@@ -4159,12 +4249,14 @@ Before considering the migration complete:
 - [ ] Cache persists correctly
 
 **Performance:**
+
 - [ ] Popup opens quickly (<100ms)
 - [ ] Transformations are instant
 - [ ] No memory leaks
 - [ ] Bundle size acceptable
 
 **Documentation:**
+
 - [ ] README updated
 - [ ] CLAUDE.md updated
 - [ ] Migration documented
@@ -4173,20 +4265,25 @@ Before considering the migration complete:
 ##### Troubleshooting Guide
 
 **Issue**: Tests fail after removing neverthrow
+
 - **Solution**: Ensure all test utilities use Effect patterns
 
 **Issue**: Bundle size too large
+
 - **Solution**: Check tree-shaking, use specific imports, enable minification
 
 **Issue**: Performance regression
+
 - **Solution**: Profile with Chrome DevTools, check for unnecessary Effect wrapping
 
 **Issue**: Memory leaks
+
 - **Solution**: Ensure Effects are properly terminated, check for circular references
 
 ##### Common Cleanup Patterns
 
 **Pattern 1: Test assertions**
+
 ```typescript
 // Use Exit type for clear assertions
 const exit = Effect.runSyncExit(effect);
@@ -4198,6 +4295,7 @@ if (Exit.isSuccess(exit)) {
 ```
 
 **Pattern 2: Performance testing**
+
 ```typescript
 // Measure Effect operations
 const measure = <A>(name: string, effect: Effect.Effect<A, any>) => {
@@ -4210,6 +4308,7 @@ const measure = <A>(name: string, effect: Effect.Effect<A, any>) => {
 ```
 
 **Pattern 3: Bundle optimization**
+
 ```typescript
 // Use barrel imports sparingly
 import { Effect, pipe } from 'effect'; // Good
@@ -4219,6 +4318,7 @@ import * as Effect from 'effect'; // Bad - imports everything
 ##### Migration Celebration! 🎉
 
 Once all checks pass:
+
 1. Create a pull request from `effect-migration` to `main`
 2. Include migration summary and performance results
 3. Get code review focusing on:
@@ -4232,6 +4332,7 @@ The migration is now complete! The codebase has been successfully migrated from 
 ### Migration Guidelines
 
 **Idiomatic Pattern Translations**:
+
 - `Result<T, E>` → `Effect<T, E>` with proper service dependencies
 - `ResultAsync<T, E>` → `Effect<T, E>` with Layer-provided services
 - `.andThen()` → `Effect.gen` with `yield*` for readability
@@ -4243,6 +4344,7 @@ The migration is now complete! The codebase has been successfully migrated from 
 - Manual error handling → `Effect.catchTag` and proper error channels
 
 **Key Principles for Idiomatic Effect**:
+
 - **Services over Utilities**: Define interfaces and provide implementations through Layers
 - **Schema over Guards**: Use Effect's Schema for validation instead of manual type guards
 - **Composition over Inheritance**: Compose services through Layer.mergeAll
@@ -4253,6 +4355,7 @@ The migration is now complete! The codebase has been successfully migrated from 
 - **Runtime at Boundaries**: Create runtime with proper layer provision at app boundaries
 
 **Risk Mitigation**:
+
 - Create a feature branch for the entire migration
 - Test each phase thoroughly before proceeding
 - Keep commits atomic - one module per commit
@@ -4307,6 +4410,7 @@ The updated migration plan makes the following critical improvements to ensure t
 #### 1. Services and Layers Instead of Utility Functions
 
 **Before (neverthrow-style):**
+
 ```typescript
 export const parseJsonEffect = <T>(
   text: string,
@@ -4316,17 +4420,19 @@ export const parseJsonEffect = <T>(
 ```
 
 **After (idiomatic Effect):**
+
 ```typescript
 export interface HttpService {
   readonly fetchJson: <T>(url: string, schema: Schema.Schema<T>) => Effect.Effect<T, NetworkError | ParseError>;
 }
 
-export const HttpServiceLive = Layer.succeed(HttpService, /* implementation */);
+export const HttpServiceLive = Layer.succeed(HttpService /* implementation */);
 ```
 
 #### 2. Schema Validation Instead of Manual Type Guards
 
 **Before:**
+
 ```typescript
 if (!this.isValidDid(did)) {
   throw new Error('Invalid DID format');
@@ -4334,24 +4440,33 @@ if (!this.isValidDid(did)) {
 ```
 
 **After:**
+
 ```typescript
-const validatedDid = yield* Schema.decodeUnknown(DidSchema)(did).pipe(
-  Effect.mapError(() => ValidationError.make({ /* ... */ }))
-);
+const validatedDid =
+  yield *
+  Schema.decodeUnknown(DidSchema)(did).pipe(
+    Effect.mapError(() =>
+      ValidationError.make({
+        /* ... */
+      }),
+    ),
+  );
 ```
 
 #### 3. Effect.gen and Pattern Matching
 
 **Before:**
+
 ```typescript
 return pipe(
   effect,
   Effect.flatMap((value) => nextOperation(value)),
-  Effect.map((value) => transform(value))
+  Effect.map((value) => transform(value)),
 );
 ```
 
 **After:**
+
 ```typescript
 return Effect.gen(function* () {
   const value = yield* effect;
@@ -4363,6 +4478,7 @@ return Effect.gen(function* () {
 #### 4. Proper Resource Management with Ref and Layers
 
 **Before:**
+
 ```typescript
 export class DidHandleCache {
   private cache = new BidirectionalMap<string, string>();
@@ -4371,19 +4487,21 @@ export class DidHandleCache {
 ```
 
 **After:**
+
 ```typescript
 export const DidHandleCacheServiceLive = Layer.effect(
   DidHandleCacheService,
   Effect.gen(function* () {
     const cache = yield* Ref.make(new Map<string, string>());
     // Managed state with Effect primitives
-  })
+  }),
 );
 ```
 
 #### 5. Comprehensive Testing with TestEnvironment
 
 **Before:**
+
 ```typescript
 export function runTest<A>(effect: Effect.Effect<A, WormholeEffectError>): Exit.Exit<A, WormholeEffectError> {
   return Effect.runSyncExit(effect);
@@ -4391,17 +4509,11 @@ export function runTest<A>(effect: Effect.Effect<A, WormholeEffectError>): Exit.
 ```
 
 **After:**
-```typescript
-export const TestLayer = Layer.mergeAll(
-  TestHttpService,
-  TestCacheService,
-  TestDebugService
-);
 
-export const runTestEffect = <A, E>(
-  effect: Effect.Effect<A, E>,
-  layer: Layer.Layer = TestLayer
-): Exit.Exit<A, E> => {
+```typescript
+export const TestLayer = Layer.mergeAll(TestHttpService, TestCacheService, TestDebugService);
+
+export const runTestEffect = <A, E>(effect: Effect.Effect<A, E>, layer: Layer.Layer = TestLayer): Exit.Exit<A, E> => {
   return Effect.provide(effect, layer).pipe(Effect.runSyncExit);
 };
 ```
@@ -4409,18 +4521,16 @@ export const runTestEffect = <A, E>(
 #### 6. Proper Runtime Setup
 
 **Before:**
+
 ```typescript
 const runtime = Runtime.defaultRuntime;
 void Runtime.runPromise(runtime)(effect);
 ```
 
 **After:**
+
 ```typescript
-const ServiceWorkerLayer = Layer.mergeAll(
-  AppLayer,
-  ResolverServiceLive,
-  DidHandleCacheServiceLive()
-);
+const ServiceWorkerLayer = Layer.mergeAll(AppLayer, ResolverServiceLive, DidHandleCacheServiceLive());
 
 const runtime = Runtime.make(ServiceWorkerLayer);
 Runtime.runPromise(runtime)(effect);
@@ -4439,11 +4549,13 @@ Runtime.runPromise(runtime)(effect);
 ### Architecture Changes
 
 The migration transforms the architecture from:
+
 - **Utility-based**: Helper functions for common operations
 - **Class-based**: Traditional OOP patterns with manual resource management
 - **Imperative**: Step-by-step operations with manual error handling
 
 To:
+
 - **Service-oriented**: Dependency injection through Effect's Context system
 - **Functional**: Pure functions with explicit dependencies
 - **Declarative**: Effect pipelines that describe what should happen
