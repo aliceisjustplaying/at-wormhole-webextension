@@ -14,6 +14,8 @@
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "latest",
+    "@effect/eslint-plugin": "^0.3.2",
+    "@effect/language-service": "^0.17.1",
     "@eslint/js": "latest",
     "@types/bun": "latest",
     "@types/chrome": "^0.0.323",
@@ -27,6 +29,7 @@
     "vite": "latest"
   },
   "dependencies": {
+    "effect": "^3.16.2",
     "neverthrow": "^8.2.0"
   }
 }

@@ -51,6 +51,7 @@ I acknowledge that I will:
 - ❌ Adding `// eslint-disable-*` comments
 - ❌ Adding `// @ts-ignore` or `// @ts-expect-error`
 - ❌ Modifying `.eslintrc` or `tsconfig.json` to relax rules
+- ❌ Modifying `eslint.config.mjs` WITHOUT EXPLICIT PERMISSION
 - ❌ Removing the code that causes the error
 - ❌ Skipping the validation step
 
@@ -102,6 +103,7 @@ bun run build:dev   # Verify build works
 - **NEVER** refactor working code without explicit request
 - **NEVER** include non-code content in code artifacts
 - **NEVER** provide sycophantic praise or cheerleading
+- **NEVER** modify `eslint.config.mjs` without explicit permission from the user
 
 ## CODE GENERATION RULES
 
