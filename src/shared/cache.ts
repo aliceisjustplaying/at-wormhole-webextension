@@ -1,6 +1,6 @@
 import { ResultAsync, ok, err } from 'neverthrow';
-import type { WormholeError } from './errors';
-import { cacheError } from './errors';
+import type { WormholeError } from './errors-effect.js';
+import { CacheError } from './errors-effect.js';
 import { logError } from './debug';
 
 export class BidirectionalMap<K1, K2> {
@@ -72,7 +72,7 @@ export class DidHandleCache {
 
   load(): ResultAsync<void, WormholeError> {
     return ResultAsync.fromPromise(chrome.storage.local.get(DidHandleCache.STORAGE_KEY), (e) =>
-      cacheError('Failed to load cache from storage', 'load', e),
+      CacheError.make({ message: 'Failed to load cache from storage', operation: 'load', cause: e }),
     )
       .andThen((result) => {
         const data: unknown = result[DidHandleCache.STORAGE_KEY];
@@ -90,7 +90,7 @@ export class DidHandleCache {
           }
           return ok(undefined);
         } catch (error: unknown) {
-          const err = cacheError('Failed to parse cache data', 'load', error);
+          const err = CacheError.make({ message: 'Failed to parse cache data', operation: 'load', cause: error });
           logError('CACHE', err);
           return ok(undefined); // Continue with empty cache on parse errors
         }
@@ -155,7 +155,7 @@ export class DidHandleCache {
     this.cache.clear();
     this.lastAccessTime.clear();
     return ResultAsync.fromPromise(chrome.storage.local.remove(DidHandleCache.STORAGE_KEY), (e) =>
-      cacheError('Failed to clear cache from storage', 'clear', e),
+      CacheError.make({ message: 'Failed to clear cache from storage', operation: 'clear', cause: e }),
     ).map(() => undefined);
   }
 
@@ -244,7 +244,7 @@ export class DidHandleCache {
       chrome.storage.local.set({
         [DidHandleCache.STORAGE_KEY]: data,
       }),
-      (e) => cacheError('Failed to persist cache to storage', 'persist', e),
+      (e) => CacheError.make({ message: 'Failed to persist cache to storage', operation: 'persist', cause: e }),
     ).map(() => undefined);
   }
 

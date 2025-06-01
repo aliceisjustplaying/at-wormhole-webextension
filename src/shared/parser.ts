@@ -1,7 +1,7 @@
 import { Result, ok, err } from 'neverthrow';
 import type { TransformInfo } from './types';
-import type { WormholeError } from './errors';
-import { parseError } from './errors';
+import type { WormholeError } from './errors-effect.js';
+import { ParseError } from './errors-effect.js';
 import { parseUrlFromServices } from './services';
 import { canonicalize } from './canonicalizer';
 import { logError } from './debug';
@@ -18,7 +18,7 @@ export function parseInput(raw: string): Result<TransformInfo | null, WormholeEr
   // Safe decoding with error handling
   const decodeResult = Result.fromThrowable(
     () => decodeURIComponent(raw.trim()),
-    () => parseError('Failed to decode input', raw),
+    () => ParseError.make({ message: 'Failed to decode input', input: raw }),
   )();
 
   return decodeResult.andThen((str) => {
@@ -36,7 +36,7 @@ export function parseInput(raw: string): Result<TransformInfo | null, WormholeEr
     // Parse URL with proper error handling
     return Result.fromThrowable(
       () => new URL(str),
-      () => parseError('Invalid URL format', str),
+      () => ParseError.make({ message: 'Invalid URL format', input: str }),
     )()
       .andThen((url) => {
         // Try service-specific parsing first

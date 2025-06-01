@@ -4,7 +4,22 @@
  */
 
 import type { DebugConfig } from './types';
-import { isWormholeError } from './errors';
+import type { WormholeError } from './errors-effect.js';
+
+/**
+ * Type guard to check if an error is a WormholeError (Effect version)
+ */
+function isWormholeError(error: unknown): error is WormholeError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    '_tag' in error &&
+    typeof (error as Record<string, unknown>)._tag === 'string' &&
+    ['NetworkError', 'ParseError', 'ValidationError', 'CacheError'].includes(
+      (error as Record<string, unknown>)._tag as string,
+    )
+  );
+}
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export default class Debug {
@@ -122,7 +137,7 @@ export const debugLog = (category: string, level: string, ...args: unknown[]): v
  * Provides structured logging for typed errors and fallback for unexpected errors
  */
 export const logError = (category: string, error: unknown, context?: Record<string, unknown>): void => {
-  const errorInfo = isWormholeError(error) ? { ...error } : { raw: String(error) };
+  const errorInfo = isWormholeError(error) ? Object.assign({}, error) : { raw: String(error) };
 
   console.error(`❌ [${category}]`, errorInfo, context);
 

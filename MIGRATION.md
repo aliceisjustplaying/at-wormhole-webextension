@@ -308,7 +308,7 @@ Check if Effect requires any specific TypeScript compiler options. Usually Effec
 
 ##### Step 5: Create Migration Tracking Document
 
-**5.1. Create `MIGRATION_STATUS.md`:**
+**5.1. Create `MIGRATION.md`:**
 
 ```markdown
 # Effect Migration Status
@@ -321,10 +321,10 @@ Check if Effect requires any specific TypeScript compiler options. Usually Effec
 - [x] ESLint configured for Effect - Added @effect/eslint-plugin with no-import-from-barrel-package rule
 - [x] All validation commands passing
 
-## Phase 2: Core Module Migration - READY TO START
+## Phase 2: Core Module Migration - IN PROGRESS
 
-- [ ] types.ts - Convert interfaces to Effect Schema where beneficial
-- [ ] errors.ts (replace with errors-effect.ts) - Update imports across codebase
+- [x] types.ts - Convert interfaces to Effect Schema where beneficial (✅ COMPLETED)
+- [x] errors.ts (replace with errors-effect.ts) - Update imports across codebase (✅ COMPLETED)
 - [ ] parser.ts - Migrate Result<> to Effect<>
 - [ ] canonicalizer.ts - Migrate Result<> to Effect<>
 - [ ] retry.ts - Replace with Effect's built-in retry functionality
@@ -353,8 +353,32 @@ Check if Effect requires any specific TypeScript compiler options. Usually Effec
 
 - Started: January 6, 2025
 - Branch: effect (current)
-- Current Status: Phase 1 complete, ready to begin Phase 2
-- All validation commands passing after Phase 1
+- Current Status: Phase 2 in progress (Steps 1-2 complete)
+- All validation commands passing after each step
+
+### Phase 2 Progress Details
+
+**Step 1: types.ts Migration (✅ COMPLETED)**
+- Created `src/shared/types-effect.ts` with identical content to `types.ts`
+- No changes needed since types.ts contains only TypeScript interfaces (no neverthrow dependencies)
+- Validation: All commands passing
+- Commit: `6f97751 - Phase 2.1: Create Effect-compatible types module`
+
+**Step 2: errors.ts Migration (✅ COMPLETED)**
+- Replaced `src/shared/errors.ts` with Effect TaggedError implementations
+- Updated imports across 6 files: canonicalizer.ts, debug.ts, parser.ts, cache.ts, resolver.ts, retry.ts
+- Converted error constructors:
+  - `validationError()` → `ValidationError.make()`
+  - `parseError()` → `ParseError.make()`
+  - `networkError()` → `NetworkError.make()`
+  - `cacheError()` → `CacheError.make()`
+- Updated error property access: `.type` → `._tag`
+- Created Effect-compatible `isWormholeError` type guard
+- Fixed test expectations for Effect error structure
+- Validation: All commands passing (72 tests pass, 0 fail)
+- Commit: `866f416 - Phase 2.2: Replace neverthrow errors with Effect errors`
+
+**Next: Step 3 - parser.ts Migration**
 -
 ```
 
@@ -383,7 +407,7 @@ git add package.json bun.lockb
 git add src/shared/errors-effect.ts
 git add src/shared/effect-utils.ts
 git add eslint.config.mjs
-git add MIGRATION_STATUS.md
+git add MIGRATION.md
 git commit -m "Phase 1: Set up Effect foundation with error types and utilities"
 ```
 
@@ -391,12 +415,12 @@ git commit -m "Phase 1: Set up Effect foundation with error types and utilities"
 
 Before proceeding to Phase 2:
 
-1. [ ] Can you import from 'effect' without errors?
-2. [ ] Does `bun run typecheck` pass?
-3. [ ] Does `bun run lint` pass?
-4. [ ] Do all tests still pass?
-5. [ ] Can you create an Effect error using `new NetworkError({ message: "test", url: "http://example.com" })`?
-6. [ ] Is the Effect bundle size reasonable? (Check `dist/` after `bun run build:dev`)
+1. [x] Can you import from 'effect' without errors?
+2. [x] Does `bun run typecheck` pass?
+3. [x] Does `bun run lint` pass?
+4. [x] Do all tests still pass?
+5. [x] Can you create an Effect error using `new NetworkError({ message: "test", url: "http://example.com" })`?
+6. [x] Is the Effect bundle size reasonable? (Check `dist/` after `bun run build:dev`)
 
 ##### Common Issues and Solutions
 
@@ -1041,7 +1065,7 @@ git add -A
 git commit -m "Phase 2.5: Migrate retry to Effect with Schedule API"
 ```
 
-##### Step 6: Update MIGRATION_STATUS.md
+##### Step 6: Update MIGRATION.md
 
 ```markdown
 ## Phase 2: Core Module Migration ✅
@@ -1870,7 +1894,7 @@ git add -A
 git commit -m "Phase 3.3: Update services module for Effect compatibility"
 ```
 
-##### Step 4: Update MIGRATION_STATUS.md
+##### Step 4: Update MIGRATION.md
 
 ```markdown
 ## Phase 3: Async Operations Migration ✅
@@ -2712,7 +2736,7 @@ export function loadOptions(): Effect.Effect<Options, never> {
 }
 ```
 
-##### Step 6: Update MIGRATION_STATUS.md
+##### Step 6: Update MIGRATION.md
 
 ```markdown
 ## Phase 4: Integration Points ✅
@@ -3894,7 +3918,7 @@ git commit -m "Phase 5.4: Add performance tests and document results"
 **5.1. Update README.md:**
 Remove any references to neverthrow and update development setup instructions.
 
-**5.2. Update MIGRATION_STATUS.md:**
+**5.2. Update MIGRATION.md:**
 
 ```markdown
 ## Phase 5: Testing and Cleanup ✅
@@ -3930,7 +3954,7 @@ Remove any references to neverthrow and update development setup instructions.
 find . -name "*.bak" -delete
 
 # Remove migration tracking if no longer needed
-# rm MIGRATION_STATUS.md  # Optional - might want to keep for history
+# rm MIGRATION.md  # Optional - might want to keep for history
 ```
 
 **5.4. Create final migration summary:**

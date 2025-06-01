@@ -21,7 +21,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(bun list:*)",
       "Bash(bunx eslint:*)",
-      "WebFetch(domain:effect.website)"
+      "WebFetch(domain:effect.website)",
+      "Bash(node:*)"
     ],
     "deny": []
   },
