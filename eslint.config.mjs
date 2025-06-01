@@ -1,6 +1,6 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
-import neverthrowMustUse from 'eslint-plugin-neverthrow-must-use';
+import { noImportFromBarrelPackage } from '@effect/eslint-plugin/rules/no-import-from-barrel-package';
 
 export default tseslint.config(
   eslint.configs.recommended,
@@ -18,16 +18,26 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/restrict-template-expressions': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
     },
   },
   {
     files: ['**/*.ts', '**/*.tsx'],
-    ignores: ['**/*.test.ts', '**/*.spec.ts'],
     plugins: {
-      'neverthrow-must-use': neverthrowMustUse,
+      '@effect/eslint-plugin': {
+        rules: {
+          'no-import-from-barrel-package': noImportFromBarrelPackage,
+        },
+      },
     },
     rules: {
-      'neverthrow-must-use/must-use-result': 'error',
+      '@effect/eslint-plugin/no-import-from-barrel-package': 'error',
     },
   },
   {

@@ -1,8 +1,8 @@
 import { Result, ok, err } from 'neverthrow';
 import { NSID_SHORTCUTS } from './constants';
 import type { TransformInfo } from './types';
-import type { WormholeError } from './errors';
-import { validationError } from './errors';
+import type { WormholeError } from './errors-effect.js';
+import { ValidationError } from './errors-effect.js';
 import { logError } from './debug';
 
 /**
@@ -11,8 +11,13 @@ import { logError } from './debug';
  */
 export function canonicalize(fragment: string): Result<TransformInfo | null, WormholeError> {
   if (!fragment || typeof fragment !== 'string') {
-    logError('CANONICALIZER', validationError('Invalid fragment input', 'fragment', fragment));
-    return err(validationError('Fragment must be a non-empty string', 'fragment', fragment));
+    logError(
+      'CANONICALIZER',
+      ValidationError.make({ message: 'Invalid fragment input', field: 'fragment', value: fragment }),
+    );
+    return err(
+      ValidationError.make({ message: 'Fragment must be a non-empty string', field: 'fragment', value: fragment }),
+    );
   }
 
   let f = fragment.replace(/^at:\/\/([^/])/, 'at://$1');
@@ -20,15 +25,21 @@ export function canonicalize(fragment: string): Result<TransformInfo | null, Wor
   const [, idAndRest] = f.split('at://');
 
   if (!idAndRest) {
-    logError('CANONICALIZER', validationError('Invalid AT URI format', 'fragment', fragment));
-    return err(validationError('Invalid AT URI format', 'fragment', fragment));
+    logError(
+      'CANONICALIZER',
+      ValidationError.make({ message: 'Invalid AT URI format', field: 'fragment', value: fragment }),
+    );
+    return err(ValidationError.make({ message: 'Invalid AT URI format', field: 'fragment', value: fragment }));
   }
 
   const [idPart, ...restParts] = idAndRest.split('/');
 
   if (!idPart) {
-    logError('CANONICALIZER', validationError('Missing identifier in AT URI', 'fragment', fragment));
-    return err(validationError('Missing identifier in AT URI', 'fragment', fragment));
+    logError(
+      'CANONICALIZER',
+      ValidationError.make({ message: 'Missing identifier in AT URI', field: 'fragment', value: fragment }),
+    );
+    return err(ValidationError.make({ message: 'Missing identifier in AT URI', field: 'fragment', value: fragment }));
   }
 
   const did = idPart.startsWith('did:') ? idPart : null;
@@ -36,14 +47,17 @@ export function canonicalize(fragment: string): Result<TransformInfo | null, Wor
 
   // Validate DID format if present
   if (did && !isValidDid(did)) {
-    logError('CANONICALIZER', validationError('Invalid DID format', 'did', did));
-    return err(validationError('Invalid DID format', 'did', did));
+    logError('CANONICALIZER', ValidationError.make({ message: 'Invalid DID format', field: 'did', value: did }));
+    return err(ValidationError.make({ message: 'Invalid DID format', field: 'did', value: did }));
   }
 
   // Validate handle format if present
   if (handle && !isValidHandle(handle)) {
-    logError('CANONICALIZER', validationError('Invalid handle format', 'handle', handle));
-    return err(validationError('Invalid handle format', 'handle', handle));
+    logError(
+      'CANONICALIZER',
+      ValidationError.make({ message: 'Invalid handle format', field: 'handle', value: handle }),
+    );
+    return err(ValidationError.make({ message: 'Invalid handle format', field: 'handle', value: handle }));
   }
 
   if (restParts.length) {

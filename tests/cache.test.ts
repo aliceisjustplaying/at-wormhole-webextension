@@ -484,7 +484,7 @@ describe('DidHandleCache', () => {
           expect(false).toBe(true); // Should not reach here
         },
         (error) => {
-          expect(error.type).toBe('CACHE_ERROR');
+          expect(error._tag).toBe('CacheError');
           expect(error.message).toBe('Failed to persist cache to storage');
         },
       );
@@ -502,7 +502,7 @@ describe('DidHandleCache', () => {
           expect(false).toBe(true); // Should not reach here
         },
         (error) => {
-          expect(error.type).toBe('CACHE_ERROR');
+          expect(error._tag).toBe('CacheError');
           expect(error.message).toBe('Failed to load cache from storage');
         },
       );

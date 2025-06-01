@@ -51,6 +51,7 @@ I acknowledge that I will:
 - ❌ Adding `// eslint-disable-*` comments
 - ❌ Adding `// @ts-ignore` or `// @ts-expect-error`
 - ❌ Modifying `.eslintrc` or `tsconfig.json` to relax rules
+- ❌ Modifying `eslint.config.mjs` WITHOUT EXPLICIT PERMISSION
 - ❌ Removing the code that causes the error
 - ❌ Skipping the validation step
 
@@ -102,6 +103,7 @@ bun run build:dev   # Verify build works
 - **NEVER** refactor working code without explicit request
 - **NEVER** include non-code content in code artifacts
 - **NEVER** provide sycophantic praise or cheerleading
+- **NEVER** modify `eslint.config.mjs` without explicit permission from the user
 
 ## CODE GENERATION RULES
 
@@ -260,41 +262,6 @@ The extension uses **neverthrow** for comprehensive error handling:
 - **Popup Error UI** - User-friendly error messages
 - **Test Coverage** - Additional edge case scenarios
 
-## Adding New Services
+# The Big Migration
 
-To add a new AT Protocol service, update `src/shared/services.ts`:
-
-```typescript
-SERVICES.NEW_SERVICE = {
-  emoji: '✨',
-  name: 'example.com',
-  contentSupport: 'full', // or 'profiles-and-posts', 'only-posts', 'only-profiles'
-
-  // Optional: URL parsing configuration
-  parsing: {
-    hostname: 'example.com',
-    patterns: {
-      profileIdentifier: /^\/profile\/([^/]+)/,
-      // Additional pattern options available
-    },
-  },
-
-  // Required: URL generation
-  buildUrl: (info) => {
-    if (!info.handle) return null;
-    if (info.rkey) {
-      return `https://example.com/user/${info.handle}/post/${info.rkey}`;
-    }
-    return `https://example.com/user/${info.handle}`;
-  },
-
-  // Optional: Input restrictions
-  requiredFields: {
-    handle: true,
-    rkey: true,
-    plcOnly: true,
-  },
-};
-```
-
-No other code changes required!
+See [MIGRATION.md](MIGRATION.md) for the current task: migrating from `neverthrow` to `Effect`.

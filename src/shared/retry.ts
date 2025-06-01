@@ -4,7 +4,7 @@
  */
 
 import { ResultAsync, err } from 'neverthrow';
-import type { WormholeError } from './errors';
+import type { WormholeError } from './errors-effect.js';
 import { logError } from './debug';
 
 interface RetryOptions {
@@ -22,7 +22,7 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
   backoffFactor: 2,
   shouldRetry: (error: WormholeError) => {
     // Only retry network errors, not parse/validation errors
-    return error.type === 'NETWORK_ERROR' && (!error.status || error.status >= 500);
+    return error._tag === 'NetworkError' && (!('status' in error) || (typeof error.status === 'number' && error.status >= 500));
   },
 };
 
@@ -108,12 +108,12 @@ export function withNetworkRetry<T>(
     maxDelay: 10000, // Higher max delay for network requests
     backoffFactor: 2.5, // More aggressive backoff for network
     shouldRetry: (error: WormholeError) => {
-      if (error.type !== 'NETWORK_ERROR') return false;
+      if (error._tag !== 'NetworkError') return false;
 
       // Retry on 5xx errors and network failures (no status)
-      if (!error.status) return true; // Network error without status (timeout, connection failed)
-      if (error.status >= 500) return true; // Server errors
-      if (error.status === 429) return true; // Rate limiting
+      if (!('status' in error) || error.status === undefined) return true; // Network error without status (timeout, connection failed)
+      if (typeof error.status === 'number' && error.status >= 500) return true; // Server errors
+      if (typeof error.status === 'number' && error.status === 429) return true; // Rate limiting
 
       return false; // Don't retry 4xx client errors
     },
