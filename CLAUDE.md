@@ -62,7 +62,7 @@ I acknowledge that I will:
 bun run format      # Format code
 bun run lint        # Check for linting errors (MUST PASS)
 bun run typecheck   # Verify TypeScript types (MUST PASS)
-timeout 10 bun run test  # Run all tests (must complete in <10s)
+gtimeout 10 bun run test  # Run all tests (must complete in <10s)
 bun run build:dev   # Verify build works
 ```
 
