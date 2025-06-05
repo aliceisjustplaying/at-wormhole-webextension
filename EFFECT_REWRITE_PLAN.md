@@ -456,36 +456,9 @@ const identifyInputType = (input: string): Effect.Effect<"url" | "handle" | "did
   }))
 }
 
-// Parser implementations (stubs - copy logic from src/shared/parser.ts)
-const parseUrl = (url: string): Effect.Effect<TransformInfo | null, ParseError> => {
-  // Copy URL parsing logic from src/shared/parser.ts
-  return Effect.succeed(null)
-}
-
-const parseHandle = (handle: string): Effect.Effect<TransformInfo | null, ParseError> => {
-  // Validate and return TransformInfo with handle
-  return Effect.succeed({
-    atUri: null,
-    did: null,
-    handle: handle as Handle,
-    bskyAppPath: `/profile/${handle}`
-  })
-}
-
-const parseDid = (did: string): Effect.Effect<TransformInfo | null, ParseError> => {
-  // Validate and return TransformInfo with DID
-  return Effect.succeed({
-    atUri: null,
-    did: did as Did,
-    handle: null,
-    bskyAppPath: `/profile/${did}`
-  })
-}
-
-const parseAtUri = (uri: string): Effect.Effect<TransformInfo | null, ParseError> => {
-  // Parse AT URI format
-  return Effect.succeed(null)
-}
+// Parser implementations - copy logic from src/shared/parser.ts
+// These are stubs showing the Effect pattern - actual implementation
+// should port the regex patterns and logic from the current parser
 
 // Additional helper functions referenced but not defined
 const extractHandleFromPlc = (plcResponse: any): Handle => {
@@ -561,31 +534,8 @@ const resolveIdentifiers = (
   })
 }
 
-const buildDestinations = (
-  info: TransformInfo,
-  options: TransformOptions & UserPreferences
-): DestinationLink[] => {
-  // Copy logic from src/shared/services.ts buildUrl functions
-  // This would iterate through all services and build destination links
-  const destinations: DestinationLink[] = []
-  
-  // Example implementation (would need to copy full logic)
-  Object.entries(SERVICES).forEach(([key, service]) => {
-    if (service.buildUrl) {
-      const url = service.buildUrl(info)
-      if (url) {
-        destinations.push({
-          url,
-          label: options.showEmojis ? `${service.emoji} ${service.name}` : service.name,
-          service: key,
-          matched: false // Would need to implement matching logic
-        })
-      }
-    }
-  })
-  
-  return destinations
-}
+// buildDestinations helper - iterates through SERVICES and builds destination links
+// Copy logic from src/shared/services.ts
 
 // Parser Service Implementation
 export const ParserServiceLive = Layer.succeed(
@@ -1144,37 +1094,7 @@ const showSavedIndicator = (key: string) =>
 
 ### Separate Folder Development Approach
 
-To minimize risk and maintain a working extension throughout the migration, the Effect implementation will be developed in a completely separate folder structure:
-
-```
-at-wormhole-webextension/
-├── src/                    # Current implementation (unchanged)
-│   ├── shared/            # Existing neverthrow-based code
-│   ├── popup/             # Current popup implementation
-│   ├── options/           # Current options page
-│   └── background/        # Current service worker
-├── effect/                 # New Effect implementation
-│   ├── domain/            # Pure business logic
-│   │   ├── models/        # Effect Schema definitions
-│   │   ├── parser/        # URL parsing logic
-│   │   ├── canonicalizer/ # Transformation logic
-│   │   └── services/      # Service configurations
-│   ├── infrastructure/    # External integrations
-│   │   ├── browser/       # Browser API wrappers
-│   │   ├── network/       # HTTP client
-│   │   └── storage/       # Persistence layer
-│   ├── application/       # Use cases and orchestration
-│   │   ├── transform/     # Main transformation pipeline
-│   │   └── cache/         # Cache management
-│   ├── presentation/      # UI components
-│   │   ├── popup/         # Popup UI
-│   │   ├── options/       # Options page
-│   │   └── background/    # Service worker
-│   └── tests/             # Effect-based tests
-├── vite.config.ts          # Current build config
-├── vite.config.effect.ts   # Separate Effect build config
-└── package.json           # Updated with dual scripts
-```
+To minimize risk and maintain a working extension throughout the migration, the Effect implementation will be developed in a completely separate folder structure. See the Module Organization section above for the detailed folder layout.
 
 ### Build Configuration
 
@@ -1284,35 +1204,6 @@ export const parseInput = FeatureFlags.useEffectParser
 6. **Clean Separation** - No mixing of paradigms or dependencies
 7. **Leverages Existing Work** - ~40% of implementation already in plan
 
-### Migration Phases
-
-#### Phase 0: Setup (Immediate)
-- [ ] Create `effect/` folder structure
-- [ ] Set up `vite.config.effect.ts`
-- [ ] Update package.json with dual scripts
-- [ ] Extract code from plan into files
-- [ ] Verify parallel builds work
-
-#### Phase 1: Foundation (Week 1)
-- [ ] Complete domain models from plan examples
-- [ ] Set up Effect testing infrastructure
-- [ ] Implement basic service shells
-- [ ] Create first adapter tests
-
-#### Phase 2-6: (As outlined in original plan)
-Continue with the implementation roadmap, but now in the `effect/` folder
-
-### Migration Checklist
-
-- [ ] Create Effect folder structure
-- [ ] Extract plan code into actual files
-- [ ] Set up parallel build process
-- [ ] Configure dual test suites
-- [ ] Implement feature flag system
-- [ ] Create compatibility adapters
-- [ ] Document parallel development workflow
-- [ ] Set up CI/CD for both implementations
-- [ ] Plan gradual production rollout
 
 ## Testing Approach
 
@@ -1401,6 +1292,32 @@ describe("Parser Property Tests", () => {
 })
 ```
 
+### Compatibility Testing
+
+Create adapters to ensure the Effect implementation matches the behavior of the current neverthrow implementation:
+
+```typescript
+// effect/tests/adapters/parser.adapter.ts
+describe('Parser Compatibility', () => {
+  const testCases = [
+    'https://bsky.app/profile/alice.bsky.social',
+    'alice.bsky.social',
+    'did:plc:1234567890',
+    'at://alice.bsky.social/app.bsky.feed.post/abc123'
+  ]
+  
+  testCases.forEach(input => {
+    it(`should match legacy behavior for: ${input}`, async () => {
+      const effectResult = await Effect.runPromise(
+        effectParse(input).pipe(Effect.catchAll(() => Effect.succeed(null)))
+      )
+      const legacyResult = await legacyParse(input).match(ok => ok, err => null)
+      expect(effectResult).toEqual(legacyResult)
+    })
+  })
+})
+```
+
 ## Key Benefits of Effect Rewrite
 
 1. **Type Safety**
@@ -1480,24 +1397,7 @@ const sendMessage = <A>(message: unknown) =>
 
 **Problem**: Service workers can be terminated at any time.
 
-**Solution**: Use Effect.acquireRelease for cleanup:
-```typescript
-const acquireConnection = Effect.sync(() => {
-  const port = chrome.runtime.connect({ name: "keepalive" })
-  return port
-})
-
-const releaseConnection = (port: chrome.runtime.Port) =>
-  Effect.sync(() => port.disconnect())
-
-const withConnection = <R, E, A>(
-  effect: Effect.Effect<A, E, R>
-) => Effect.acquireUseRelease(
-  acquireConnection,
-  () => effect,
-  releaseConnection
-)
-```
+**Solution**: Use Effect.acquireRelease for cleanup with chrome.runtime.connect keepalive port.
 
 ### 3. Manifest V3 Restrictions
 
@@ -1581,34 +1481,24 @@ dist-effect/
 └── _locales/            # Copied from _locales/
 ```
 
-## Missing Schema Definitions
-
-Add these schemas to support the service implementations:
+## Additional Schemas Required
 
 ```typescript
-// API Response schemas
-export const ResolveHandleResponse = S.Struct({
-  did: Did
-})
-
+// API Response schemas for resolver service
+export const ResolveHandleResponse = S.Struct({ did: Did })
 export const PlcDirectoryResponse = S.Struct({
   id: S.String,
   alsoKnownAs: S.Array(S.String),
   verificationMethods: S.optional(S.Unknown),
   services: S.optional(S.Unknown)
 })
-
 export const DidWebResponse = S.Struct({
   id: S.String,
   alsoKnownAs: S.optional(S.Array(S.String)),
   service: S.optional(S.Array(S.Unknown))
 })
 
-// Service registry (copy from src/shared/services.ts)
-export const SERVICES = {
-  // Copy the entire SERVICES object from src/shared/services.ts
-  // No changes needed - it's already pure data
-} as const
+// SERVICES object should be copied as-is from src/shared/services.ts
 ```
 
 ## Manifest.json Modifications
@@ -1630,179 +1520,16 @@ Create `manifest.effect.json` by copying `public/manifest.json` and updating pat
 }
 ```
 
-## Migration Testing Strategy
 
-### 1. Parallel Testing Infrastructure
 
-Create test adapters to run Effect implementation against existing test cases:
-
-```typescript
-// effect/tests/adapters/parser.adapter.ts
-import { parseInput as effectParse } from '../domain/parser'
-import { parseInput as legacyParse } from '../../src/shared/parser'
-
-describe('Parser Compatibility', () => {
-  const testCases = [
-    'https://bsky.app/profile/alice.bsky.social',
-    'alice.bsky.social',
-    'did:plc:1234567890',
-    'at://alice.bsky.social/app.bsky.feed.post/abc123'
-  ]
-  
-  testCases.forEach(input => {
-    it(`should match legacy behavior for: ${input}`, async () => {
-      const effectResult = await Effect.runPromise(
-        effectParse(input).pipe(
-          Effect.catchAll(() => Effect.succeed(null))
-        )
-      )
-      
-      const legacyResult = await legacyParse(input).match(
-        ok => ok,
-        err => null
-      )
-      
-      expect(effectResult).toEqual(legacyResult)
-    })
-  })
-})
-```
-
-### 2. Property-Based Testing
-
-```typescript
-// effect/tests/properties/handle.test.ts
-import { fc } from '@effect/schema/FastCheck'
-import { Handle } from '../domain/models'
-
-describe('Handle Properties', () => {
-  it('should round-trip through serialization', () => {
-    fc.assert(
-      fc.property(fc(Handle), (handle) => {
-        const json = JSON.stringify(handle)
-        const parsed = JSON.parse(json)
-        return S.decodeUnknownSync(Handle)(parsed) === handle
-      })
-    )
-  })
-})
-```
-
-### 3. Integration Testing
-
-```typescript
-// effect/tests/integration/transform.test.ts
-describe('Transform Integration', () => {
-  const layer = Layer.mergeAll(
-    MockStorageService,
-    MockHttpService,
-    MockTabsService
-  ).pipe(
-    Layer.provideMerge(ApplicationLayer)
-  )
-  
-  it.effect('should handle full transformation flow', () =>
-    Effect.gen(function* () {
-      const transform = yield* TransformService
-      
-      // Mock HTTP responses
-      yield* mockHttpResponse(
-        'https://bsky.social/xrpc/com.atproto.identity.resolveHandle',
-        { did: 'did:plc:testuser123' }
-      )
-      
-      const result = yield* transform.transform('alice.bsky.social')
-      
-      expect(result).toContainEqual(
-        expect.objectContaining({
-          service: 'bsky.app',
-          url: 'https://bsky.app/profile/alice.bsky.social'
-        })
-      )
-    }).pipe(Effect.provide(layer))
-  )
-})
-```
-
-### 4. Performance Testing
-
-```typescript
-// effect/tests/performance/cache.bench.ts
-import { bench, describe } from 'vitest'
-
-describe('Cache Performance', () => {
-  bench('bidirectional lookup', async () => {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const cache = yield* CacheService
-        
-        // Add 1000 entries
-        yield* Effect.forEach(
-          Array.from({ length: 1000 }, (_, i) => i),
-          (i) => cache.set(
-            `user${i}.bsky.social` as Handle,
-            `did:plc:user${i}` as Did
-          ),
-          { concurrency: 'unbounded' }
-        )
-        
-        // Perform lookups
-        yield* cache.get('user500.bsky.social' as Handle)
-        yield* cache.get('did:plc:user500' as Did)
-      })
-    )
-  })
-})
-```
 
 ## Performance Considerations
 
-### 1. Effect Fiber Pooling
-
-```typescript
-// Use bounded concurrency for parallel operations
-const resolveMultipleHandles = (handles: Handle[]) =>
-  Effect.forEach(
-    handles,
-    (handle) => resolver.resolveHandle(handle),
-    { 
-      concurrency: 5, // Limit concurrent requests
-      batching: true  // Enable request batching
-    }
-  )
-```
-
-### 2. Lazy Service Construction
-
-```typescript
-// Services are only constructed when first accessed
-export const ApplicationLayer = Layer.succeed(TransformService, 
-  TransformService.of({
-    transform: Effect.suspend(() => transformImplementation)
-  })
-)
-```
-
-### 3. Stream-Based Tab Monitoring
-
-```typescript
-// Efficient tab monitoring with backpressure
-const monitorTabs = Stream.async<TabUpdateEvent>((emit) => {
-  const listener = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => {
-    if (changeInfo.status === 'complete' && tab.url) {
-      emit(Effect.succeed(Chunk.of({ tabId, url: tab.url, status: 'complete' })))
-    }
-  }
-  
-  chrome.tabs.onUpdated.addListener(listener)
-  
-  return Effect.sync(() => {
-    chrome.tabs.onUpdated.removeListener(listener)
-  })
-}).pipe(
-  Stream.debounce(Duration.millis(300)) // Debounce rapid updates
-)
-```
+1. **Effect Fiber Pooling**: Use bounded concurrency (`{ concurrency: 5 }`) for parallel operations
+2. **Lazy Service Construction**: Services constructed only when first accessed via `Layer.succeed`
+3. **Stream-Based Tab Monitoring**: Use `Stream.async` with debouncing for efficient tab updates
+4. **Request Batching**: Enable `{ batching: true }` for bulk operations
+5. **Resource Management**: Use `Effect.acquireRelease` for proper cleanup
 
 ## Token-Efficient Implementation Guide
 
@@ -1831,67 +1558,26 @@ bun add effect @effect/schema @effect/vitest
 
 Create `effect/domain/models/index.ts` and copy ALL code from the "Data Models and Schemas" section above. This is already complete - just copy it.
 
-### Phase 2: Pure Functions Port (20 minutes)
+### Phase 2: Port Core Services (20 minutes)
 
-**IMPORTANT**: The service implementations in the "Service Implementations" section of this plan are ALREADY IDIOMATIC Effect code. Use those as reference for the correct patterns.
+Port services using the patterns shown in the "Service Implementations" section above:
+- **Parser**: Use `ParserServiceLive` as reference, port regex patterns from `src/shared/parser.ts`
+- **Canonicalizer**: Pure transformation, wrap in service pattern
+- **HTTP**: Wrap fetch with `Effect.tryPromise` and retry logic
+- **Storage**: Wrap chrome.storage API calls
+- **Cache**: Port BidirectionalMap, wrap methods with Effect
 
-**Parser Service**:
-1. Look at `ParserServiceLive` in this plan - it shows the idiomatic implementation
-2. Copy the URL parsing regex patterns from `src/shared/parser.ts`
-3. Implement using the generator pattern shown in the plan:
-```typescript
-Effect.gen(function* () {
-  // Use Match for pattern matching
-  // Use tagged errors
-  // Return Effect.succeed(null) for no match
-})
-```
+### Phase 3: Test Migration (15 minutes)
 
-**Canonicalizer Service**:
-1. This is a pure transformation - can mostly use mechanical conversion
-2. But wrap in service pattern as shown in plan
-3. Keep all validation logic unchanged
+1. Copy test files from `tests/` to `effect/tests/`
+2. Update imports and replace neverthrow assertions with Effect equivalents
+3. Use the compatibility testing pattern shown in the Testing Approach section
 
-### Phase 3: Service Implementations (30 minutes)
+### Phase 4: Build Configuration (5 minutes)
 
-**HTTP Service** - Create `effect/infrastructure/network/http.ts`:
-```typescript
-// Copy the resolver's fetch logic from src/shared/resolver.ts
-// Wrap with Effect.tryPromise and add retry from the plan's retryPolicy
-```
-
-**Storage Service** - Create `effect/infrastructure/storage/index.ts`:
-```typescript
-// Copy storage logic from src/shared/cache.ts
-// Wrap chrome.storage calls with Effect.tryPromise
-```
-
-**Cache Service** - Create `effect/application/cache/index.ts`:
-```typescript
-// Copy BidirectionalMap class from src/shared/cache.ts AS-IS
-// Wrap methods with Effect.succeed/Effect.fail
-```
-
-### Phase 4: Test Migration (15 minutes)
-
-1. Copy all test files from `tests/` to `effect/tests/`
-2. Update imports to point to Effect modules
-3. Replace test assertions:
-```typescript
-// Before
-expect(result.isOk()).toBe(true)
-expect(result._unsafeUnwrap()).toEqual(expected)
-
-// After
-const actual = await Effect.runPromise(result)
-expect(actual).toEqual(expected)
-```
-
-### Phase 5: Build Configuration (5 minutes)
-
-1. Create `vite.config.effect.ts` by copying from the plan
-2. Update `package.json` scripts by copying from the plan
-3. Create `manifest.effect.json` by copying `public/manifest.json`
+1. Create `vite.config.effect.ts` from the Build Configuration section
+2. Update `package.json` with dual build scripts
+3. Create `manifest.effect.json`
 
 ### Conversion Patterns Reference
 
@@ -1911,45 +1597,11 @@ expect(actual).toEqual(expected)
 | `.match({ok, err})` | `Effect.match({onSuccess: ok, onFailure: err})` | Let errors propagate up |
 
 **Idiomatic Patterns**:
-
-1. **Use generators for sequential operations**:
-```typescript
-// Instead of: effect1.pipe(Effect.flatMap(x => effect2(x)))
-Effect.gen(function* () {
-  const x = yield* effect1
-  return yield* effect2(x)
-})
-```
-
-2. **Use services instead of direct functions**:
-```typescript
-// Instead of: parseInput(input)
-Effect.gen(function* () {
-  const parser = yield* ParserService
-  return yield* parser.parseInput(input)
-})
-```
-
-3. **Use Match for pattern matching**:
-```typescript
-// Instead of: if/else chains
-Match.value(data).pipe(
-  Match.when(pattern, handler),
-  Match.orElse(defaultHandler)
-)
-```
-
-4. **Use Option for nullable values**:
-```typescript
-// Instead of: Effect<T | null, E>
-Effect<Option<T>, E>
-```
-
-5. **Use tagged errors**:
-```typescript
-// Instead of: Effect.fail({ type: 'NetworkError', ... })
-Effect.fail(new NetworkError({ ... }))
-```
+1. Use generators for sequential operations: `const x = yield* effect`
+2. Use services instead of direct functions via Context.GenericTag
+3. Use Match for pattern matching instead of if/else chains
+4. Use Option for nullable values instead of `T | null`
+5. Use tagged errors: `new ErrorClass({...})` instead of plain objects
 
 **Service configuration objects**: Copy AS-IS from `src/shared/services.ts` - no changes needed.
 
