@@ -14,11 +14,13 @@
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "latest",
+    "@effect/eslint-plugin": "^0.3.2",
     "@eslint/js": "latest",
     "@types/bun": "latest",
     "@types/chrome": "^0.0.323",
     "@types/node": "latest",
     "eslint": "latest",
+    "eslint-plugin-functional": "^9.0.2",
     "eslint-plugin-neverthrow-must-use": "^0.1.2",
     "globals": "latest",
     "prettier": "latest",
