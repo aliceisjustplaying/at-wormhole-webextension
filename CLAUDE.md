@@ -260,6 +260,25 @@ The extension uses **neverthrow** for comprehensive error handling:
 - **Popup Error UI** - User-friendly error messages
 - **Test Coverage** - Additional edge case scenarios
 
+## Effect Rewrite Plan
+
+**IMPORTANT**: This codebase is being migrated to Effect. Before making any architectural decisions or major changes, consult the comprehensive Effect rewrite plan at `/EFFECT_REWRITE_PLAN.md`. This plan contains:
+
+- Complete architectural design with Effect
+- Data models and schemas
+- Service layer architecture
+- Error handling strategies
+- Implementation roadmap
+- Migration strategy
+
+Always refer to this plan when:
+- Implementing new features
+- Refactoring existing code
+- Making architectural decisions
+- Planning test strategies
+
+The rewrite follows Effect best practices with pure functional core, service-oriented architecture, and type-safe error handling.
+
 ## Adding New Services
 
 To add a new AT Protocol service, update `src/shared/services.ts`:
