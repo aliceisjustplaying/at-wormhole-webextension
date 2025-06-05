@@ -888,40 +888,177 @@ const showSavedIndicator = (key: string) =>
 
 ## Migration Strategy
 
-### Incremental Migration Approach
+### Separate Folder Development Approach
 
-1. **Parallel Development**
-   - Keep existing code operational
-   - Develop Effect modules in new directories
-   - Use feature flags to switch between implementations
+To minimize risk and maintain a working extension throughout the migration, the Effect implementation will be developed in a completely separate folder structure:
 
-2. **Bottom-Up Migration**
-   - Start with leaf modules (types, constants)
-   - Move to infrastructure services
-   - Then domain logic
-   - Finally UI integration
+```
+at-wormhole-webextension/
+├── src/                    # Current implementation (unchanged)
+│   ├── shared/            # Existing neverthrow-based code
+│   ├── popup/             # Current popup implementation
+│   ├── options/           # Current options page
+│   └── background/        # Current service worker
+├── effect/                 # New Effect implementation
+│   ├── domain/            # Pure business logic
+│   │   ├── models/        # Effect Schema definitions
+│   │   ├── parser/        # URL parsing logic
+│   │   ├── canonicalizer/ # Transformation logic
+│   │   └── services/      # Service configurations
+│   ├── infrastructure/    # External integrations
+│   │   ├── browser/       # Browser API wrappers
+│   │   ├── network/       # HTTP client
+│   │   └── storage/       # Persistence layer
+│   ├── application/       # Use cases and orchestration
+│   │   ├── transform/     # Main transformation pipeline
+│   │   └── cache/         # Cache management
+│   ├── presentation/      # UI components
+│   │   ├── popup/         # Popup UI
+│   │   ├── options/       # Options page
+│   │   └── background/    # Service worker
+│   └── tests/             # Effect-based tests
+├── vite.config.ts          # Current build config
+├── vite.config.effect.ts   # Separate Effect build config
+└── package.json           # Updated with dual scripts
+```
 
-3. **Testing Strategy**
-   - Maintain existing test suite
-   - Add Effect-based tests alongside
-   - Ensure parity between implementations
-   - Use property-based testing with Effect
+### Build Configuration
 
-4. **Rollback Plan**
-   - Keep git branches separate
-   - Tag stable releases before major changes
-   - Document breaking changes
-   - Maintain compatibility layer during transition
+#### Dual Build Scripts
+
+```json
+// package.json scripts
+{
+  "scripts": {
+    // Current implementation scripts
+    "build:current": "vite build",
+    "build:chrome:current": "npm run build:current && npm run zip:chrome",
+    "build:firefox:current": "npm run build:current && npm run patch:firefox && npm run zip:firefox",
+    "dev:current": "vite build --watch --mode development",
+    "test:current": "bun test src",
+    
+    // Effect implementation scripts
+    "build:effect": "vite build -c vite.config.effect.ts",
+    "build:chrome:effect": "npm run build:effect && npm run zip:chrome:effect",
+    "build:firefox:effect": "npm run build:effect && npm run patch:firefox:effect && npm run zip:firefox:effect",
+    "dev:effect": "vite build --watch --mode development -c vite.config.effect.ts",
+    "test:effect": "bun test effect",
+    
+    // Parallel development
+    "dev": "concurrently \"npm run dev:current\" \"npm run dev:effect\"",
+    "test": "npm run test:current && npm run test:effect",
+    
+    // Default to current implementation
+    "build": "npm run build:current",
+    "build:chrome": "npm run build:chrome:current",
+    "build:firefox": "npm run build:firefox:current"
+  }
+}
+```
+
+#### Vite Configuration for Effect
+
+```typescript
+// vite.config.effect.ts
+import { defineConfig } from 'vite'
+import { crx } from '@crxjs/vite-plugin'
+import manifestConfig from './manifest.effect.json'
+
+export default defineConfig(({ mode }) => ({
+  build: {
+    outDir: 'dist-effect',
+    // ... rest of config
+  },
+  plugins: [
+    crx({ manifest: manifestConfig }),
+  ],
+  resolve: {
+    alias: {
+      '@effect': path.resolve(__dirname, './effect'),
+      '@effect/domain': path.resolve(__dirname, './effect/domain'),
+      '@effect/infrastructure': path.resolve(__dirname, './effect/infrastructure'),
+      '@effect/application': path.resolve(__dirname, './effect/application'),
+      '@effect/presentation': path.resolve(__dirname, './effect/presentation'),
+    },
+  },
+}))
+```
+
+### Implementation Strategy
+
+1. **Extract Code from Plan**
+   - Copy all code examples from this plan into actual files
+   - Start with models and schemas (already ~90% complete in plan)
+   - Move service interfaces next (already defined in plan)
+   - Implement service bodies using plan examples as starting point
+
+2. **Parallel Testing**
+   - Create test adapters to run Effect code against existing test cases
+   - Ensure behavioral parity with current implementation
+   - Add Effect-specific tests for new capabilities
+
+3. **Gradual Integration**
+   - Use environment variables or build flags to switch implementations
+   - Start with non-critical paths (e.g., cache service)
+   - Progress to core functionality once confidence is built
+   - Final switch for UI components
+
+4. **Feature Flag System**
+
+```typescript
+// effect/infrastructure/feature-flags.ts
+export const FeatureFlags = {
+  useEffectParser: process.env.USE_EFFECT_PARSER === 'true',
+  useEffectCache: process.env.USE_EFFECT_CACHE === 'true',
+  useEffectResolver: process.env.USE_EFFECT_RESOLVER === 'true',
+  useEffectUI: process.env.USE_EFFECT_UI === 'true',
+}
+
+// Adapter example
+export const parseInput = FeatureFlags.useEffectParser
+  ? effectParser.parseInput
+  : legacyParser.parseInput
+```
+
+### Benefits of This Approach
+
+1. **Zero Risk** - Current code remains completely untouched
+2. **Side-by-Side Comparison** - Easy to verify behavior matches
+3. **Independent Development** - No merge conflicts or interference
+4. **Gradual Migration** - Move one module at a time when ready
+5. **Easy Rollback** - Just switch build targets
+6. **Clean Separation** - No mixing of paradigms or dependencies
+7. **Leverages Existing Work** - ~40% of implementation already in plan
+
+### Migration Phases
+
+#### Phase 0: Setup (Immediate)
+- [ ] Create `effect/` folder structure
+- [ ] Set up `vite.config.effect.ts`
+- [ ] Update package.json with dual scripts
+- [ ] Extract code from plan into files
+- [ ] Verify parallel builds work
+
+#### Phase 1: Foundation (Week 1)
+- [ ] Complete domain models from plan examples
+- [ ] Set up Effect testing infrastructure
+- [ ] Implement basic service shells
+- [ ] Create first adapter tests
+
+#### Phase 2-6: (As outlined in original plan)
+Continue with the implementation roadmap, but now in the `effect/` folder
 
 ### Migration Checklist
 
-- [ ] Create Effect module structure
+- [ ] Create Effect folder structure
+- [ ] Extract plan code into actual files
 - [ ] Set up parallel build process
-- [ ] Implement feature flags
-- [ ] Create compatibility layer
-- [ ] Document API changes
-- [ ] Update developer documentation
-- [ ] Plan staged rollout
+- [ ] Configure dual test suites
+- [ ] Implement feature flag system
+- [ ] Create compatibility adapters
+- [ ] Document parallel development workflow
+- [ ] Set up CI/CD for both implementations
+- [ ] Plan gradual production rollout
 
 ## Testing Approach
 
