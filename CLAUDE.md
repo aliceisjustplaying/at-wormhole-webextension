@@ -262,20 +262,50 @@ The extension uses **neverthrow** for comprehensive error handling:
 
 ## Effect Rewrite Plan
 
-**IMPORTANT**: This codebase is being migrated to Effect. Before making any architectural decisions or major changes, consult the comprehensive Effect rewrite plan at `/EFFECT_REWRITE_PLAN.md`. This plan contains:
+**IMPORTANT**: This codebase is being migrated to Effect. The complete rewrite plan is at `/EFFECT_REWRITE_PLAN.md`.
 
-- Complete architectural design with Effect
-- Data models and schemas
-- Service layer architecture
-- Error handling strategies
-- Implementation roadmap
-- Migration strategy
+### 🚀 Effect Rewrite Quick Start
 
-Always refer to this plan when:
-- Implementing new features
-- Refactoring existing code
-- Making architectural decisions
-- Planning test strategies
+When asked to implement the Effect rewrite, follow these steps:
+
+1. **Start with the Token-Efficient Implementation Guide** at the end of EFFECT_REWRITE_PLAN.md
+2. **Copy existing code** - ~40% is already written in the plan
+3. **Use mechanical transformations** - See the conversion patterns table
+4. **Work in the `effect/` folder** - Never modify `src/`
+5. **Test after each phase** - `cd effect && bun test`
+
+### Key Principles for Token Efficiency
+
+1. **Copy First, Transform Second**
+   - All schemas, interfaces, and error types are complete in the plan
+   - Service configurations and constants can be copied as-is
+   - Only transform neverthrow → Effect patterns
+
+2. **Batch Similar Operations**
+   - Convert all Result<T,E> → Effect<T,E> in one pass
+   - Apply same patterns to similar functions
+
+3. **Skip Explanations**
+   - The plan explains everything already
+   - Just execute the mechanical transformations
+   - Focus on code, not commentary
+
+4. **Use the Conversion Table**
+   - Simple find/replace patterns for 90% of conversions
+   - Logic stays the same, only wrappers change
+
+5. **Common Effect Patterns**
+   - Use generators for sequential operations: `Effect.gen(function* () { ... })`
+   - Use Match for pattern matching instead of if/else chains
+   - Use tagged errors (new ErrorClass({...})) instead of plain objects
+   - Use services with Context.GenericTag for dependency injection
+   - Use Option for nullable values instead of T | null
+
+6. **Browser Extension Specifics**
+   - Wrap all chrome.* API calls with Effect.async or Effect.tryPromise
+   - Use Schema to validate all message passing between contexts
+   - Handle service worker lifecycle with Effect.acquireRelease
+   - Implement LRU cache eviction for storage quota limits
 
 The rewrite follows Effect best practices with pure functional core, service-oriented architecture, and type-safe error handling.
 
