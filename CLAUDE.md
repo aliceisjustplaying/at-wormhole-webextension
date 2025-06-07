@@ -260,54 +260,113 @@ The extension uses **neverthrow** for comprehensive error handling:
 - **Popup Error UI** - User-friendly error messages
 - **Test Coverage** - Additional edge case scenarios
 
-## Effect Rewrite Plan
+## Effect TDD Rewrite - Learning Journey
 
-**IMPORTANT**: This codebase is being migrated to Effect. The complete rewrite plan is at `/EFFECT_REWRITE_PLAN.md`.
+**IMPORTANT**: We're rewriting this extension from scratch using Effect, with TDD to teach Effect patterns as we go.
 
-### 🚀 Effect Rewrite Quick Start
+### 🎯 Learning Goals
 
-When asked to implement the Effect rewrite, follow these steps:
+1. **Understand Effect fundamentals** through real implementation
+2. **Learn idiomatic Effect patterns** by solving actual problems
+3. **Build confidence** with Effect's type system and error handling
+4. **Master services and layers** for dependency injection
 
-1. **Start with the Token-Efficient Implementation Guide** at the end of EFFECT_REWRITE_PLAN.md
-2. **Copy existing code** - ~40% is already written in the plan
-3. **Use mechanical transformations** - See the conversion patterns table
-4. **Work in the `effect/` folder** - Never modify `src/`
-5. **Test after each phase** - `cd effect && bun test`
+### 📚 Our TDD Learning Path
 
-### Key Principles for Token Efficiency
+#### Phase 1: Core Concepts (Schemas & Effects)
+- **Lesson 1**: Branded types with Schema - parsing handles
+- **Lesson 2**: Effect basics - errors in the type system
+- **Lesson 3**: Validation pipelines - building TransformInfo
+- **Tests teach**: How Effect tracks errors at compile time
 
-1. **Copy First, Transform Second**
-   - All schemas, interfaces, and error types are complete in the plan
-   - Service configurations and constants can be copied as-is
-   - Only transform neverthrow → Effect patterns
+#### Phase 2: Services & Dependencies
+- **Lesson 4**: Creating services - the Parser service
+- **Lesson 5**: Dependency injection - using Context
+- **Lesson 6**: Service composition - building layers
+- **Tests teach**: How to test with dependency injection
 
-2. **Batch Similar Operations**
-   - Convert all Result<T,E> → Effect<T,E> in one pass
-   - Apply same patterns to similar functions
+#### Phase 3: Async & Error Handling
+- **Lesson 7**: Network calls with Effect - resolver implementation
+- **Lesson 8**: Error recovery - fallbacks and retries
+- **Lesson 9**: Concurrent operations - batch resolution
+- **Tests teach**: How Effect makes async composable
 
-3. **Skip Explanations**
-   - The plan explains everything already
-   - Just execute the mechanical transformations
-   - Focus on code, not commentary
+#### Phase 4: State & Resources
+- **Lesson 10**: State management with Ref - cache implementation
+- **Lesson 11**: Resource lifecycle - proper cleanup
+- **Lesson 12**: Reactive state - SubscriptionRef for options
+- **Tests teach**: Safe concurrent state updates
 
-4. **Use the Conversion Table**
-   - Simple find/replace patterns for 90% of conversions
-   - Logic stays the same, only wrappers change
+#### Phase 5: Browser Integration
+- **Lesson 13**: Wrapping browser APIs - storage and tabs
+- **Lesson 14**: Message passing with Schema validation
+- **Lesson 15**: Service worker lifecycle management
+- **Tests teach**: Effect in the browser environment
 
-5. **Common Effect Patterns**
-   - Use generators for sequential operations: `Effect.gen(function* () { ... })`
-   - Use Match for pattern matching instead of if/else chains
-   - Use tagged errors (new ErrorClass({...})) instead of plain objects
-   - Use services with Context.GenericTag for dependency injection
-   - Use Option for nullable values instead of T | null
+### 🛠️ Development Workflow
 
-6. **Browser Extension Specifics**
-   - Wrap all chrome.* API calls with Effect.async or Effect.tryPromise
-   - Use Schema to validate all message passing between contexts
-   - Handle service worker lifecycle with Effect.acquireRelease
-   - Implement LRU cache eviction for storage quota limits
+1. **Write a failing test** that demonstrates the next Effect concept
+2. **Implement minimally** to make the test pass
+3. **Refactor to idiomatic Effect** while keeping tests green
+4. **Extract the pattern** and understand why it works
+5. **Apply to next feature** with deeper understanding
 
-The rewrite follows Effect best practices with pure functional core, service-oriented architecture, and type-safe error handling.
+### 📁 Project Structure
+
+```
+effect/
+├── src/
+│   ├── model/           # Schemas and branded types
+│   ├── services/        # Service definitions and implementations
+│   ├── browser/         # Browser API wrappers
+│   └── ui/              # Popup and options
+├── test/
+│   ├── model/           # Schema tests (Phase 1)
+│   ├── services/        # Service tests (Phase 2-3)
+│   └── integration/     # Full pipeline tests (Phase 4-5)
+├── vitest.config.ts
+└── package.json
+```
+
+### 🚀 Getting Started
+
+```bash
+# Create Effect project structure
+mkdir -p effect/{src/{model,services,browser,ui},test/{model,services,integration}}
+cd effect
+
+# Initialize with Effect dependencies
+bun init -y
+bun add effect @effect/schema @effect/platform @effect/platform-browser
+bun add -D vitest @vitest/ui @effect/vitest jsdom
+```
+
+### 📝 Key Learning Resources
+
+- Effect Docs: https://effect.website/docs
+- Effect LLMs Guide: https://effect.website/llms.txt
+- Our Tests: Each test file has learning comments
+- This Journey: We'll document patterns as we discover them
+
+### 🎓 Teaching Approach
+
+Each implementation step will:
+1. Start with "what problem does this solve?"
+2. Show the "wrong way" first (common TS approach)
+3. Introduce the Effect solution
+4. Explain why Effect's approach is better
+5. Practice with variations
+
+### ⚡ Effect Patterns We'll Learn
+
+- **Branded Types**: Type-safe domain modeling
+- **Services**: Dependency injection without frameworks
+- **Layers**: Composable application architecture
+- **Generators**: Sequential code for functional programming
+- **Error Channels**: Errors as first-class citizens
+- **Concurrent Combinators**: Safe parallelism
+- **Resource Management**: Guaranteed cleanup
+- **Schema Validation**: Parse, don't validate
 
 ## Adding New Services
 
