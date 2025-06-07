@@ -244,7 +244,7 @@ The extension uses **neverthrow** for comprehensive error handling:
 
 ## Implementation Status
 
-### ✅ Completed
+### ✅ Completed (Original Extension)
 
 1. **Modular Architecture** - Transform system split into focused, single-responsibility modules
 2. **neverthrow Integration** - Comprehensive error handling with Result types
@@ -254,7 +254,7 @@ The extension uses **neverthrow** for comprehensive error handling:
 6. **Options System** - User preferences with cross-device sync
 7. **Debug System** - Categorized logging with runtime controls
 
-### 📋 Remaining Tasks
+### 📋 Remaining Tasks (Original Extension)
 
 - **Type Safety** - Replace remaining `any`/`unknown` types
 - **Popup Error UI** - User-friendly error messages
@@ -369,6 +369,84 @@ Each implementation step will:
 - **Concurrent Combinators**: Safe parallelism
 - **Resource Management**: Guaranteed cleanup
 - **Schema Validation**: Parse, don't validate
+
+## Effect Rewrite Progress
+
+### ✅ Phase 1: Core Concepts (COMPLETED)
+- **Lesson 1**: ✅ Branded types with Schema - parsing handles (`src/model/handle.ts`)
+  - Created Handle branded type with validation
+  - Comprehensive tests showing parse errors
+- **Lesson 2**: ✅ Effect basics - errors in the type system (`src/model/did.ts`)
+  - Created DID branded type with multiple DID method support
+  - Demonstrated Effect error handling
+- **Lesson 3**: ✅ Validation pipelines - building TransformInfo (`src/model/transform-info.ts`)
+  - Complex schema with optional fields
+  - Business rule validation with filters
+  - Flexible Rkey validation for various formats
+
+### ✅ Phase 2: Services & Dependencies (COMPLETED)
+- **Lesson 4**: ✅ Creating services - the Parser service (`src/services/parser.ts`)
+  - Simple service using Context.Tag
+  - Dependency injection pattern
+- **Lesson 5**: ✅ Dependency injection - using Context (`test/services/parser.test.ts`)
+  - Testing with mock implementations
+  - Context.make for providing dependencies
+- **Lesson 6**: ✅ Service composition - building layers (`test/services/layer-explanation.test.ts`)
+  - Layer.succeed for simple services
+  - Layer.effect for services with dependencies
+  - Layer composition patterns
+
+### 🚧 Phase 3: Async & Error Handling (IN PROGRESS)
+- **Lesson 7**: ✅ Normalizer Service (`src/services/normalizer.ts`)
+  - Replaces Canonicalizer from original
+  - Handles AT URIs, DIDs, handles, and fragments
+  - NSID shortcuts support (p, f, l)
+  - Comprehensive error types with Data.TaggedError
+  - 39 tests with full real-world coverage
+- **Lesson 8**: 🔄 URL Parser Service (NEXT)
+  - Parse service-specific URLs (bsky.app, toolify.blue, etc.)
+  - Extract relevant parts for Normalizer
+  - Handle query parameters (skythread, boat.kelinci.net)
+- **Lesson 9**: ⏳ Resolver Service
+  - Network calls with Effect
+  - AT Protocol API integration
+  - Handle to DID resolution
+  - Retry logic with exponential backoff
+
+### ⏳ Phase 4: State & Resources (TODO)
+- **Lesson 10**: Cache implementation with Ref
+- **Lesson 11**: Resource lifecycle management
+- **Lesson 12**: Reactive state with SubscriptionRef
+
+### ⏳ Phase 5: Browser Integration (TODO)
+- **Lesson 13**: Wrapping browser APIs
+- **Lesson 14**: Message passing with Schema
+- **Lesson 15**: Service worker lifecycle
+
+### 📊 Current Statistics
+- **Files Created**: 14
+- **Tests Written**: 67 (2 skipped)
+- **Test Coverage**: 
+  - Model layer: 100% (Handle, DID, TransformInfo)
+  - Services: Parser (100%), Normalizer (100%)
+  - Real-world scenarios: 39 comprehensive tests
+- **All Tests Passing**: ✅
+- **TypeScript Clean**: ✅
+- **ESLint Clean**: ✅
+
+### 🔍 Key Insights Learned
+1. **Branded Types**: Much safer than type aliases, catch errors at decode time
+2. **Effect Generators**: Make async code look synchronous while maintaining type safety
+3. **Service Pattern**: Clean dependency injection without frameworks
+4. **Data.TaggedError**: Discriminated unions for errors with built-in equality
+5. **Schema Composition**: Building complex types from simple ones
+6. **Layer Composition**: Services can depend on other services cleanly
+
+### 🎯 Next Steps
+1. Create URL Parser service to handle service-specific URL patterns
+2. Implement Resolver service with AT Protocol API calls
+3. Add retry logic with Effect's built-in retry combinators
+4. Create cache service with concurrent-safe state management
 
 ## Adding New Services
 
