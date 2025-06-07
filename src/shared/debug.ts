@@ -4,6 +4,7 @@
  */
 
 import type { DebugConfig } from './types';
+import { isWormholeError } from './errors';
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export default class Debug {
@@ -104,3 +105,28 @@ export default class Debug {
     if (this.config[category]) console.timeEnd(`⏱️ [${category.toUpperCase()}] ${label}`);
   };
 }
+
+/**
+ * Debug log utility function that integrates with the Debug class
+ * Used internally by logError and other functions
+ */
+export const debugLog = (category: string, level: string, ...args: unknown[]): void => {
+  const categoryKey = category.toLowerCase() as keyof DebugConfig;
+  if (Debug.getConfig()[categoryKey]) {
+    console.log(`🔍 [${category}] ${level}:`, ...args);
+  }
+};
+
+/**
+ * Centralized error logging function that handles both WormholeError and unknown errors
+ * Provides structured logging for typed errors and fallback for unexpected errors
+ */
+export const logError = (category: string, error: unknown, context?: Record<string, unknown>): void => {
+  const errorInfo = isWormholeError(error) ? { ...error } : { raw: String(error) };
+
+  console.error(`❌ [${category}]`, errorInfo, context);
+
+  if (import.meta.env.DEV) {
+    debugLog(category, 'ERROR', errorInfo, context);
+  }
+};
