@@ -18,22 +18,25 @@ export type InputType = S.Schema.Type<typeof InputType>
 export const ContentType = S.Literal("profile", "post", "feed", "list")
 export type ContentType = S.Schema.Type<typeof ContentType>
 
-// Rkey is the record key for posts (like "3kt7p4fzxhh2c")
+// Rkey is the record key for posts, feeds, and lists
+// Can be various formats: 13-char base32 for posts, shorter custom names for feeds
 const RkeySchema = S.String.pipe(
-  S.pattern(/^[a-z0-9]{13}$/),
+  S.pattern(/^[a-zA-Z0-9_-]+$/),
+  S.minLength(1),
   S.brand("Rkey")
 )
 
 // Create branded examples
 const rkeyExamples = [
   S.decodeSync(RkeySchema)("3kt7p4fzxhh2c"),
-  S.decodeSync(RkeySchema)("abc1234567890")
+  S.decodeSync(RkeySchema)("cozy"),
+  S.decodeSync(RkeySchema)("my-feed-123")
 ] as const
 
 export const Rkey = RkeySchema.pipe(
   S.annotations({
     title: "Record Key",
-    description: "AT Protocol record key (13 char base32)",
+    description: "AT Protocol record key - can be base32 for posts or custom names for feeds/lists",
     examples: rkeyExamples
   })
 )

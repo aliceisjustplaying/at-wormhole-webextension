@@ -264,6 +264,8 @@ The extension uses **neverthrow** for comprehensive error handling:
 
 **IMPORTANT**: We're rewriting this extension from scratch using Effect, with TDD to teach Effect patterns as we go.
 
+**EFFECT DOCUMENTATION**: Always refer to the latest Effect documentation at https://effect.website/llms.txt or /llms-full.txt when implementing Effect patterns to ensure idiomatic usage.
+
 ### 🎯 Learning Goals
 
 1. **Understand Effect fundamentals** through real implementation
