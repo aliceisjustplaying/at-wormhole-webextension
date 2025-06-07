@@ -9,9 +9,9 @@
 
 export * from "./handle"
 export * from "./did"
+export * from "./transform-info"
 
 // We'll add more models here as we build them:
-// - TransformInfo
 // - ServiceConfig
 // - DestinationLink
 // etc.
