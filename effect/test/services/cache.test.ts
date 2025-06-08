@@ -32,8 +32,7 @@ describe('Cache Service', () => {
   };
 
   // Helper to provide cache layer with test configuration
-  const provideTestCache = (maxSize = 100, ttlMillis = 3600000): <A, E>(effect: Effect.Effect<A, E, Cache>) => Effect.Effect<A, E> => 
-    Effect.provide(CacheLayer(maxSize, ttlMillis));
+  const provideTestCache = (maxSize = 100, ttlMillis = 3600000): (<A, E>(effect: Effect.Effect<A, E, Cache>) => Effect.Effect<A, E>) => Effect.provide(CacheLayer(maxSize, ttlMillis));
 
   describe('Basic Operations', () => {
     it.effect('should store and retrieve a handle-did mapping', () =>

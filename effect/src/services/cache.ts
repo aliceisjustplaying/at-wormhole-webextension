@@ -196,5 +196,4 @@ export const CacheLive = (
   });
 
 // Create a layer for easy provision
-export const CacheLayer = (maxSize?: number, ttlMillis?: number): Layer.Layer<Cache> => 
-  Layer.effect(Cache, CacheLive(maxSize, ttlMillis));
+export const CacheLayer = (maxSize?: number, ttlMillis?: number): Layer.Layer<Cache> => Layer.effect(Cache, CacheLive(maxSize, ttlMillis));

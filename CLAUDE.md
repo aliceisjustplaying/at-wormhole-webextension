@@ -436,18 +436,25 @@ Each implementation step will:
 - **Lint Compliance**: Resolved all ESLint errors while keeping code idiomatic
 - **Integration Tests**: Full pipeline tests connecting all services
 - **Cache Service**: Implemented thread-safe bidirectional cache with LRU eviction and TTL
+- **Browser APIs**: Wrapped chrome.storage and chrome.tabs APIs with Effect patterns
+- **Void Handling**: Properly handled void returns in Effect.async without type gymnastics
 
-### ⏳ Phase 5: Browser Integration (TODO)
-- **Lesson 13**: Wrapping browser APIs
-- **Lesson 14**: Message passing with Schema
-- **Lesson 15**: Service worker lifecycle
+### ⏳ Phase 5: Browser Integration (IN PROGRESS)
+- **Lesson 13**: ✅ Wrapping browser APIs (`src/browser/storage.ts`, `src/browser/tabs.ts`)
+  - Created Storage service with Schema validation
+  - Created Tabs service with type-safe tab manipulation
+  - Handled chrome runtime errors properly
+  - 14 tests covering both services
+- **Lesson 14**: Message passing with Schema (TODO)
+- **Lesson 15**: Service worker lifecycle (TODO)
 
 ### 📊 Current Statistics
-- **Files Created**: 24
-- **Tests Written**: 118
+- **Files Created**: 26
+- **Tests Written**: 132
 - **Test Coverage**: 
   - Model layer: 100% (Handle, DID, TransformInfo)
   - Services: Parser (100%), Normalizer (100%), URL Parser (100%), Resolver (100%), Cache (100%)
+  - Browser APIs: Storage (100%), Tabs (100%)
   - Integration tests: Full pipeline and URL-to-transform
 - **All Tests Passing**: ✅
 - **TypeScript Clean**: ✅
@@ -465,15 +472,19 @@ Each implementation step will:
 8. **@effect/vitest**: Seamless testing with Effect generators
 9. **Ref for State**: Thread-safe mutable state with Ref.modify for atomic updates
 10. **TestClock**: Deterministic time-based testing for TTL and LRU behavior
+11. **Effect.async**: Converting callback-based browser APIs to Effects
+12. **Schema Validation**: Type-safe browser storage with automatic serialization
 
 ### 🎯 Next Steps
 1. ✅ ~~Create URL Parser service to handle service-specific URL patterns~~
 2. ✅ ~~Implement Resolver service with AT Protocol API calls~~
 3. ✅ ~~Add retry logic with Effect's built-in retry combinators~~
 4. ✅ ~~Create cache service with concurrent-safe state management~~
-5. **NEXT**: Implement browser API wrappers for storage and messaging (Lesson 11/13)
-6. Build service worker with Schema-validated message passing
-7. Create popup UI integrating all services
+5. ✅ ~~Implement browser API wrappers (storage and tabs)~~
+6. **NEXT**: Build message passing system with Schema validation (Lesson 14)
+7. Create service worker with message handling (Lesson 15)
+8. Build popup UI integrating all services
+9. Implement options page with reactive state
 
 ## Adding New Services
 
