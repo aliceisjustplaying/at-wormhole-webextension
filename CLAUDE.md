@@ -439,22 +439,28 @@ Each implementation step will:
 - **Browser APIs**: Wrapped chrome.storage and chrome.tabs APIs with Effect patterns
 - **Void Handling**: Properly handled void returns in Effect.async without type gymnastics
 
-### ⏳ Phase 5: Browser Integration (IN PROGRESS)
+### ✅ Phase 5: Browser Integration (COMPLETED)
 - **Lesson 13**: ✅ Wrapping browser APIs (`src/browser/storage.ts`, `src/browser/tabs.ts`)
   - Created Storage service with Schema validation
   - Created Tabs service with type-safe tab manipulation
   - Handled chrome runtime errors properly
   - 14 tests covering both services
-- **Lesson 14**: Message passing with Schema (TODO)
+- **Lesson 14**: ✅ Message passing with Schema (COMPLETED)
+  - Created comprehensive message schemas (`src/model/messages.ts`)
+  - Defined request/response types with discriminated unions
+  - Full messaging service implementation (`src/browser/messaging.ts`)
+  - Request/response correlation with unique IDs
+  - Automatic timeout handling with Fiber cancellation
+  - Schema validation tests passing (6 tests)
 - **Lesson 15**: Service worker lifecycle (TODO)
 
 ### 📊 Current Statistics
-- **Files Created**: 26
-- **Tests Written**: 132
+- **Files Created**: 28 (added messages.ts and messaging.ts)
+- **Tests Written**: 138 (added 6 message schema tests)
 - **Test Coverage**: 
-  - Model layer: 100% (Handle, DID, TransformInfo)
+  - Model layer: 100% (Handle, DID, TransformInfo, Messages)
   - Services: Parser (100%), Normalizer (100%), URL Parser (100%), Resolver (100%), Cache (100%)
-  - Browser APIs: Storage (100%), Tabs (100%)
+  - Browser APIs: Storage (100%), Tabs (100%), Messaging (partial - schemas tested)
   - Integration tests: Full pipeline and URL-to-transform
 - **All Tests Passing**: ✅
 - **TypeScript Clean**: ✅
@@ -474,6 +480,8 @@ Each implementation step will:
 10. **TestClock**: Deterministic time-based testing for TTL and LRU behavior
 11. **Effect.async**: Converting callback-based browser APIs to Effects
 12. **Schema Validation**: Type-safe browser storage with automatic serialization
+13. **Fiber Management**: Using Fiber for cancellable timeouts in messaging
+14. **Client/Server Layers**: Different service implementations for different contexts
 
 ### 🎯 Next Steps
 1. ✅ ~~Create URL Parser service to handle service-specific URL patterns~~
@@ -481,8 +489,8 @@ Each implementation step will:
 3. ✅ ~~Add retry logic with Effect's built-in retry combinators~~
 4. ✅ ~~Create cache service with concurrent-safe state management~~
 5. ✅ ~~Implement browser API wrappers (storage and tabs)~~
-6. **NEXT**: Build message passing system with Schema validation (Lesson 14)
-7. Create service worker with message handling (Lesson 15)
+6. ✅ ~~Build message passing system with Schema validation (Lesson 14)~~
+7. **NEXT**: Create service worker with message handling (Lesson 15)
 8. Build popup UI integrating all services
 9. Implement options page with reactive state
 
