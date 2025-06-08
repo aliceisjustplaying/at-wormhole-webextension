@@ -140,6 +140,10 @@ bun run build:dev   # Verify build works
 - `bun run build:firefox` - Build Firefox extension
 - `bun run test:watch` - Run tests in watch mode
 
+## Testing Commands
+
+**IMPORTANT**: Always use `bun run test` and NOT `bun test`. The latter forces Bun to use its own test runner instead of Vitest, which breaks our test setup.
+
 For Bun API documentation, see: `node_modules/bun-types/docs/**.md`
 
 ---

@@ -23,7 +23,9 @@
       "Bash(bunx eslint:*)",
       "WebFetch(domain:effect.website)",
       "Bash(mkdir:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(npm info @effect/vitest)",
+      "Bash(git checkout:*)"
     ],
     "deny": []
   },
