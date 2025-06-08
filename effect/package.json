@@ -1,0 +1,41 @@
+{
+  "name": "at-wormhole-effect",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "vitest",
+    "test:watch": "vitest watch",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit",
+    "lint": "bunx eslint . --ignore-pattern 'dist/**/*'",
+    "format": "bunx prettier --ignore-unknown --write ."
+  },
+  "devDependencies": {
+    "@effect/vitest": "^0.23.4",
+    "@types/bun": "latest",
+    "@vitest/ui": "^3.2.2",
+    "jsdom": "^26.1.0",
+    "vitest": "^3.2.2",
+    "@crxjs/vite-plugin": "latest",
+    "@effect/eslint-plugin": "^0.3.2",
+    "@eslint/js": "latest",
+    "@types/chrome": "^0.0.326",
+    "@types/node": "latest",
+    "eslint": "latest",
+    "eslint-plugin-functional": "^9.0.2",
+    "globals": "latest",
+    "prettier": "latest",
+    "typescript": "latest",
+    "typescript-eslint": "latest",
+    "vite": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@effect/platform": "^0.84.8",
+    "@effect/platform-browser": "^0.64.8",
+    "@effect/schema": "^0.75.5",
+    "effect": "^3.16.4"
+  }
+}

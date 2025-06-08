@@ -44,20 +44,20 @@ export default tseslint.config(
       '@effect/no-import-from-barrel-package': 'warn',
 
       // Functional programming rules
-      'functional/no-let': 'error',
-      'functional/prefer-immutable-types': [
-        'warn',
-        {
-          enforcement: 'ReadonlyDeep',
-          ignoreClasses: true,
-        },
-      ],
-      'functional/no-loop-statements': 'error',
-      'functional/no-throw-statements': 'error',
+      // 'functional/no-let': 'error',
+      // 'functional/prefer-immutable-types': [
+      //   'warn',
+      //   {
+      //     enforcement: 'ReadonlyDeep',
+      //     ignoreClasses: true,
+      //   },
+      // ],
+      // 'functional/no-loop-statements': 'error',
+      // 'functional/no-throw-statements': 'error',
     },
   },
   {
-    files: ['eslint.config.mjs'],
+    files: ['eslint.config.mjs', 'vitest.config.ts'],
     extends: [tseslint.configs.disableTypeChecked],
   },
 );
