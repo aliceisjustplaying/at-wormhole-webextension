@@ -1,4 +1,5 @@
 import { Schema as S } from '@effect/schema';
+import { ParseResult } from '@effect/schema';
 import { Effect } from 'effect';
 import { Match } from 'effect';
 
@@ -59,7 +60,7 @@ export const Did = S.Union(DidPlc, DidWeb).pipe(
 export type Did = S.Schema.Type<typeof Did>;
 
 // Parse function that identifies which type we got
-export const parseDid = (input: string) =>
+export const parseDid = (input: string): Effect.Effect<{ value: Did; type: 'did'; method: 'plc' | 'web' }, ParseResult.ParseError> =>
   S.decodeUnknown(Did)(input).pipe(
     Effect.map((did) => {
       // Pattern matching to determine the method

@@ -25,7 +25,7 @@ export function mockFetchResponse(response: MockResponse): Response {
   return {
     ok: response.ok,
     status: response.status,
-    statusText: response.statusText || '',
+    statusText: response.statusText ?? '',
     headers,
     redirected: false,
     type: 'basic',
@@ -33,7 +33,7 @@ export function mockFetchResponse(response: MockResponse): Response {
     clone: () => mockFetchResponse(response),
     body: null,
     bodyUsed: false,
-    json: response.json || (() => Promise.resolve({})),
+    json: response.json ?? (() => Promise.resolve({})),
     text: () => Promise.resolve(''),
     blob: () => Promise.resolve(new Blob()),
     formData: () => Promise.resolve(new FormData()),
@@ -42,9 +42,9 @@ export function mockFetchResponse(response: MockResponse): Response {
   } as Response;
 }
 
-export function installFetchMock() {
+export function installFetchMock(): typeof fetch & ReturnType<typeof vi.fn> {
   // Create a vi.fn mock for the core function behavior
-  const mockImplementation = vi.fn((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  const mockImplementation = vi.fn((): Promise<Response> => {
     throw new Error('Mock not implemented - use mockReturnValue or mockResolvedValue');
   });
 
@@ -56,6 +56,6 @@ export function installFetchMock() {
 
   global.fetch = fetchMock;
 
-  // Return the underlying mock for test assertions
-  return mockImplementation;
+  // Return the full fetch mock with vi.fn methods
+  return fetchMock as typeof fetch & ReturnType<typeof vi.fn>;
 }

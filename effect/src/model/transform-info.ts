@@ -1,4 +1,4 @@
-import { Schema as S } from '@effect/schema';
+import { Schema as S, ParseResult } from '@effect/schema';
 import { Effect } from 'effect';
 import { Handle } from './handle';
 import { Did } from './did';
@@ -102,4 +102,4 @@ export type TransformInfo = S.Schema.Type<typeof TransformInfo>;
  */
 
 // Helper to create TransformInfo - for now, just decode
-export const createTransformInfo = (data: unknown) => S.decodeUnknown(TransformInfo)(data);
+export const createTransformInfo = (data: unknown): Effect.Effect<TransformInfo, ParseResult.ParseError> => S.decodeUnknown(TransformInfo)(data);

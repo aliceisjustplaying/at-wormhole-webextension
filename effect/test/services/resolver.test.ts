@@ -58,7 +58,9 @@ describe('Resolver Service', () => {
         const error = yield* Effect.flip(resolver.resolveHandle('did:web:example.com'));
 
         expect(error._tag).toBe('InvalidHandleError');
-        expect(error.handle).toBe('did:web:example.com');
+        if (error._tag === 'InvalidHandleError') {
+          expect(error.handle).toBe('did:web:example.com');
+        }
         expect(fetchMock).not.toHaveBeenCalled();
       }).pipe(provideResolver),
     );
@@ -77,7 +79,9 @@ describe('Resolver Service', () => {
         const error = yield* Effect.flip(resolver.resolveHandle('unknown.handle'));
 
         expect(error._tag).toBe('HandleNotFoundError');
-        expect(error.handle).toBe('unknown.handle');
+        if (error._tag === 'HandleNotFoundError') {
+          expect(error.handle).toBe('unknown.handle');
+        }
       }).pipe(provideResolver),
     );
 
@@ -96,7 +100,9 @@ describe('Resolver Service', () => {
         const error = yield* Effect.flip(resolver.resolveHandle('alice.bsky.social'));
 
         expect(error._tag).toBe('RateLimitError');
-        expect(error.retryAfter).toBe(60);
+        if (error._tag === 'RateLimitError') {
+          expect(error.retryAfter).toBe(60);
+        }
       }).pipe(provideResolver),
     );
 
@@ -205,7 +211,9 @@ describe('Resolver Service', () => {
         const error = yield* Effect.flip(resolver.resolveDidDocument('did:web:notfound.com'));
 
         expect(error._tag).toBe('DidResolutionError');
-        expect(error.statusCode).toBe(404);
+        if (error._tag === 'DidResolutionError') {
+          expect(error.statusCode).toBe(404);
+        }
       }).pipe(provideResolver),
     );
 

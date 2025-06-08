@@ -51,7 +51,7 @@ describe('Layer.succeed explained', () => {
       const SimpleLayer = Layer.succeed(Calculator, { add: (a, b) => Effect.succeed(a + b) });
 
       // Layer.effect - for services that need async initialization
-      const AsyncLayer = Layer.effect(
+      const _AsyncLayer = Layer.effect(
         Calculator,
         Effect.gen(function* () {
           // Could do async setup here
@@ -65,7 +65,7 @@ describe('Layer.succeed explained', () => {
       );
 
       // Layer.scoped - for services that need cleanup
-      const ScopedLayer = Layer.scoped(
+      const _ScopedLayer = Layer.scoped(
         Calculator,
         Effect.gen(function* () {
           yield* Effect.log('Calculator starting');
@@ -78,6 +78,10 @@ describe('Layer.succeed explained', () => {
           };
         }),
       );
+
+      // Mark as used
+      void _AsyncLayer;
+      void _ScopedLayer;
 
       // They all provide the same service, but with different setup
       const program = Calculator.pipe(Effect.flatMap((calc) => calc.add(1, 1)));

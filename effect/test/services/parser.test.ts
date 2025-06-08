@@ -1,8 +1,8 @@
 import { describe, expect } from 'vitest';
 import { it } from '@effect/vitest';
 import { Effect, Context } from 'effect';
-import { ParseError } from '@effect/schema/ParseResult';
 import { Parser, ParserLive } from '@/services/parser';
+import type { Handle } from '@/model/handle';
 
 /*
  * Phase 2, Lesson 4: Creating Services
@@ -65,10 +65,10 @@ describe('Parser Service', () => {
   it.effect('should use a mock implementation', () => {
     // Create a mock that always returns a specific handle
     const ParserMock = Parser.of({
-      parseInput: (_input: string) =>
+      parseInput: () =>
         Effect.succeed({
           type: 'handle' as const,
-          value: 'mock.handle' as any, // We're cheating on the brand for the mock
+          value: 'mock.handle' as Handle, // Type assertion for mock
         }),
     });
 

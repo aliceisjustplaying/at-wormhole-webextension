@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AST, Schema as S } from '@effect/schema';
+import { Schema as S } from '@effect/schema';
 import { Handle } from '@/model/handle';
 import { Did, DidPlc, DidWeb } from '@/model/did';
 
@@ -75,7 +75,10 @@ describe('Schema Examples', () => {
     console.log('Stored example value:', examples[0]);
 
     // If we want to use them as branded values, we need to decode them again:
-    const brandedExample = S.decodeSync(Handle)(examples[0]!);
+    const firstExample = examples[0];
+    expect(firstExample).toBeDefined();
+
+    const brandedExample = S.decodeSync(Handle)(firstExample!);
 
     // NOW it's a branded Handle that can be used where Handle is expected
     function processHandle(handle: Handle): string {

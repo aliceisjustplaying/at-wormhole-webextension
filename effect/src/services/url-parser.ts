@@ -33,7 +33,7 @@ export class UrlParser extends Context.Tag('UrlParser')<UrlParser, UrlParserServ
 
 // Service-specific parsers
 const parseBskyApp = (url: URL): ParsedInput | null => {
-  const match = url.pathname.match(/^\/profile\/([^/]+)(?:\/(\w+)\/([^/]+))?/);
+  const match = /^\/profile\/([^/]+)(?:\/(\w+)\/([^/]+))?/.exec(url.pathname);
   if (!match) return null;
 
   const [, identifier, contentType, rkey] = match;
@@ -92,7 +92,7 @@ const parseSkythread = (url: URL): ParsedInput | null => {
 const parseBoatKelinci = (url: URL): ParsedInput | null => {
   // boat.kelinci.net uses ?q= for DIDs
   const q = url.searchParams.get('q');
-  if (q && q.startsWith('did:')) {
+  if (q?.startsWith('did:')) {
     return { kind: 'did', value: q };
   }
   return null;
@@ -100,8 +100,8 @@ const parseBoatKelinci = (url: URL): ParsedInput | null => {
 
 const parseClearsky = (url: URL): ParsedInput | null => {
   // clearsky.app has DIDs in the path
-  const match = url.pathname.match(/^\/(did:[^/]+)/);
-  if (match && match[1]) {
+  const match = /^\/(did:[^/]+)/.exec(url.pathname);
+  if (match?.[1]) {
     return { kind: 'did', value: match[1] };
   }
   return null;
@@ -109,8 +109,8 @@ const parseClearsky = (url: URL): ParsedInput | null => {
 
 const parsePlcDirectory = (url: URL): ParsedInput | null => {
   // plc.directory has DIDs in the path
-  const match = url.pathname.match(/^\/(did:plc:[^/]+)/);
-  if (match && match[1]) {
+  const match = /^\/(did:plc:[^/]+)/.exec(url.pathname);
+  if (match?.[1]) {
     return { kind: 'did', value: match[1] };
   }
   return null;

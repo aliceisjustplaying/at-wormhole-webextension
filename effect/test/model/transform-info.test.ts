@@ -2,9 +2,9 @@ import { describe, expect } from 'vitest';
 import { it } from '@effect/vitest';
 import { Schema as S } from '@effect/schema';
 import { Effect, Exit } from 'effect';
-import { TransformInfo, createTransformInfo } from '@/model/transform-info';
 import { Handle } from '@/model/handle';
 import { Did } from '@/model/did';
+import { createTransformInfo } from '@/model/transform-info';
 
 /*
  * Phase 3: Complex Data Modeling

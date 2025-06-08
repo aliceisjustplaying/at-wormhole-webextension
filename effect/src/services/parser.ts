@@ -1,5 +1,5 @@
 import { Context, Effect } from 'effect';
-import { ParseError } from '@effect/schema/ParseResult';
+import { ParseResult } from '@effect/schema';
 import { Handle, parseHandle } from '@/model/handle';
 import { Did, parseDid } from '@/model/did';
 
@@ -15,7 +15,7 @@ import { Did, parseDid } from '@/model/did';
 // Step 1: Define the service interface
 export interface ParserService {
   // For now, just one method that can parse handles or DIDs
-  parseInput: (input: string) => Effect.Effect<{ type: 'handle'; value: Handle } | { type: 'did'; value: Did; method: 'plc' | 'web' }, ParseError>;
+  parseInput: (input: string) => Effect.Effect<{ type: 'handle'; value: Handle } | { type: 'did'; value: Did; method: 'plc' | 'web' }, ParseResult.ParseError>;
 }
 
 // Step 2: Create a unique tag for this service
@@ -37,7 +37,7 @@ export class Parser extends Context.Tag('Parser')<Parser, ParserService>() {}
 export const ParserLive = Parser.of({
   parseInput: (input: string) => {
     // Try parsing as handle first, then as DID
-    return parseHandle(input).pipe(Effect.orElse(() => parseDid(input)));
+    return parseHandle(input).pipe(Effect.orElse(() => parseDid(input))) as Effect.Effect<{ type: 'handle'; value: Handle } | { type: 'did'; value: Did; method: 'plc' | 'web' }, ParseResult.ParseError>;
   },
 });
 

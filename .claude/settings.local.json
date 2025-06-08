@@ -25,7 +25,8 @@
       "Bash(mkdir:*)",
       "Bash(rm:*)",
       "Bash(npm info @effect/vitest)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(bun repl:*)"
     ],
     "deny": []
   },

@@ -1,4 +1,5 @@
 import { Schema as S } from '@effect/schema';
+import { ParseResult } from '@effect/schema';
 import { Effect } from 'effect';
 
 /*
@@ -32,7 +33,7 @@ export const Handle = HandleSchema.pipe(
 export type Handle = S.Schema.Type<typeof Handle>;
 
 // Step 4: Create a parsing function that returns an Effect
-export const parseHandle = (input: string) =>
+export const parseHandle = (input: string): Effect.Effect<{ value: Handle; type: 'handle' }, ParseResult.ParseError> =>
   S.decodeUnknown(Handle)(input).pipe(
     // Transform the branded Handle into our result format
     Effect.map((handle) => ({

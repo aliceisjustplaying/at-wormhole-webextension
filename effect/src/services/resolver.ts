@@ -47,13 +47,13 @@ export interface ResolverService {
 export class Resolver extends Context.Tag('Resolver')<Resolver, ResolverService>() {}
 
 // Helper to create fetch effect with proper error handling
-const fetchWithErrors = (url: string, options?: RequestInit) =>
+const fetchWithErrors = (url: string, options?: RequestInit): Effect.Effect<Response, NetworkError> =>
   Effect.tryPromise({
     try: () => fetch(url, options),
     catch: (error) =>
       new NetworkError({
         url,
-        method: options?.method || 'GET',
+        method: options?.method ?? 'GET',
         cause: error,
       }),
   });
@@ -122,7 +122,7 @@ export const ResolverLive: ResolverService = {
 
       // Parse and validate response
       const json = yield* Effect.tryPromise({
-        try: () => response.json(),
+        try: () => response.json() as Promise<unknown>,
         catch: () =>
           new NetworkError({
             url,
@@ -203,7 +203,7 @@ export const ResolverLive: ResolverService = {
 
       // Parse and validate DID document
       const json = yield* Effect.tryPromise({
-        try: () => response.json(),
+        try: () => response.json() as Promise<unknown>,
         catch: () =>
           new InvalidDidDocumentError({
             did: didResult,

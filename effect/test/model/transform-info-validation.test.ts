@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it } from 'vitest';
 import { Schema as S } from '@effect/schema';
 import { Effect } from 'effect';
 
@@ -31,6 +31,9 @@ describe('Schema Validation Patterns', () => {
     // This validates each field independently, but can't enforce:
     // - "Must have handle OR did"
     // - "If contentType is 'post', rkey is required"
+
+    // Mark as used for linting
+    void AttemptedSchema;
   });
 
   it('shows different approaches to complex validation', () => {
@@ -45,6 +48,9 @@ describe('Schema Validation Patterns', () => {
         return data.a !== undefined || data.b !== undefined;
       }),
     );
+
+    // Mark as used
+    void WithRefinement;
 
     // Approach 2: Use union types to model valid states
     const WithUnion = S.Union(
@@ -68,13 +74,16 @@ describe('Schema Validation Patterns', () => {
       }),
     );
 
+    // Mark as used
+    void WithUnion;
+
     // Approach 3: Validate after parsing (what we're doing now)
     const SimpleSchema = S.Struct({
       handle: S.optional(S.String),
       did: S.optional(S.String),
     });
 
-    const validate = (data: unknown) =>
+    const validate = (data: unknown): Effect.Effect<{ handle?: string | undefined; did?: string | undefined }, Error> =>
       S.decodeUnknown(SimpleSchema)(data).pipe(
         Effect.flatMap((parsed) => {
           if (!parsed.handle && !parsed.did) {
@@ -82,7 +91,11 @@ describe('Schema Validation Patterns', () => {
           }
           return Effect.succeed(parsed);
         }),
+        Effect.mapError(() => new Error('Invalid data')),
       );
+
+    // Mark as used
+    void validate;
   });
 
   it('explains why we skipped the tests', () => {
@@ -100,35 +113,39 @@ describe('Schema Validation Patterns', () => {
     // 3. Effect has multiple ways to solve this - we'll explore them
   });
 
-  it("shows what we'll do in the Canonicalizer", async () => {
+  it("shows what we'll do in the Canonicalizer", () => {
     // The Canonicalizer service will:
     // 1. Take raw input and create partial TransformInfo
     // 2. Apply business rules during transformation
     // 3. Return errors for invalid combinations
 
     // Example of what Canonicalizer will do:
-    const canonicalize = (input: any) => {
+    const canonicalize = (input: unknown): { handle?: unknown; did?: unknown; contentType: unknown; rkey?: unknown; bskyAppPath: string; inputType: 'handle' } => {
       // Build TransformInfo
+      const inputRecord = input as Record<string, unknown>;
       const info = {
-        handle: input.handle,
-        did: input.did,
-        contentType: input.contentType,
-        rkey: input.rkey,
+        handle: inputRecord.handle,
+        did: inputRecord.did,
+        contentType: inputRecord.contentType,
+        rkey: inputRecord.rkey,
         bskyAppPath: '...',
         inputType: 'handle' as const,
       };
 
       // Validate business rules
       if (!info.handle && !info.did) {
-        return Effect.fail(new Error('Must have handle or did'));
+        throw new Error('Must have handle or did');
       }
 
       if (info.contentType === 'post' && !info.rkey) {
-        return Effect.fail(new Error('Posts must have rkey'));
+        throw new Error('Posts must have rkey');
       }
 
-      return Effect.succeed(info);
+      return info;
     };
+
+    // Mark as used
+    void canonicalize;
 
     // This separates concerns:
     // - Schema handles type validation

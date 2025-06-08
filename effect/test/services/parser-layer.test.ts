@@ -38,7 +38,9 @@ describe('Parser Layer', () => {
 
       expect(result._tag).toBe('Left'); // Left = error
       if (result._tag === 'Left') {
-        expect(result.left._tag).toBe('ParseError');
+        // ParseError is the error type from @effect/schema
+        const error = result.left as { _tag: string };
+        expect(error._tag).toBe('ParseError');
       }
     }),
   );

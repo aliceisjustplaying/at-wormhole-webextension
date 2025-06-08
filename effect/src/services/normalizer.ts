@@ -50,9 +50,9 @@ const detectInputType = (input: string): 'at-uri' | 'did' | 'handle' | 'fragment
 };
 
 // Parse AT URI into components
-const parseAtUri = (uri: string) =>
+const parseAtUri = (uri: string): Effect.Effect<{ identifier: string; nsid: string | undefined; rkey: string | undefined }, InvalidAtUriError> =>
   Effect.gen(function* () {
-    const match = uri.match(/^at:\/\/([^/]+)(?:\/([^/]+))?(?:\/([^/]+))?$/);
+    const match = /^at:\/\/([^/]+)(?:\/([^/]+))?(?:\/([^/]+))?$/.exec(uri);
 
     if (!match) {
       return yield* Effect.fail(
@@ -75,7 +75,7 @@ const parseAtUri = (uri: string) =>
     }
 
     // Resolve NSID shortcut if present
-    const nsid = nsidOrShortcut ? NSID_SHORTCUTS[nsidOrShortcut] || nsidOrShortcut : undefined;
+    const nsid = nsidOrShortcut ? (NSID_SHORTCUTS[nsidOrShortcut] ?? nsidOrShortcut) : undefined;
 
     return { identifier, nsid, rkey };
   });
@@ -268,7 +268,7 @@ export const NormalizerLive: NormalizerService = {
           }
 
           rkey = id;
-          const identifier = handle || did!;
+          const identifier = handle ?? did!;
           atUri = `at://${identifier}/${nsid}/${rkey}`;
           break;
         }
@@ -278,7 +278,7 @@ export const NormalizerLive: NormalizerService = {
       const contentType = getContentType(nsid, !!rkey);
 
       // Build bskyAppPath
-      const identifier = handle || did!;
+      const identifier = handle ?? did!;
       const bskyAppPath = buildBskyAppPath(identifier, contentType, rkey);
 
       // Validate rkey and nsid if present
@@ -310,7 +310,7 @@ export const NormalizerLive: NormalizerService = {
       }
 
       // Create TransformInfo
-      const info = yield* createTransformInfo({
+      return yield* createTransformInfo({
         handle,
         did,
         rkey: validatedRkey,
@@ -331,8 +331,6 @@ export const NormalizerLive: NormalizerService = {
             }),
         ),
       );
-
-      return info;
     }),
 };
 
