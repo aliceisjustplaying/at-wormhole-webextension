@@ -90,7 +90,7 @@ describe("TransformInfo Model", () => {
     expect(result.did).toBeUndefined()
   })
   
-  it.skip("should reject invalid data", async () => {
+  it("should reject invalid data", async () => {
     // Missing both handle and did
     const invalidInfo = {
       bskyAppPath: "/profile/",
@@ -108,7 +108,7 @@ describe("TransformInfo Model", () => {
     }
   })
   
-  it.skip("should reject posts without rkey", async () => {
+  it("should reject posts without rkey", async () => {
     const handle = S.decodeSync(Handle)("alice.bsky.social")
     
     const invalidPost = {

@@ -78,7 +78,24 @@ export const TransformInfo = S.Struct({
   
   // Original source if from URL
   sourceUrl: S.optional(S.String)
-})
+}).pipe(
+  // Business rule 1: Must have either handle or did
+  S.filter((data) => 
+    (data.handle !== undefined || data.did !== undefined) || "Must have either handle or did",
+    {
+      title: "AtLeastOneIdentifier",
+      description: "Must have either handle or did"
+    }
+  ),
+  // Business rule 2: Posts, feeds, and lists must have rkey
+  S.filter((data) => {
+    const needsRkey = ["post", "feed", "list"].includes(data.contentType)
+    return !needsRkey || data.rkey !== undefined || `${data.contentType} must have rkey`
+  }, {
+    title: "ContentRequiresRkey",
+    description: "Posts, feeds, and lists require an rkey"
+  })
+)
 
 export type TransformInfo = S.Schema.Type<typeof TransformInfo>
 
