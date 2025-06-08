@@ -1,6 +1,6 @@
 import { Context, Effect, Data, Layer, Fiber, Ref } from 'effect';
 import { Schema as S, ParseResult } from '@effect/schema';
-import { Request, Response, ErrorResponse } from '@/model/messages';
+import { Request, Response as MessageResponse, ErrorResponse } from '@/model/messages';
 
 /*
  * Phase 5, Lesson 14: Message Passing Service
@@ -25,7 +25,7 @@ export class MessagingError extends Data.TaggedError('MessagingError')<{
 // Message with correlation ID
 interface PendingMessage {
   id: string;
-  resolve: (response: Response) => void;
+  resolve: (response: MessageResponse) => void;
   reject: (error: MessagingError) => void;
   timeoutFiber?: Fiber.RuntimeFiber<void>;
 }
@@ -33,13 +33,13 @@ interface PendingMessage {
 // Service interface
 export interface MessagingService {
   // Send a request and wait for response
-  sendRequest: (request: Request) => Effect.Effect<Response, MessagingError | ParseResult.ParseError>;
+  sendRequest: (request: Request) => Effect.Effect<MessageResponse, MessagingError | ParseResult.ParseError>;
 
   // Listen for incoming requests (for service worker)
-  onRequest: (handler: (request: Request) => Effect.Effect<Response>) => Effect.Effect<void, MessagingError>;
+  onRequest: (handler: (request: Request) => Effect.Effect<MessageResponse>) => Effect.Effect<void, MessagingError>;
 
   // Send a response (for service worker)
-  sendResponse: (response: Response) => Effect.Effect<void, MessagingError | ParseResult.ParseError>;
+  sendResponse: (response: MessageResponse) => Effect.Effect<void, MessagingError | ParseResult.ParseError>;
 }
 
 // Service tag
@@ -64,8 +64,8 @@ const makeMessagingClient = (): Effect.Effect<MessagingService> =>
 
         const listener = (message: unknown): void => {
           Effect.gen(function* () {
-            // Try to parse as Response
-            const parseResult = yield* S.decodeUnknown(Response)(message).pipe(Effect.either);
+            // Try to parse as MessageResponse
+            const parseResult = yield* S.decodeUnknown(MessageResponse)(message).pipe(Effect.either);
 
             if (parseResult._tag === 'Right') {
               const response = parseResult.right;
@@ -98,7 +98,7 @@ const makeMessagingClient = (): Effect.Effect<MessagingService> =>
         chrome.runtime.onMessage.addListener(listener);
       });
 
-    const sendRequest = (request: Request): Effect.Effect<Response, MessagingError | ParseResult.ParseError> => {
+    const sendRequest = (request: Request): Effect.Effect<MessageResponse, MessagingError | ParseResult.ParseError> => {
       return Effect.gen(function* () {
         // Ensure listener is set up
         yield* setupListener();
@@ -107,7 +107,7 @@ const makeMessagingClient = (): Effect.Effect<MessagingService> =>
         const TIMEOUT_MS = 30000;
 
         // Create promise for response
-        const responsePromise = Effect.async<Response, MessagingError>((resume) => {
+        const responsePromise = Effect.async<MessageResponse, MessagingError>((resume) => {
           const pending: PendingMessage = {
             id: request.id,
             resolve: (response) => {
@@ -207,9 +207,9 @@ export const MessagingClientLive = Layer.effect(Messaging, makeMessagingClient()
 
 // Helper to create server implementation
 const makeMessagingServer = (): Effect.Effect<MessagingService> => {
-  const sendResponse = (response: Response): Effect.Effect<void, MessagingError | ParseResult.ParseError> =>
+  const sendResponse = (response: MessageResponse): Effect.Effect<void, MessagingError | ParseResult.ParseError> =>
     Effect.gen(function* () {
-      const encoded = yield* S.encode(Response)(response);
+      const encoded = yield* S.encode(MessageResponse)(response);
 
       // In service worker, we need to keep track of the sender
       // This would typically be stored when receiving the request
@@ -248,14 +248,14 @@ const makeMessagingServer = (): Effect.Effect<MessagingService> => {
       );
     });
 
-  const onRequest = (handler: (request: Request) => Effect.Effect<Response>): Effect.Effect<void, MessagingError> =>
+  const onRequest = (handler: (request: Request) => Effect.Effect<MessageResponse>): Effect.Effect<void, MessagingError> =>
     Effect.async<never>(() => {
       const listener = (message: unknown, sender: chrome.runtime.MessageSender, sendResponse: (response?: unknown) => void): boolean => {
         // Handle the request
         void Effect.gen(function* () {
           const request = yield* S.decodeUnknown(Request)(message);
           const response = yield* handler(request);
-          const encoded = yield* S.encode(Response)(response);
+          const encoded = yield* S.encode(MessageResponse)(response);
           sendResponse(encoded);
         }).pipe(
           Effect.catchAll((error) => {
@@ -270,7 +270,7 @@ const makeMessagingServer = (): Effect.Effect<MessagingService> => {
               },
             };
 
-            return S.encode(Response)(errorResponse).pipe(
+            return S.encode(MessageResponse)(errorResponse).pipe(
               Effect.map((encoded) => {
                 sendResponse(encoded);
               }),
