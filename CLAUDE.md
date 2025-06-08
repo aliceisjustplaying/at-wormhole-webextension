@@ -420,16 +420,22 @@ Each implementation step will:
   - Comprehensive error handling for network failures
   - 13 tests with mocked fetch
 
-### ⏳ Phase 4: State & Resources (TODO)
-- **Lesson 10**: Cache implementation with Ref
-- **Lesson 11**: Resource lifecycle management
-- **Lesson 12**: Reactive state with SubscriptionRef
+### ⏳ Phase 4: State & Resources (IN PROGRESS)
+- **Lesson 10**: ✅ Cache implementation with Ref (`src/services/cache.ts`)
+  - Bidirectional handle↔DID mapping with thread-safe Ref
+  - LRU eviction strategy when capacity reached
+  - TTL expiration support with Clock service
+  - Cache statistics tracking (hits/misses)
+  - 8 comprehensive tests demonstrating state management
+- **Lesson 11**: Resource lifecycle management (TODO)
+- **Lesson 12**: Reactive state with SubscriptionRef (TODO)
 
 ### 🔄 Recent Progress (January 2025)
 - **Test Migration**: All 110 tests migrated from async/await to @effect/vitest
 - **Type Fixes**: Fixed ParseIssue → ParseError throughout codebase
 - **Lint Compliance**: Resolved all ESLint errors while keeping code idiomatic
 - **Integration Tests**: Full pipeline tests connecting all services
+- **Cache Service**: Implemented thread-safe bidirectional cache with LRU eviction and TTL
 
 ### ⏳ Phase 5: Browser Integration (TODO)
 - **Lesson 13**: Wrapping browser APIs
@@ -437,11 +443,11 @@ Each implementation step will:
 - **Lesson 15**: Service worker lifecycle
 
 ### 📊 Current Statistics
-- **Files Created**: 22
-- **Tests Written**: 110
+- **Files Created**: 24
+- **Tests Written**: 118
 - **Test Coverage**: 
   - Model layer: 100% (Handle, DID, TransformInfo)
-  - Services: Parser (100%), Normalizer (100%), URL Parser (100%), Resolver (100%)
+  - Services: Parser (100%), Normalizer (100%), URL Parser (100%), Resolver (100%), Cache (100%)
   - Integration tests: Full pipeline and URL-to-transform
 - **All Tests Passing**: ✅
 - **TypeScript Clean**: ✅
@@ -457,13 +463,15 @@ Each implementation step will:
 6. **Layer Composition**: Services can depend on other services cleanly
 7. **Schedule for Retry**: Exponential backoff with jitter using Effect's Schedule
 8. **@effect/vitest**: Seamless testing with Effect generators
+9. **Ref for State**: Thread-safe mutable state with Ref.modify for atomic updates
+10. **TestClock**: Deterministic time-based testing for TTL and LRU behavior
 
 ### 🎯 Next Steps
 1. ✅ ~~Create URL Parser service to handle service-specific URL patterns~~
 2. ✅ ~~Implement Resolver service with AT Protocol API calls~~
 3. ✅ ~~Add retry logic with Effect's built-in retry combinators~~
-4. **NEXT**: Create cache service with concurrent-safe state management
-5. Implement browser API wrappers for storage and messaging
+4. ✅ ~~Create cache service with concurrent-safe state management~~
+5. **NEXT**: Implement browser API wrappers for storage and messaging (Lesson 11/13)
 6. Build service worker with Schema-validated message passing
 7. Create popup UI integrating all services
 
