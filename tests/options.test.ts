@@ -43,15 +43,19 @@ const mockChrome = {
       }),
     },
     onChanged: {
-      addListener: mock((callback: (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => void) => {
-        mockChangeListeners.push(callback);
-      }),
-      removeListener: mock((callback: (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => void) => {
-        const index = mockChangeListeners.indexOf(callback);
-        if (index !== -1) {
-          mockChangeListeners.splice(index, 1);
-        }
-      }),
+      addListener: mock(
+        (callback: (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => void) => {
+          mockChangeListeners.push(callback);
+        },
+      ),
+      removeListener: mock(
+        (callback: (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => void) => {
+          const index = mockChangeListeners.indexOf(callback);
+          if (index !== -1) {
+            mockChangeListeners.splice(index, 1);
+          }
+        },
+      ),
     },
   },
 };
@@ -169,9 +173,9 @@ describe('Options Module', () => {
       onOptionsChange(callback);
 
       await setOptions({ showEmojis: false });
-      
+
       // Allow time for change listener to fire
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
       expect(changedOptions).not.toBeNull();
       expect(changedOptions!).toEqual({ showEmojis: false });
@@ -186,9 +190,7 @@ describe('Options Module', () => {
       onOptionsChange(callback);
 
       // Simulate external storage change
-      mockChangeListeners.forEach((listener) =>
-        listener({ someOtherKey: { newValue: 'test' } }, 'sync'),
-      );
+      mockChangeListeners.forEach((listener) => listener({ someOtherKey: { newValue: 'test' } }, 'sync'));
 
       expect(callCount).toBe(0);
     });
@@ -203,9 +205,9 @@ describe('Options Module', () => {
       onOptionsChange(callback2);
 
       await setOptions({ showEmojis: false });
-      
+
       // Allow time for change listeners to fire
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
       expect(count1).toBe(1);
       expect(count2).toBe(1);
@@ -223,9 +225,9 @@ describe('Options Module', () => {
       removeOptionsChangeListener(callback);
 
       await setOptions({ showEmojis: false });
-      
+
       // Allow time for change listener to fire (if it would)
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
       expect(callCount).toBe(0);
     });

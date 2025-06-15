@@ -122,9 +122,23 @@ export const debugLog = (category: string, level: string, ...args: unknown[]): v
  * Provides structured logging for typed errors and fallback for unexpected errors
  */
 export const logError = (category: string, error: unknown, context?: Record<string, unknown>): void => {
-  const errorInfo = isWormholeError(error) ? { ...error } : { raw: String(error) };
+  const errorInfo = isWormholeError(error) ? error : { raw: String(error) };
 
-  console.error(`❌ [${category}]`, errorInfo, context);
+  // Format a readable error message
+  let errorMessage = '';
+  if (isWormholeError(error)) {
+    errorMessage = `${error.type}: ${error.message}`;
+    if ('url' in error && error.url) {
+      errorMessage += ` (URL: ${error.url})`;
+    }
+    if ('status' in error && error.status) {
+      errorMessage += ` [Status: ${error.status}]`;
+    }
+  } else {
+    errorMessage = String(error);
+  }
+
+  console.error(`❌ [${category}] ${errorMessage}`, context);
 
   if (import.meta.env.DEV) {
     debugLog(category, 'ERROR', errorInfo, context);

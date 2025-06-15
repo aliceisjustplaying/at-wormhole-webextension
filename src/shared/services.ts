@@ -265,6 +265,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
       },
     },
     buildUrl: (info) => `https://toolify.blue${info.bskyAppPath}`,
+    requiredFields: { plcOnly: true },
   },
 };
 

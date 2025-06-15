@@ -86,7 +86,7 @@ export function onOptionsChange(callback: (changes: Partial<WormholeOptions>) =>
       }
     }
   };
-  
+
   listenerMap.set(callback, wrappedListener);
   chrome.storage.onChanged.addListener(wrappedListener);
 }
