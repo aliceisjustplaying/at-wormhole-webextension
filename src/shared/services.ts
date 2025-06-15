@@ -64,6 +64,27 @@ export const SERVICES: Record<string, ServiceConfig> = {
     buildUrl: (info) => `https://bsky.app${info.bskyAppPath}`,
   },
 
+  ATP_TOOLS: {
+    emoji: '🛠️',
+    name: 'atp.tools',
+    contentSupport: 'full',
+    parsing: {
+      hostname: 'atp.tools',
+      patterns: {
+        customParser: (url) => {
+          // ATP Tools uses at:/ instead of at:// in URLs
+          const atMatch = /at:\/[\w:.\-/]+/.exec(url.pathname);
+          if (atMatch) {
+            // Convert at:/ to at:// for canonicalization
+            return atMatch[0].replace('at:/', 'at://');
+          }
+          return null;
+        },
+      },
+    },
+    buildUrl: (info) => (info.atUri ? `https://atp.tools/${info.atUri.replace('at://', 'at:/')}` : ''),
+  },
+
   PDSLS_DEV: {
     emoji: '⚙️',
     name: 'pdsls.dev',
@@ -96,27 +117,6 @@ export const SERVICES: Record<string, ServiceConfig> = {
       },
     },
     buildUrl: (info) => `https://repoview.edavis.dev/${info.atUri}`,
-  },
-
-  ATP_TOOLS: {
-    emoji: '🛠️',
-    name: 'atp.tools',
-    contentSupport: 'full',
-    parsing: {
-      hostname: 'atp.tools',
-      patterns: {
-        customParser: (url) => {
-          // ATP Tools uses at:/ instead of at:// in URLs
-          const atMatch = /at:\/[\w:.\-/]+/.exec(url.pathname);
-          if (atMatch) {
-            // Convert at:/ to at:// for canonicalization
-            return atMatch[0].replace('at:/', 'at://');
-          }
-          return null;
-        },
-      },
-    },
-    buildUrl: (info) => (info.atUri ? `https://atp.tools/${info.atUri.replace('at://', 'at:/')}` : ''),
   },
 
   ASTROLABE: {
