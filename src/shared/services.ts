@@ -64,23 +64,6 @@ export const SERVICES: Record<string, ServiceConfig> = {
     buildUrl: (info) => `https://bsky.app${info.bskyAppPath}`,
   },
 
-  PDSLS_DEV: {
-    emoji: '⚙️',
-    name: 'pdsls.dev',
-    contentSupport: 'full',
-    parsing: {
-      hostname: 'pdsls.dev',
-      patterns: {
-        customParser: (url) => {
-          // Extract AT URI from pathname: /at://did:plc:xyz/app.bsky.feed.post/abc
-          const atMatch = /at:\/\/[\w:.\-/]+/.exec(url.pathname);
-          return atMatch ? atMatch[0] : null;
-        },
-      },
-    },
-    buildUrl: (info) => `https://pdsls.dev/${info.atUri}`,
-  },
-
   ATP_TOOLS: {
     emoji: '🛠️',
     name: 'atp.tools',
@@ -100,6 +83,61 @@ export const SERVICES: Record<string, ServiceConfig> = {
       },
     },
     buildUrl: (info) => (info.atUri ? `https://atp.tools/${info.atUri.replace('at://', 'at:/')}` : ''),
+  },
+
+  PDSLS_DEV: {
+    emoji: '⚙️',
+    name: 'pdsls.dev',
+    contentSupport: 'full',
+    parsing: {
+      hostname: 'pdsls.dev',
+      patterns: {
+        customParser: (url) => {
+          // Extract AT URI from pathname: /at://did:plc:xyz/app.bsky.feed.post/abc
+          const atMatch = /at:\/\/[\w:.\-/]+/.exec(url.pathname);
+          return atMatch ? atMatch[0] : null;
+        },
+      },
+    },
+    buildUrl: (info) => `https://pdsls.dev/${info.atUri}`,
+  },
+
+  REPOVIEW: {
+    emoji: '📁',
+    name: 'repoview.edavis.dev',
+    contentSupport: 'full',
+    parsing: {
+      hostname: 'repoview.edavis.dev',
+      patterns: {
+        customParser: (url) => {
+          // Extract AT URI from pathname: /at://did:plc:xyz/app.bsky.feed.post/abc
+          const atMatch = /at:\/\/[\w:.\-/]+/.exec(url.pathname);
+          return atMatch ? atMatch[0] : null;
+        },
+      },
+    },
+    buildUrl: (info) => `https://repoview.edavis.dev/${info.atUri}`,
+  },
+
+  ASTROLABE: {
+    emoji: '🔭',
+    name: 'astrolabe.at',
+    contentSupport: 'full',
+    parsing: {
+      hostname: 'astrolabe.at',
+      patterns: {
+        customParser: (url) => {
+          // astrolabe uses at/ instead of at:// in URLs
+          const atMatch = /at\/[\w:.\-/]+/.exec(url.pathname);
+          if (atMatch) {
+            // Convert at/ to at:// for canonicalization
+            return atMatch[0].replace('at/', 'at://');
+          }
+          return null;
+        },
+      },
+    },
+    buildUrl: (info) => (info.atUri ? `https://astrolabe.at/${info.atUri.replace('at://', 'at/')}` : ''),
   },
 
   CLEARSKY: {
@@ -182,7 +220,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
       },
     },
     buildUrl: (info) => (info.handle ? `https://frontpage.fyi/profile/${info.handle}` : null),
-    requiredFields: { handle: true },
+    requiredFields: { handle: true, plcOnly: true },
   },
 
   BOAT_KELINCI: {
@@ -227,6 +265,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
       },
     },
     buildUrl: (info) => `https://toolify.blue${info.bskyAppPath}`,
+    requiredFields: { plcOnly: true },
   },
 };
 
@@ -286,8 +325,7 @@ export function parseUrlFromServices(url: URL): string | null {
       const match = url.pathname.match(patterns.profileDid);
       if (match) {
         const did = match[1];
-        const restPath = url.pathname.slice(match[0].length);
-        return restPath ? `${did}${restPath}` : did;
+        return did;
       }
     }
   }

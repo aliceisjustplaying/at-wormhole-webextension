@@ -3,7 +3,7 @@
   "default_locale": "en",
   "name": "__MSG_extension_name__",
   "short_name": "at-wormhole",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "aliceisjustplaying",
   "homepage_url": "https://github.com/aliceisjustplaying/at-wormhole-webextension",
   "description": "__MSG_extension_description__",
@@ -29,7 +29,10 @@
     "https://cred.blue/*",
     "https://tangled.sh/*",
     "https://frontpage.fyi/*",
-    "https://boat.kelinci.net/*"
+    "https://boat.kelinci.net/*",
+    "https://repoview.edavis.dev/*",
+    "https://toolify.blue/*",
+    "https://astrolabe.at/*"
   ],
 
   "background": {

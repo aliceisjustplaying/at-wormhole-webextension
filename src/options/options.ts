@@ -1,42 +1,5 @@
-interface OptionsData {
-  showEmojis: boolean;
-  strictMode: boolean;
-}
-
-const DEFAULT_OPTIONS: OptionsData = {
-  showEmojis: true,
-  strictMode: false,
-};
-
-const STORAGE_KEY = 'wormhole-options';
-
-async function loadOptions(): Promise<OptionsData> {
-  try {
-    const result = await chrome.storage.sync.get(STORAGE_KEY);
-    const data: unknown = result[STORAGE_KEY];
-
-    if (data && typeof data === 'object') {
-      const options = data as Record<string, unknown>;
-      return {
-        showEmojis: typeof options.showEmojis === 'boolean' ? options.showEmojis : DEFAULT_OPTIONS.showEmojis,
-        strictMode: typeof options.strictMode === 'boolean' ? options.strictMode : DEFAULT_OPTIONS.strictMode,
-      };
-    }
-
-    return DEFAULT_OPTIONS;
-  } catch (error: unknown) {
-    console.warn('Failed to load options:', error);
-    return DEFAULT_OPTIONS;
-  }
-}
-
-async function saveOptions(options: OptionsData): Promise<void> {
-  try {
-    await chrome.storage.sync.set({ [STORAGE_KEY]: options });
-  } catch (error: unknown) {
-    console.error('Failed to save options:', error);
-  }
-}
+import { getOptions, setOptions, onOptionsChange, getDefaultOptions } from '../shared/options';
+import type { WormholeOptions } from '../shared/options';
 
 async function initializeOptions(): Promise<void> {
   const showEmojisCheckbox = document.getElementById('showEmojis') as HTMLInputElement | null;
@@ -47,20 +10,47 @@ async function initializeOptions(): Promise<void> {
     return;
   }
 
-  const options = await loadOptions();
+  // Load current options
+  const optionsResult = await getOptions();
+  const options = optionsResult.unwrapOr(getDefaultOptions());
+
   showEmojisCheckbox.checked = options.showEmojis;
   strictModeCheckbox.checked = options.strictMode;
 
+  // Update options when checkboxes change
   const updateOptions = () => {
-    const newOptions: OptionsData = {
+    const newOptions: WormholeOptions = {
       showEmojis: showEmojisCheckbox.checked,
       strictMode: strictModeCheckbox.checked,
     };
-    void saveOptions(newOptions);
+
+    void setOptions(newOptions).then((result) => {
+      return result.match(
+        () => undefined, // Success - no notification needed
+        (error) => {
+          console.error('Failed to save options:', error);
+          // Revert checkboxes to previous state
+          showEmojisCheckbox.checked = options.showEmojis;
+          strictModeCheckbox.checked = options.strictMode;
+        },
+      );
+    });
   };
 
   showEmojisCheckbox.addEventListener('change', updateOptions);
   strictModeCheckbox.addEventListener('change', updateOptions);
+
+  // Listen for external changes
+  const handleExternalChanges = (changes: Partial<WormholeOptions>) => {
+    if (changes.showEmojis !== undefined) {
+      showEmojisCheckbox.checked = changes.showEmojis;
+    }
+    if (changes.strictMode !== undefined) {
+      strictModeCheckbox.checked = changes.strictMode;
+    }
+  };
+
+  onOptionsChange(handleExternalChanges);
 }
 
 if (document.readyState === 'loading') {

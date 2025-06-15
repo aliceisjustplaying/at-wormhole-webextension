@@ -1,5 +1,6 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import neverthrowMustUse from 'eslint-plugin-neverthrow-must-use';
 
 export default tseslint.config(
   eslint.configs.recommended,
@@ -17,6 +18,22 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/restrict-template-expressions': 'off',
+      '@typescript-eslint/no-confusing-void-expression': [
+        'error',
+        {
+          ignoreArrowShorthand: true,
+        },
+      ],
+    },
+  },
+  {
+    files: ['**/*.ts', '**/*.tsx'],
+    ignores: ['**/*.test.ts', '**/*.spec.ts'],
+    plugins: {
+      'neverthrow-must-use': neverthrowMustUse,
+    },
+    rules: {
+      'neverthrow-must-use/must-use-result': 'error',
     },
   },
   {
