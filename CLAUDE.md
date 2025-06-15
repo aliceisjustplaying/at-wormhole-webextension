@@ -62,7 +62,7 @@ I acknowledge that I will:
 bun run format      # Format code
 bun run lint        # Check for linting errors (MUST PASS)
 bun run typecheck   # Verify TypeScript types (MUST PASS)
-gtimeout 10 bun run test  # Run all tests (must complete in <10s)
+bun run test        # Run all tests (add timeout wrapper if needed)
 bun run build:dev   # Verify build works
 ```
 
@@ -198,6 +198,8 @@ The extension recognizes and transforms URLs from:
 - **clearsky.app** - Block checking service
 - **plc.directory**, **boat.kelinci.net** - DID:PLC information tools
 - **toolify.blue** - Various AT Protocol utilities
+- **repoview.edavis.dev** - Repository viewer for AT Protocol
+- **astrolabe.at** - AT Protocol navigation tool
 
 ### Special Features
 
