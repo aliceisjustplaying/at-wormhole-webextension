@@ -220,7 +220,7 @@ export const SERVICES: Record<string, ServiceConfig> = {
       },
     },
     buildUrl: (info) => (info.handle ? `https://frontpage.fyi/profile/${info.handle}` : null),
-    requiredFields: { handle: true },
+    requiredFields: { handle: true, plcOnly: true },
   },
 
   BOAT_KELINCI: {
@@ -324,8 +324,7 @@ export function parseUrlFromServices(url: URL): string | null {
       const match = url.pathname.match(patterns.profileDid);
       if (match) {
         const did = match[1];
-        const restPath = url.pathname.slice(match[0].length);
-        return restPath ? `${did}${restPath}` : did;
+        return did;
       }
     }
   }
