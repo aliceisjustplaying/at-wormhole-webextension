@@ -1,4 +1,4 @@
-export type WormholeError = NetworkError | ParseError | ValidationError | CacheError;
+export type WormholeError = NetworkError | ParseError | ValidationError | CacheError | StorageError;
 
 export interface NetworkError {
   type: 'NETWORK_ERROR';
@@ -25,6 +25,13 @@ export interface CacheError {
   type: 'CACHE_ERROR';
   message: string;
   operation: string;
+  cause?: unknown;
+}
+
+export interface StorageError {
+  type: 'STORAGE_ERROR';
+  message: string;
+  operation?: string;
   cause?: unknown;
 }
 
@@ -56,13 +63,20 @@ export const cacheError = (message: string, operation: string, cause?: unknown):
   cause,
 });
 
+export const storageError = (message: string, operation?: string, cause?: unknown): StorageError => ({
+  type: 'STORAGE_ERROR',
+  message,
+  operation,
+  cause,
+});
+
 export const isWormholeError = (error: unknown): error is WormholeError => {
   return (
     typeof error === 'object' &&
     error !== null &&
     'type' in error &&
     typeof (error as Record<string, unknown>).type === 'string' &&
-    ['NETWORK_ERROR', 'PARSE_ERROR', 'VALIDATION_ERROR', 'CACHE_ERROR'].includes(
+    ['NETWORK_ERROR', 'PARSE_ERROR', 'VALIDATION_ERROR', 'CACHE_ERROR', 'STORAGE_ERROR'].includes(
       (error as Record<string, unknown>).type as string,
     )
   );

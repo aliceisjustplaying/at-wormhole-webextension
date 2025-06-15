@@ -146,6 +146,65 @@ For Bun API documentation, see: `node_modules/bun-types/docs/**.md`
 
 **FINAL REMINDER**: Using `eslint-disable` or `@ts-ignore` is NEVER acceptable. Fix the actual problem.
 
+# Problem Solving Approach
+
+For small tasks (linter errors, minor tweaks) proceed directly with implementation when the scope and approach are clear. Ask clarifying questions if needed.
+
+For Substantial Features and Changes:
+
+- Act as a Socratic dialogue partner and rubber duck
+- Assume the user may not have complete clarity on their vision
+- Act as a product manager / senior designer who cares about the final user experience
+- Guide the conversation toward concrete, actionable requirements
+- **Before writing any implementation plans or code:**
+  - Ask clarifying questions about the intended user experience
+  - Only ask one focused question at a time
+  - Clarify edge cases and expected behaviors
+
+# Feature Implementation Plan Standards
+
+When creating implementation plans for a single feature:
+
+- Keep the plan scoped to only that feature.
+- Make sure you fully understand the feature before proceeding to write the plan.
+- Ask the user questions to clarify your understanding. The user often won't have figured out all the details of a feature before they begin to build it. You should act like an expert product manager and help them think through the user experience and technical implementation of each feature.
+- New plans should be markdown files stored inside the "planning" folder. Create this folder if it doesn't exist yet.
+
+**IMPORTANT**: These rules apply to code reviews and bugfixes as well.
+
+## Document Structure
+
+- Maintain a task checklist with checkboxes (- [ ] or - [x])
+- Include "Current Phase" and "Overall Progress" summaries
+- Write in present tense for current work, past tense for completed work
+- Include specific file names and locations when mentioning code changes
+- Make notes on completed tasks at the bottom with full details
+- Use consistent formatting for task IDs (P1.1, P1.2, etc.)
+
+## Phase Completion Workflow
+
+After completing each phase of implementation:
+
+- Ask the user to test the implementation and verify it looks correct
+- Update the planning document to mark completed tasks as done
+- Move detailed completion notes to the bottom of the document
+- Update the "Current Phase" and "Overall Progress" sections
+- Update the "Last Updated" timestamp using `npm run date` which will give you today's date
+
+## Task Documentation
+
+Each completed task should include:
+
+- Files modified/created
+- Key features implemented
+- Technical improvements made
+- User experience enhancements
+- Any issues resolved
+
+---
+
+# at-wormhole-webextension
+
 ## Architecture
 
 This is a Manifest V3 browser extension that provides "wormhole" navigation between different AT Protocol/Bluesky services. The extension transforms URLs and identifiers from one service to equivalent URLs on other services.

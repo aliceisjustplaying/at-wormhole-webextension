@@ -20,7 +20,8 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(bun list:*)",
-      "Bash(bunx eslint:*)"
+      "Bash(bunx eslint:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   },
