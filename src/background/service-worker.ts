@@ -23,6 +23,19 @@ async function initializeCache(): Promise<void> {
         // Continue with empty cache - don't throw
       },
     );
+
+    // Clean up old cache format if it exists (one-time migration)
+    try {
+      const oldCacheData = await chrome.storage.local.get('didHandleCache');
+      if (oldCacheData.didHandleCache !== undefined) {
+        Debug.serviceWorker('Found old cache format, cleaning up...');
+        await chrome.storage.local.remove('didHandleCache');
+        Debug.serviceWorker('Old cache cleaned up successfully');
+      }
+    } catch (cleanupError: unknown) {
+      // Don't fail initialization if cleanup fails
+      Debug.warn('serviceWorker', 'Failed to clean up old cache:', cleanupError);
+    }
   } catch (error: unknown) {
     Debug.error('serviceWorker', 'Failed to initialize:', error);
     // Continue with empty cache - don't throw

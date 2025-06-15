@@ -219,7 +219,10 @@ const domContentLoadedHandler = () => {
           // Ask SW for a handle (from cache or resolved)
           showStatus('Resolving...');
 
-          const { handleToUse, errorStatusWasSet } = await sendRuntimeMessage<{ handle: string | null; fromCache: boolean }>({
+          const { handleToUse, errorStatusWasSet } = await sendRuntimeMessage<{
+            handle: string | null;
+            fromCache: boolean;
+          }>({
             type: 'GET_HANDLE',
             did: info.did,
           }).match(
@@ -273,7 +276,7 @@ const domContentLoadedHandler = () => {
               return { didToUse: null, errorStatusWasSet: true };
             },
           );
-          
+
           if (didToUse) {
             info.did = didToUse;
             ds = buildDestinations(info, options.showEmojis, options.strictMode);
@@ -298,8 +301,7 @@ const domContentLoadedHandler = () => {
       emptyBtn.disabled = true;
 
       void (async () => {
-        await chrome.storage.local.remove('didHandleCache');
-
+        // No need to manually remove storage - the service worker handles it via CLEAR_CACHE message
         await new Promise<void>((resolve, reject) => {
           chrome.runtime.sendMessage({ type: 'CLEAR_CACHE' }, (rawRes: unknown) => {
             const res = rawRes as { success: boolean; error?: string };
