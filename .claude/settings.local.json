@@ -22,7 +22,8 @@
       "Bash(bun list:*)",
       "Bash(bunx eslint:*)",
       "Bash(mkdir:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": []
   },

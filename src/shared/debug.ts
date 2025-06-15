@@ -4,7 +4,8 @@
  */
 
 import type { DebugConfig } from './types';
-import { isWormholeError } from './errors';
+import { isWormholeError, storageError, type StorageError } from './errors';
+import { ResultAsync } from 'neverthrow';
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export default class Debug {
@@ -25,27 +26,25 @@ export default class Debug {
    * Load runtime debug overrides from chrome.storage
    * Call this in popup and service worker initialization
    */
-  static async loadRuntimeConfig(): Promise<void> {
-    try {
-      const result = await chrome.storage.local.get('debugConfig');
+  static loadRuntimeConfig(): ResultAsync<void, StorageError> {
+    return ResultAsync.fromPromise(chrome.storage.local.get('debugConfig'), (error) =>
+      storageError('Failed to load debug config', 'get', error),
+    ).map((result) => {
       if (result.debugConfig && typeof result.debugConfig === 'object') {
         // Use stored config completely, with defaults as fallback
         this.config = { ...this.getDefaultConfig(), ...(result.debugConfig as Partial<DebugConfig>) };
       }
-    } catch {
-      // Silently fail if storage not available
-    }
+      return undefined;
+    });
   }
 
   /**
    * Save current debug config to storage for runtime persistence
    */
-  static async saveRuntimeConfig(): Promise<void> {
-    try {
-      await chrome.storage.local.set({ debugConfig: this.config });
-    } catch (error) {
-      console.error('Failed to save debug config:', error);
-    }
+  static saveRuntimeConfig(): ResultAsync<void, StorageError> {
+    return ResultAsync.fromPromise(chrome.storage.local.set({ debugConfig: this.config }), (error) =>
+      storageError('Failed to save debug config', 'set', error),
+    ).map(() => undefined);
   }
 
   /**
@@ -53,7 +52,11 @@ export default class Debug {
    */
   static setCategory(category: keyof DebugConfig, enabled: boolean): void {
     this.config[category] = enabled;
-    void this.saveRuntimeConfig();
+    // Fire and forget - we don't need to wait for the save
+    void this.saveRuntimeConfig().match(
+      () => undefined, // Success - no action needed
+      (error) => console.error('Failed to save debug config:', error),
+    );
   }
 
   /**

@@ -3,6 +3,8 @@ import { buildDestinations } from '../shared/services';
 import { loadOptions } from '../shared/options';
 import Debug from '../shared/debug';
 import type { BrowserWithTheme, DebugConfig, Destination, WindowWithDebug } from '../shared/types';
+import { ResultAsync } from 'neverthrow';
+import { runtimeError, type RuntimeError } from '../shared/errors';
 
 /**
  * Applies Firefox theme colors to the popup if available, falls back to CSS media query
@@ -123,6 +125,24 @@ async function applyTheme(): Promise<void> {
   }
 }
 
+/**
+ * Sends a message to the runtime (service worker) and returns the response wrapped in a Result
+ */
+function sendRuntimeMessage<T>(message: unknown): ResultAsync<T, RuntimeError> {
+  return ResultAsync.fromPromise(
+    new Promise<T>((resolve, reject) => {
+      chrome.runtime.sendMessage(message, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve(response as T);
+        }
+      });
+    }),
+    (error) => runtimeError(error instanceof Error ? error.message : 'Unknown runtime error', error),
+  );
+}
+
 // Local type for list items
 
 /**
@@ -131,7 +151,8 @@ async function applyTheme(): Promise<void> {
 const domContentLoadedHandler = () => {
   void (async () => {
     // Load debug configuration and options
-    await Debug.loadRuntimeConfig();
+    // We don't need to handle errors here - debug config is optional
+    await Debug.loadRuntimeConfig().unwrapOr(undefined);
     const options = await loadOptions();
     Debug.popup('Popup initialized');
 
@@ -195,31 +216,27 @@ const domContentLoadedHandler = () => {
         render(ds);
 
         if (info.did && !info.handle) {
-          let handleToUse: string | null = null;
-          let errorStatusWasSet = false;
-
           // Ask SW for a handle (from cache or resolved)
           showStatus('Resolving...');
-          try {
-            const response = await new Promise<{ handle: string | null; fromCache: boolean }>((resolve, reject) => {
-              chrome.runtime.sendMessage({ type: 'GET_HANDLE', did: info.did }, (res) => {
-                if (chrome.runtime.lastError) {
-                  reject(new Error(chrome.runtime.lastError.message));
-                } else {
-                  resolve(res as { handle: string | null; fromCache: boolean });
-                }
-              });
-            });
-            handleToUse = response.handle;
-            if (handleToUse && import.meta.env.MODE === 'development') {
-              debugInfo.textContent =
-                response.fromCache ? 'handle was fetched from cache' : 'was forced to resolve handle';
-            }
-          } catch (err: unknown) {
-            console.error('GET_HANDLE error', err);
-            showStatus('Error resolving');
-            errorStatusWasSet = true;
-          }
+
+          const { handleToUse, errorStatusWasSet } = await sendRuntimeMessage<{ handle: string | null; fromCache: boolean }>({
+            type: 'GET_HANDLE',
+            did: info.did,
+          }).match(
+            (response) => {
+              const handle = response.handle;
+              if (handle && import.meta.env.MODE === 'development') {
+                debugInfo.textContent =
+                  response.fromCache ? 'handle was fetched from cache' : 'was forced to resolve handle';
+              }
+              return { handleToUse: handle, errorStatusWasSet: false };
+            },
+            (error) => {
+              console.error('GET_HANDLE error', error);
+              showStatus('Error resolving');
+              return { handleToUse: null, errorStatusWasSet: true };
+            },
+          );
 
           // After attempting to get handle from cache or by fetching:
           if (handleToUse) {
@@ -237,28 +254,26 @@ const domContentLoadedHandler = () => {
 
         // If we have a handle but no did, resolve DID via SW
         if (info.handle && !info.did) {
-          let didToUse: string | null = null;
-          let errorStatusWasSet = false;
           showStatus('Resolving...');
-          try {
-            const response = await new Promise<{ did: string | null; fromCache: boolean }>((resolve, reject) => {
-              chrome.runtime.sendMessage({ type: 'GET_DID', handle: info.handle! }, (res) => {
-                if (chrome.runtime.lastError) {
-                  reject(new Error(chrome.runtime.lastError.message));
-                } else {
-                  resolve(res as { did: string | null; fromCache: boolean });
-                }
-              });
-            });
-            didToUse = response.did;
-            if (didToUse && import.meta.env.MODE === 'development') {
-              debugInfo.textContent = response.fromCache ? 'did was fetched from cache' : 'was forced to resolve did';
-            }
-          } catch (err: unknown) {
-            console.error('GET_DID error', err);
-            showStatus('Error resolving');
-            errorStatusWasSet = true;
-          }
+
+          const { didToUse, errorStatusWasSet } = await sendRuntimeMessage<{ did: string | null; fromCache: boolean }>({
+            type: 'GET_DID',
+            handle: info.handle,
+          }).match(
+            (response) => {
+              const did = response.did;
+              if (did && import.meta.env.MODE === 'development') {
+                debugInfo.textContent = response.fromCache ? 'did was fetched from cache' : 'was forced to resolve did';
+              }
+              return { didToUse: did, errorStatusWasSet: false };
+            },
+            (error) => {
+              console.error('GET_DID error', error);
+              showStatus('Error resolving');
+              return { didToUse: null, errorStatusWasSet: true };
+            },
+          );
+          
           if (didToUse) {
             info.did = didToUse;
             ds = buildDestinations(info, options.showEmojis, options.strictMode);

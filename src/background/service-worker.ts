@@ -11,7 +11,8 @@ const cacheInitialized = initializeCache();
 
 async function initializeCache(): Promise<void> {
   try {
-    await Debug.loadRuntimeConfig();
+    // Load debug config - optional, so we ignore errors
+    await Debug.loadRuntimeConfig().unwrapOr(undefined);
     Debug.serviceWorker('Service worker starting, loading cache...');
     await cache.load().match(
       () => {
