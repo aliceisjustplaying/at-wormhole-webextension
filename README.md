@@ -18,6 +18,8 @@ This is a browser extension that provides "wormhole" navigation between differen
 - [toolify.blue](https://toolify.blue)
 - [boat.kelinci.net](https://boat.kelinci.net)
 - [plc.directory](https://plc.directory)
+- [repoview.edavis.dev](https://repoview.edavis.dev)
+- [astrolabe.at](https://astrolabe.at)
 
 If you'd like to add support for another service, please open an issue or submit a pull request.
 
