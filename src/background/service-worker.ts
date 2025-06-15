@@ -6,21 +6,27 @@ import type { SWMessage } from '../shared/types';
 
 const cache = new DidHandleCache();
 
-// Initialize the cache when the service worker starts
-const cacheLoaded = (async () => {
-  await Debug.loadRuntimeConfig();
-  Debug.serviceWorker('Service worker starting, loading cache...');
-  await cache.load().match(
-    () => {
-      Debug.serviceWorker('Cache loaded successfully');
-    },
-    (error) => {
-      Debug.error('serviceWorker', 'Failed to load cache:', error);
-    },
-  );
-})().catch((error: unknown) => {
-  Debug.error('serviceWorker', 'Failed to initialize:', error);
-});
+// Create initialization promise immediately at module level
+const cacheInitialized = initializeCache();
+
+async function initializeCache(): Promise<void> {
+  try {
+    await Debug.loadRuntimeConfig();
+    Debug.serviceWorker('Service worker starting, loading cache...');
+    await cache.load().match(
+      () => {
+        Debug.serviceWorker('Cache loaded successfully');
+      },
+      (error) => {
+        Debug.error('serviceWorker', 'Failed to load cache:', error);
+        // Continue with empty cache - don't throw
+      },
+    );
+  } catch (error: unknown) {
+    Debug.error('serviceWorker', 'Failed to initialize:', error);
+    // Continue with empty cache - don't throw
+  }
+}
 
 // Handle messages from the popup
 const messageListener = (
@@ -30,23 +36,31 @@ const messageListener = (
 ): boolean => {
   // UPDATE_CACHE
   if (request.type === 'UPDATE_CACHE' && typeof request.did === 'string' && typeof request.handle === 'string') {
-    void cache.set(request.did, request.handle).match(
-      () => {
-        sendResponse({ success: true });
-      },
-      (error) => {
-        console.error('Failed to update cache via message:', error);
-        sendResponse({ success: false, error: error.message });
-      },
-    );
+    void (async () => {
+      try {
+        await cacheInitialized;
+        await cache.set(request.did, request.handle).match(
+          () => {
+            sendResponse({ success: true });
+          },
+          (error) => {
+            Debug.error('serviceWorker', 'Failed to update cache via message:', error);
+            sendResponse({ success: false, error: error.message });
+          },
+        );
+      } catch (error: unknown) {
+        Debug.error('serviceWorker', 'Cache initialization error:', error);
+        sendResponse({ success: false, error: 'Cache initialization failed' });
+      }
+    })();
     return true;
   }
 
   // GET_HANDLE
   if (request.type === 'GET_HANDLE' && typeof request.did === 'string') {
     void (async () => {
-      await cacheLoaded;
       try {
+        await cacheInitialized;
         const handle = cache.getHandle(request.did);
         if (handle) {
           sendResponse({ handle, fromCache: true });
@@ -61,20 +75,20 @@ const messageListener = (
                   // Success - no action needed
                 },
                 (cacheError) => {
-                  console.error('Failed to cache DID->handle mapping:', cacheError);
+                  Debug.error('serviceWorker', 'Failed to cache DID->handle mapping:', cacheError);
                 },
               );
             }
             sendResponse({ handle, fromCache: false });
           },
           (error) => {
-            console.error('Resolve DID to handle failed:', error);
+            Debug.error('serviceWorker', 'Resolve DID to handle failed:', error);
             sendResponse({ handle: null, fromCache: false });
           },
         );
-      } catch (e: unknown) {
-        console.error('GET_HANDLE error', e);
-        sendResponse({ handle: null, fromCache: false });
+      } catch (error: unknown) {
+        Debug.error('serviceWorker', 'GET_HANDLE error:', error);
+        sendResponse({ handle: null, fromCache: false, error: 'Cache initialization failed' });
       }
     })();
     return true;
@@ -83,8 +97,8 @@ const messageListener = (
   // GET_DID
   if (request.type === 'GET_DID' && typeof request.handle === 'string') {
     void (async () => {
-      await cacheLoaded;
       try {
+        await cacheInitialized;
         const did = cache.getDid(request.handle);
         if (did) {
           sendResponse({ did, fromCache: true });
@@ -99,19 +113,20 @@ const messageListener = (
                   // Success - no action needed
                 },
                 (cacheError) => {
-                  console.error('Failed to cache handle->DID mapping:', cacheError);
+                  Debug.error('serviceWorker', 'Failed to cache handle->DID mapping:', cacheError);
                 },
               );
             }
             sendResponse({ did, fromCache: false });
           },
           (error) => {
-            console.error('Resolve handle to DID failed:', error);
+            Debug.error('serviceWorker', 'Resolve handle to DID failed:', error);
             sendResponse({ did: null, fromCache: false });
           },
         );
-      } catch {
-        sendResponse({ did: null, fromCache: false });
+      } catch (error: unknown) {
+        Debug.error('serviceWorker', 'GET_DID error:', error);
+        sendResponse({ did: null, fromCache: false, error: 'Cache initialization failed' });
       }
     })();
     return true;
@@ -126,15 +141,23 @@ const messageListener = (
 
   // CLEAR_CACHE
   if (request.type === 'CLEAR_CACHE') {
-    void cache.clear().match(
-      () => {
-        sendResponse({ success: true });
-      },
-      (error) => {
-        console.error('Failed to clear cache:', error);
-        sendResponse({ success: false, error: error.message });
-      },
-    );
+    void (async () => {
+      try {
+        await cacheInitialized;
+        await cache.clear().match(
+          () => {
+            sendResponse({ success: true });
+          },
+          (error) => {
+            Debug.error('serviceWorker', 'Failed to clear cache:', error);
+            sendResponse({ success: false, error: error.message });
+          },
+        );
+      } catch (error: unknown) {
+        Debug.error('serviceWorker', 'Clear cache initialization error:', error);
+        sendResponse({ success: false, error: 'Cache initialization failed' });
+      }
+    })();
     return true;
   }
 
@@ -145,8 +168,8 @@ chrome.runtime.onMessage.addListener(messageListener);
 
 const tabUpdateListener = (_tabId: number, info: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => {
   void (async () => {
-    await cacheLoaded;
     try {
+      await cacheInitialized;
       if (info.status !== 'complete' || !tab.url) return;
 
       const parseResult = parseInput(tab.url);
@@ -161,7 +184,7 @@ const tabUpdateListener = (_tabId: number, info: chrome.tabs.TabChangeInfo, tab:
                 // Success - no action needed
               },
               (error) => {
-                console.error('Failed to cache DID+handle pair from URL:', error);
+                Debug.error('serviceWorker', 'Failed to cache DID+handle pair from URL:', error);
               },
             );
             return;
@@ -182,13 +205,13 @@ const tabUpdateListener = (_tabId: number, info: chrome.tabs.TabChangeInfo, tab:
                       // Success - no action needed
                     },
                     (cacheError) => {
-                      console.error('Failed to cache background DID->handle resolution:', cacheError);
+                      Debug.error('serviceWorker', 'Failed to cache background DID->handle resolution:', cacheError);
                     },
                   );
                 }
               },
               (error) => {
-                console.error('Background DID->handle resolution failed:', error);
+                Debug.error('serviceWorker', 'Background DID->handle resolution failed:', error);
               },
             );
             return;
@@ -209,24 +232,24 @@ const tabUpdateListener = (_tabId: number, info: chrome.tabs.TabChangeInfo, tab:
                       // Success - no action needed
                     },
                     (cacheError) => {
-                      console.error('Failed to cache background handle->DID resolution:', cacheError);
+                      Debug.error('serviceWorker', 'Failed to cache background handle->DID resolution:', cacheError);
                     },
                   );
                 }
               },
               (error) => {
-                console.error('Background handle->DID resolution failed:', error);
+                Debug.error('serviceWorker', 'Background handle->DID resolution failed:', error);
               },
             );
             return;
           }
         },
         (error) => {
-          console.error('URL parsing failed in background:', error);
+          Debug.error('serviceWorker', 'URL parsing failed in background:', error);
         },
       );
     } catch (error: unknown) {
-      console.error('SW error', error);
+      Debug.error('serviceWorker', 'Tab update error:', error);
     }
   })();
 };
