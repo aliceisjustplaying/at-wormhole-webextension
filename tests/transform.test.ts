@@ -79,7 +79,7 @@ beforeEach(() => {
 describe('parseInput', () => {
   test('should parse feed URLs with handle', () => {
     const result = parseInput('https://deer.social/profile/why.bsky.team/feed/cozy');
-    expect(result).toEqual({
+    expect(result._unsafeUnwrap()).toEqual({
       atUri: 'at://why.bsky.team/app.bsky.feed.generator/cozy',
       did: null,
       handle: 'why.bsky.team',
@@ -91,7 +91,7 @@ describe('parseInput', () => {
 
   test('should parse post URLs with DID', () => {
     const result = parseInput('https://deer.social/profile/did:plc:kkkcb7sys7623hcf7oefcffg/post/3lpe6ek6xhs2n');
-    expect(result).toEqual({
+    expect(result._unsafeUnwrap()).toEqual({
       atUri: 'at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lpe6ek6xhs2n',
       did: 'did:plc:kkkcb7sys7623hcf7oefcffg',
       handle: null,
@@ -103,7 +103,7 @@ describe('parseInput', () => {
 
   test('should parse list URLs with handle', () => {
     const result = parseInput('https://deer.social/profile/alice.mosphere.at/lists/3l7vfhhfqcz2u');
-    expect(result).toEqual({
+    expect(result._unsafeUnwrap()).toEqual({
       atUri: 'at://alice.mosphere.at/app.bsky.graph.list/3l7vfhhfqcz2u',
       did: null,
       handle: 'alice.mosphere.at',
@@ -115,7 +115,7 @@ describe('parseInput', () => {
 
   test('should parse did:web profile URLs', () => {
     const result = parseInput('https://deer.social/profile/did:web:didweb.watch');
-    expect(result).toEqual({
+    expect(result._unsafeUnwrap()).toEqual({
       atUri: 'at://did:web:didweb.watch',
       did: 'did:web:didweb.watch',
       handle: null,
@@ -127,7 +127,7 @@ describe('parseInput', () => {
 
   test('should parse did:web post URLs', () => {
     const result = parseInput('https://deer.social/profile/did:web:didweb.watch/post/3lpaioe62qk2j');
-    expect(result).toEqual({
+    expect(result._unsafeUnwrap()).toEqual({
       atUri: 'at://did:web:didweb.watch/app.bsky.feed.post/3lpaioe62qk2j',
       did: 'did:web:didweb.watch',
       handle: null,
@@ -139,7 +139,7 @@ describe('parseInput', () => {
 
   test('should parse query parameter DIDs', () => {
     const result = parseInput('https://boat.kelinci.net/plc-oplogs?q=did:plc:5sk4eqsu7byvwokfcnfgywxg');
-    expect(result).toEqual({
+    expect(result._unsafeUnwrap()).toEqual({
       atUri: 'at://did:plc:5sk4eqsu7byvwokfcnfgywxg',
       did: 'did:plc:5sk4eqsu7byvwokfcnfgywxg',
       handle: null,
@@ -153,7 +153,7 @@ describe('parseInput', () => {
     const result = parseInput(
       'https://blue.mackuba.eu/skythread/?author=did:plc:2p6idfgjfe3easltiwmnofw6&post=3lpjntj43rs23',
     );
-    expect(result).toEqual({
+    expect(result._unsafeUnwrap()).toEqual({
       atUri: 'at://did:plc:2p6idfgjfe3easltiwmnofw6/app.bsky.feed.post/3lpjntj43rs23',
       did: 'did:plc:2p6idfgjfe3easltiwmnofw6',
       handle: null,
@@ -166,7 +166,7 @@ describe('parseInput', () => {
   describe('real service URLs', () => {
     test('should parse bsky.app post URL', () => {
       const result = parseInput('https://bsky.app/profile/now.alice.mosphere.at/post/3lqcw7n4gly2u');
-      expect(result).toEqual({
+      expect(result._unsafeUnwrap()).toEqual({
         atUri: 'at://now.alice.mosphere.at/app.bsky.feed.post/3lqcw7n4gly2u',
         did: null,
         handle: 'now.alice.mosphere.at',
@@ -178,7 +178,7 @@ describe('parseInput', () => {
 
     test('should parse deer.social post URL', () => {
       const result = parseInput('https://deer.social/profile/now.alice.mosphere.at/post/3lqcw7n4gly2u');
-      expect(result).toEqual({
+      expect(result._unsafeUnwrap()).toEqual({
         atUri: 'at://now.alice.mosphere.at/app.bsky.feed.post/3lqcw7n4gly2u',
         did: null,
         handle: 'now.alice.mosphere.at',
@@ -192,7 +192,7 @@ describe('parseInput', () => {
       const result = parseInput(
         'https://pdsls.dev/at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
       );
-      expect(result).toEqual({
+      expect(result._unsafeUnwrap()).toEqual({
         atUri: 'at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
         did: 'did:plc:kkkcb7sys7623hcf7oefcffg',
         handle: null,
@@ -206,7 +206,7 @@ describe('parseInput', () => {
       const result = parseInput(
         'https://atp.tools/at:/did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
       );
-      expect(result).toEqual({
+      expect(result._unsafeUnwrap()).toEqual({
         atUri: 'at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
         did: 'did:plc:kkkcb7sys7623hcf7oefcffg',
         handle: null,
@@ -220,7 +220,7 @@ describe('parseInput', () => {
   describe('toolify.blue URLs', () => {
     test('should parse profile URL with handle', () => {
       const result = parseInput('https://toolify.blue/profile/alice.mosphere.at');
-      expect(result).toEqual({
+      expect(result._unsafeUnwrap()).toEqual({
         atUri: 'at://alice.mosphere.at',
         did: null,
         handle: 'alice.mosphere.at',
@@ -232,7 +232,7 @@ describe('parseInput', () => {
 
     test('should parse post URL with handle', () => {
       const result = parseInput('https://toolify.blue/profile/alice.mosphere.at/post/3lqeyxrcx6k2p');
-      expect(result).toEqual({
+      expect(result._unsafeUnwrap()).toEqual({
         atUri: 'at://alice.mosphere.at/app.bsky.feed.post/3lqeyxrcx6k2p',
         did: null,
         handle: 'alice.mosphere.at',
@@ -244,7 +244,7 @@ describe('parseInput', () => {
 
     test('should parse profile URL with DID', () => {
       const result = parseInput('https://toolify.blue/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf');
-      expect(result).toEqual({
+      expect(result._unsafeUnwrap()).toEqual({
         atUri: 'at://did:plc:by3jhwdqgbtrcc7q4tkkv3cf',
         did: 'did:plc:by3jhwdqgbtrcc7q4tkkv3cf',
         handle: null,
@@ -256,7 +256,7 @@ describe('parseInput', () => {
 
     test('should parse post URL with DID', () => {
       const result = parseInput('https://toolify.blue/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf/post/3lqeyxrcx6k2p');
-      expect(result).toEqual({
+      expect(result._unsafeUnwrap()).toEqual({
         atUri: 'at://did:plc:by3jhwdqgbtrcc7q4tkkv3cf/app.bsky.feed.post/3lqeyxrcx6k2p',
         did: 'did:plc:by3jhwdqgbtrcc7q4tkkv3cf',
         handle: null,
@@ -271,27 +271,27 @@ describe('parseInput', () => {
 describe('resolveHandleToDid', () => {
   test('should resolve regular handle to DID', async () => {
     const result = await resolveHandleToDid('alice.mosphere.at');
-    expect(result).toBe('did:plc:by3jhwdqgbtrcc7q4tkkv3cf');
+    expect(result._unsafeUnwrap()).toBe('did:plc:by3jhwdqgbtrcc7q4tkkv3cf');
   });
 
   test('should resolve another handle to DID', async () => {
     const result = await resolveHandleToDid('bob.test');
-    expect(result).toBe('did:plc:bobtestdid');
+    expect(result._unsafeUnwrap()).toBe('did:plc:bobtestdid');
   });
 
   test('should handle did:web successfully', async () => {
     const result = await resolveHandleToDid('did:web:didweb.watch');
-    expect(result).toBe('did:web:didweb.watch');
+    expect(result._unsafeUnwrap()).toBe('did:web:didweb.watch');
   });
 
   test('should handle did:web failure', async () => {
     const result = await resolveHandleToDid('did:web:fail-did-web.com');
-    expect(result).toBe('did:web:fail-did-web.com');
+    expect(result._unsafeUnwrap()).toBe('did:web:fail-did-web.com');
   });
 
   test('should resolve now.alice.mosphere.at', async () => {
     const result = await resolveHandleToDid('now.alice.mosphere.at');
-    expect(result).toBe('did:plc:kkkcb7sys7623hcf7oefcffg');
+    expect(result._unsafeUnwrap()).toBe('did:plc:kkkcb7sys7623hcf7oefcffg');
   });
 });
 

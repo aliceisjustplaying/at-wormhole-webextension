@@ -1,73 +1,112 @@
+import { ResultAsync, ok, err, okAsync, errAsync } from 'neverthrow';
 import { isRecord } from './types';
+import type { WormholeError } from './errors';
+import { networkError, parseError } from './errors';
+import { logError } from './debug';
+import { withNetworkRetry } from './retry';
 
 /**
- * Safely parse JSON and ensure it's an object
+ * Safely parse JSON and ensure it's an object using ResultAsync
  */
-async function safeJson<T extends Record<string, unknown>>(resp: Response): Promise<T | null> {
-  if (!resp.ok) return null;
-  const raw = (await resp.json()) as unknown;
-  return isRecord(raw) ? (raw as T) : null;
+function safeJson<T extends Record<string, unknown>>(resp: Response, url: string): ResultAsync<T, WormholeError> {
+  if (!resp.ok) {
+    return errAsync(networkError('HTTP error', url, resp.status));
+  }
+
+  return ResultAsync.fromPromise(resp.json() as Promise<unknown>, () =>
+    parseError('Invalid JSON response', url),
+  ).andThen((raw) => {
+    if (isRecord(raw)) {
+      return ok(raw as T);
+    }
+    return err(parseError('Response is not a valid object', url));
+  });
 }
 
 /**
  * Resolves a handle to a DID, using the Bluesky API or did:web.
  */
-export async function resolveHandleToDid(handle: string): Promise<string | null> {
+export function resolveHandleToDid(handle: string): ResultAsync<string, WormholeError> {
   if (handle.startsWith('did:web:')) {
     const parts = handle.split(':');
     if (parts.length === 3) {
-      try {
-        const resp = await fetch(`https://${parts[2]}/.well-known/did.json`);
-        const data = await safeJson<{ id?: string }>(resp);
-        return data?.id ?? handle;
-      } catch {
-        /* ignore */
-      }
+      const url = `https://${parts[2]}/.well-known/did.json`;
+      return withNetworkRetry(() =>
+        ResultAsync.fromPromise(fetch(url, { signal: AbortSignal.timeout(5000) }), (e) =>
+          networkError('Failed to fetch did:web document', url, undefined, e),
+        ),
+      )
+        .andThen((resp) => safeJson<{ id?: string }>(resp, url))
+        .map((data) => data.id ?? handle)
+        .orElse((error) => {
+          logError('RESOLVER', error, { handle, type: 'did:web' });
+          // For did:web, fallback to returning the original handle if resolution fails
+          return ok(handle);
+        });
     }
-    return handle;
+    return okAsync(handle);
   }
-  try {
-    const resp = await fetch(
-      `https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`,
-    );
-    const data = await safeJson<{ did?: string }>(resp);
-    return data?.did ?? null;
-  } catch {
-    /* ignore */
-  }
-  return null;
+
+  const apiUrl = `https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`;
+  return withNetworkRetry(() =>
+    ResultAsync.fromPromise(fetch(apiUrl, { signal: AbortSignal.timeout(5000) }), (e) =>
+      networkError('Failed to fetch handle resolution', apiUrl, undefined, e),
+    ),
+  )
+    .andThen((resp) => safeJson<{ did?: string }>(resp, apiUrl))
+    .andThen((data) => {
+      if (data.did) {
+        return ok(data.did);
+      }
+      return err(parseError('No DID found in response', apiUrl));
+    })
+    .orElse((error) => {
+      logError('RESOLVER', error, { handle, type: 'handle' });
+      return err(error);
+    });
 }
 
 /**
  * Resolves a DID to its handle, if possible.
  */
-export async function resolveDidToHandle(did: string): Promise<string | null> {
-  if (!did) return null;
+export function resolveDidToHandle(did: string): ResultAsync<string | null, WormholeError> {
+  if (!did) {
+    return okAsync(null);
+  }
+
   if (did.startsWith('did:plc:')) {
-    try {
-      const resp = await fetch(`https://plc.directory/${encodeURIComponent(did)}`);
-      const data = await safeJson<{ alsoKnownAs?: unknown }>(resp);
-      const h = data ? _extractHandleFromAlsoKnownAs(data.alsoKnownAs) : null;
-      if (h) return h;
-    } catch {
-      /* ignore */
-    }
+    const url = `https://plc.directory/${encodeURIComponent(did)}`;
+    return withNetworkRetry(() =>
+      ResultAsync.fromPromise(fetch(url, { signal: AbortSignal.timeout(5000) }), (e) =>
+        networkError('Failed to fetch PLC directory', url, undefined, e),
+      ),
+    )
+      .andThen((resp) => safeJson<{ alsoKnownAs?: unknown }>(resp, url))
+      .map((data) => _extractHandleFromAlsoKnownAs(data.alsoKnownAs))
+      .orElse((error) => {
+        logError('RESOLVER', error, { did, type: 'did:plc' });
+        return ok(null); // Return null on PLC resolution failure
+      });
   }
 
   if (did.startsWith('did:web:')) {
     const url = _getDidWebWellKnownUrl(did);
-    try {
-      const resp = await fetch(url);
-      const data = await safeJson<{ alsoKnownAs?: unknown }>(resp);
-      const h = data ? _extractHandleFromAlsoKnownAs(data.alsoKnownAs) : null;
-      if (h) return h;
-    } catch {
-      /* ignore */
-    }
-
-    return decodeURIComponent(did.substring('did:web:'.length).split('#')[0]);
+    return withNetworkRetry(() =>
+      ResultAsync.fromPromise(fetch(url, { signal: AbortSignal.timeout(5000) }), (e) =>
+        networkError('Failed to fetch did:web document', url, undefined, e),
+      ),
+    )
+      .andThen((resp) => safeJson<{ alsoKnownAs?: unknown }>(resp, url))
+      .map((data) => _extractHandleFromAlsoKnownAs(data.alsoKnownAs))
+      .orElse((error) => {
+        logError('RESOLVER', error, { did, type: 'did:web fallback' });
+        // Fallback to decoding the did:web identifier
+        const fallbackHandle = decodeURIComponent(did.substring('did:web:'.length).split('#')[0]);
+        return ok(fallbackHandle);
+      });
   }
-  return null;
+
+  return okAsync(null);
 }
 
 /**

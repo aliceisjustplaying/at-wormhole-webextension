@@ -8,16 +8,18 @@ This is a browser extension that provides "wormhole" navigation between differen
 
 - [deer.social](https://deer.social)
 - [bsky.app](https://bsky.app)
-- [pdsls.dev](https://pdsls.dev)
 - [atp.tools](https://atp.tools)
+- [pdsls.dev](https://pdsls.dev)
+- [repoview.edavis.dev](https://repoview.edavis.dev)
+- [astrolabe.at](https://astrolabe.at)
 - [clearsky.app](https://clearsky.app)
 - [skythread](https://blue.mackuba.eu/skythread/)
 - [cred.blue](https://cred.blue)
 - [tangled.sh](https://tangled.sh)
 - [frontpage.fyi](https://frontpage.fyi)
-- [toolify.blue](https://toolify.blue)
 - [boat.kelinci.net](https://boat.kelinci.net)
 - [plc.directory](https://plc.directory)
+- [toolify.blue](https://toolify.blue)
 
 If you'd like to add support for another service, please open an issue or submit a pull request.
 

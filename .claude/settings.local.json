@@ -16,7 +16,17 @@
       "Bash(find:*)",
       "Bash(ls:*)",
       "Bash(timeout:*)",
-      "WebFetch(domain:atproto.com)"
+      "WebFetch(domain:atproto.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(bun list:*)",
+      "Bash(bunx eslint:*)",
+      "Bash(mkdir:*)",
+      "Bash(rm:*)",
+      "Bash(git checkout:*)",
+      "mcp__git__git_status",
+      "mcp__git__git_diff",
+      "mcp__git__git_log"
     ],
     "deny": []
   },

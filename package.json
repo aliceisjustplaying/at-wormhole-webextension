@@ -19,10 +19,14 @@
     "@types/chrome": "^0.0.323",
     "@types/node": "latest",
     "eslint": "latest",
+    "eslint-plugin-neverthrow-must-use": "^0.1.2",
     "globals": "latest",
     "prettier": "latest",
     "typescript": "latest",
     "typescript-eslint": "latest",
     "vite": "latest"
+  },
+  "dependencies": {
+    "neverthrow": "^8.2.0"
   }
 }
