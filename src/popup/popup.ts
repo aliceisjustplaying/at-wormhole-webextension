@@ -78,13 +78,15 @@ function mergeTransformInfo(primary: TransformInfo | null, secondary: TransformI
     return secondary;
   }
 
+  const mergedPath = primary.bskyAppPath !== '' ? primary.bskyAppPath : secondary.bskyAppPath;
+
   return {
     atUri: primary.atUri ?? secondary.atUri,
     did: primary.did ?? secondary.did,
     handle: primary.handle ?? secondary.handle,
     rkey: primary.rkey ?? secondary.rkey,
     nsid: primary.nsid ?? secondary.nsid,
-    bskyAppPath: primary.bskyAppPath,
+    bskyAppPath: mergedPath,
   };
 }
 

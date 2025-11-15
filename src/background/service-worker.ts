@@ -12,6 +12,7 @@ const cacheInitialized = initializeCache();
 
 const PROBE_CACHE_PREFIX = 'pageProbe:';
 const PROBE_CACHE_TTL_MS = 60_000;
+const probeInFlight = new Map<string, Promise<ProbeCacheEntry | null>>();
 
 interface ProbeCacheEntry {
   info: TransformInfo | null;
@@ -90,6 +91,29 @@ function shouldSkipProbe(url?: string): boolean {
   return !(url.startsWith('http://') || url.startsWith('https://'));
 }
 
+function getProbeKey(tabId: number, tabUrl?: string): string {
+  return `${tabId}:${tabUrl ?? ''}`;
+}
+
+function getOrCreateProbe(tabId: number, tabUrl?: string): Promise<ProbeCacheEntry | null> {
+  const key = getProbeKey(tabId, tabUrl);
+  const existing = probeInFlight.get(key);
+  if (existing) {
+    return existing;
+  }
+
+  const pending = (async () => {
+    try {
+      return await runRelAlternateProbe(tabId, tabUrl);
+    } finally {
+      probeInFlight.delete(key);
+    }
+  })();
+
+  probeInFlight.set(key, pending);
+  return pending;
+}
+
 async function runRelAlternateProbe(tabId: number, tabUrl?: string): Promise<ProbeCacheEntry | null> {
   try {
     const injectionResults = (await chrome.scripting.executeScript({
@@ -141,8 +165,7 @@ async function handleProbeRequest(tabId: number, tabUrl?: string, force = false)
         } else if (cached.info && cached.atUri) {
           return { info: cached.info, atUri: cached.atUri, source: cached.source, cached: true };
         } else {
-          // Cached miss - fall through to rerun probe so we don't stick with stale nulls
-          await clearProbeCache(tabId);
+          return { info: null, atUri: null, source: cached.source ?? null, cached: true };
         }
       }
     } catch (error) {
@@ -150,15 +173,20 @@ async function handleProbeRequest(tabId: number, tabUrl?: string, force = false)
     }
   }
 
-  const fresh = await runRelAlternateProbe(tabId, tabUrl);
-  if (fresh?.atUri && fresh.info) {
+  const fresh = await getOrCreateProbe(tabId, tabUrl);
+  if (fresh) {
     try {
       await setProbeCache(tabId, fresh);
     } catch (error) {
       logError('serviceWorker', error);
     }
-    return { info: fresh.info, atUri: fresh.atUri, source: fresh.source, cached: false };
+
+    if (fresh.info && fresh.atUri) {
+      return { info: fresh.info, atUri: fresh.atUri, source: fresh.source, cached: false };
+    }
+    return { info: null, atUri: null, source: fresh.source ?? null, cached: false };
   }
+
   return { info: null, atUri: null, source: null, cached: false };
 }
 
