@@ -356,6 +356,13 @@ describe('buildDestinations', () => {
     expect(hasSkythreadUrl).toBe(false);
   });
 
+  test('should exclude alpha.weaver.sh when record key missing', () => {
+    const profileOnlyInfo = { ...realPostInfo, rkey: undefined, nsid: undefined };
+    const destinations = buildDestinations(profileOnlyInfo);
+    const hasWeaver = destinations.some((dest) => dest.label.includes('alpha.weaver.sh'));
+    expect(hasWeaver).toBe(false);
+  });
+
   test('should exclude handle-based services when no handle', () => {
     const didOnlyInfo = { ...realPostInfo, handle: null };
     const destinations = buildDestinations(didOnlyInfo);

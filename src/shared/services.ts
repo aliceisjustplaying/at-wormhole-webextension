@@ -60,6 +60,7 @@ const SERVICE_LIST: [string, ServiceConfig][] = [
       name: 'alpha.weaver.sh',
       contentSupport: 'full',
       buildUrl: (info) => (info.atUri ? `https://alpha.weaver.sh/record/${info.atUri}` : null),
+      requiredFields: { rkey: true },
     },
   ],
   [
