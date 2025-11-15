@@ -165,7 +165,7 @@ async function handleProbeRequest(tabId: number, tabUrl?: string, force = false)
         } else if (cached.info && cached.atUri) {
           return { info: cached.info, atUri: cached.atUri, source: cached.source, cached: true };
         } else {
-          return { info: null, atUri: null, source: cached.source ?? null, cached: true };
+          await clearProbeCache(tabId);
         }
       }
     } catch (error) {
@@ -175,16 +175,14 @@ async function handleProbeRequest(tabId: number, tabUrl?: string, force = false)
 
   const fresh = await getOrCreateProbe(tabId, tabUrl);
   if (fresh) {
-    try {
-      await setProbeCache(tabId, fresh);
-    } catch (error) {
-      logError('serviceWorker', error);
-    }
-
     if (fresh.info && fresh.atUri) {
+      try {
+        await setProbeCache(tabId, fresh);
+      } catch (error) {
+        logError('serviceWorker', error);
+      }
       return { info: fresh.info, atUri: fresh.atUri, source: fresh.source, cached: false };
     }
-    return { info: null, atUri: null, source: fresh.source ?? null, cached: false };
   }
 
   return { info: null, atUri: null, source: null, cached: false };
