@@ -2,8 +2,7 @@ import { ResultAsync, ok, err, okAsync, errAsync } from 'neverthrow';
 import { isRecord } from './types';
 import type { WormholeError } from './errors';
 import { networkError, parseError } from './errors';
-import { logError } from './debug';
-import { withNetworkRetry } from './retry';
+import { logError } from './logging';
 
 /**
  * Safely parse JSON and ensure it's an object using ResultAsync
@@ -141,4 +140,33 @@ function _getDidWebWellKnownUrl(did: string): string {
     path = path.slice(0, -1);
   }
   return `https://${hostAndPort}${path}/.well-known/did.json`;
+}
+
+const NETWORK_RETRY_MAX_ATTEMPTS = 3;
+const NETWORK_RETRY_INITIAL_DELAY = 500;
+const NETWORK_RETRY_BACKOFF = 2.5;
+const NETWORK_RETRY_MAX_DELAY = 10000;
+
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+const shouldRetryNetworkError = (error: WormholeError): boolean => {
+  if (error.type !== 'NETWORK_ERROR') return false;
+  if (!error.status) return true;
+  if (error.status >= 500) return true;
+  return error.status === 429;
+};
+
+function withNetworkRetry<T>(fn: () => ResultAsync<T, WormholeError>, attempt = 1): ResultAsync<T, WormholeError> {
+  return fn().orElse((error) => {
+    logError('RESOLVER', error, { attempt });
+    if (attempt >= NETWORK_RETRY_MAX_ATTEMPTS || !shouldRetryNetworkError(error)) {
+      return err(error);
+    }
+
+    const exponentialDelay = NETWORK_RETRY_INITIAL_DELAY * Math.pow(NETWORK_RETRY_BACKOFF, attempt - 1);
+    const delayWithJitter = exponentialDelay * (0.5 + Math.random() * 0.5);
+    const delayMs = Math.min(delayWithJitter, NETWORK_RETRY_MAX_DELAY);
+
+    return ResultAsync.fromPromise(delay(delayMs), () => error).andThen(() => withNetworkRetry(fn, attempt + 1));
+  });
 }

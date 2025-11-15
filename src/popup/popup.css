@@ -103,3 +103,38 @@ hr {
     background-color: #555;
   }
 }
+
+body.firefox-theme {
+  background: var(--theme-bg, var(--fallback-bg));
+  color: var(--theme-text, var(--fallback-text));
+}
+
+body.firefox-theme button,
+body.firefox-theme ul#dest a {
+  background: var(--theme-button-bg, var(--fallback-button-bg));
+  color: var(--theme-button-text, var(--fallback-button-text));
+  border-color: var(--theme-border, var(--fallback-border));
+}
+
+body.firefox-theme button:hover,
+body.firefox-theme ul#dest a:hover {
+  background: var(--theme-button-hover, var(--theme-button-bg, var(--fallback-hover-bg)));
+}
+
+body.firefox-theme hr {
+  background-color: var(--theme-border, var(--fallback-border));
+}
+
+.debug-info {
+  font-size: 11px;
+  text-align: center;
+  margin-top: 8px;
+  color: #666;
+  min-height: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .debug-info {
+    color: #aaa;
+  }
+}
