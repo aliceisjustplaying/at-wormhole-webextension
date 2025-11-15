@@ -1,7 +1,7 @@
 import { ResultAsync, ok, err } from 'neverthrow';
 import type { WormholeError } from './errors';
 import { cacheError } from './errors';
-import { logError } from './debug';
+import { logError } from './logging';
 
 export class BidirectionalMap<K1, K2> {
   private forwardMap = new Map<K1, K2>();
@@ -59,15 +59,25 @@ interface CacheEntry {
   lastAccessed: number;
 }
 
+interface DidHandleCacheOptions {
+  maxStorageSize?: number;
+  persistDebounceMs?: number;
+}
+
 export class DidHandleCache {
   private cache = new BidirectionalMap<string, string>();
   private lastAccessTime = new Map<string, number>();
   private maxStorageSize: number;
   private static readonly STORAGE_KEY = 'wormhole-cache';
   private static readonly DEFAULT_MAX_SIZE = 4 * 1024 * 1024; // 4MB
+  private static readonly DEFAULT_PERSIST_DEBOUNCE_MS = 1500;
+  private persistTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingPersist = false;
+  private readonly persistDebounceMs: number;
 
-  constructor(maxStorageSize: number = DidHandleCache.DEFAULT_MAX_SIZE) {
-    this.maxStorageSize = maxStorageSize;
+  constructor(options: DidHandleCacheOptions = {}) {
+    this.maxStorageSize = options.maxStorageSize ?? DidHandleCache.DEFAULT_MAX_SIZE;
+    this.persistDebounceMs = options.persistDebounceMs ?? DidHandleCache.DEFAULT_PERSIST_DEBOUNCE_MS;
   }
 
   load(): ResultAsync<void, WormholeError> {
@@ -154,6 +164,7 @@ export class DidHandleCache {
   clear(): ResultAsync<void, WormholeError> {
     this.cache.clear();
     this.lastAccessTime.clear();
+    this.cancelScheduledPersist();
     return ResultAsync.fromPromise(chrome.storage.local.remove(DidHandleCache.STORAGE_KEY), (e) =>
       cacheError('Failed to clear cache from storage', 'clear', e),
     ).map(() => undefined);
@@ -195,15 +206,7 @@ export class DidHandleCache {
   private updateLastAccessed(did: string): void {
     this.lastAccessTime.set(did, Date.now());
 
-    // Fire-and-forget persistence with error logging
-    void this.persist().match(
-      () => {
-        // Success - no action needed
-      },
-      (error) => {
-        logError('CACHE', error, { operation: 'updateLastAccessed', did });
-      },
-    );
+    this.schedulePersist(did);
   }
 
   private checkSizeAndEvict(): void {
@@ -263,5 +266,48 @@ export class DidHandleCache {
       typeof (entry as CacheEntry).handle === 'string' &&
       typeof (entry as CacheEntry).lastAccessed === 'number'
     );
+  }
+
+  private schedulePersist(did: string): void {
+    if (this.persistDebounceMs <= 0) {
+      void this.persist().match(
+        () => {
+          // Success - no action needed
+        },
+        (error) => {
+          logError('CACHE', error, { operation: 'immediatePersist', did });
+        },
+      );
+      return;
+    }
+
+    this.pendingPersist = true;
+    if (this.persistTimer) {
+      return;
+    }
+
+    this.persistTimer = setTimeout(() => {
+      this.persistTimer = null;
+      if (!this.pendingPersist) {
+        return;
+      }
+      this.pendingPersist = false;
+      void this.persist().match(
+        () => {
+          // Success - no action needed
+        },
+        (error) => {
+          logError('CACHE', error, { operation: 'debouncedPersist', did });
+        },
+      );
+    }, this.persistDebounceMs);
+  }
+
+  private cancelScheduledPersist(): void {
+    if (this.persistTimer) {
+      clearTimeout(this.persistTimer);
+      this.persistTimer = null;
+    }
+    this.pendingPersist = false;
   }
 }

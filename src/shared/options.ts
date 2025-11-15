@@ -5,6 +5,7 @@ import { StorageError, storageError } from './errors';
 export interface WormholeOptions {
   showEmojis: boolean;
   strictMode: boolean;
+  showCacheDebug: boolean;
 }
 
 // Option metadata
@@ -26,12 +27,18 @@ const OPTION_CONFIGS: { [K in keyof WormholeOptions]: OptionMetadata<K> } = {
     defaultValue: false,
     description: 'Only show services that support the current content type',
   },
+  showCacheDebug: {
+    key: 'showCacheDebug',
+    defaultValue: false,
+    description: 'Display cache hit/miss info in the popup UI',
+  },
 };
 
 // Define defaults
 const DEFAULT_OPTIONS: WormholeOptions = {
   showEmojis: true,
   strictMode: false,
+  showCacheDebug: false,
 };
 
 // Get all options
@@ -80,6 +87,9 @@ export function onOptionsChange(callback: (changes: Partial<WormholeOptions>) =>
       if ('strictMode' in changes) {
         optionChanges.strictMode = changes.strictMode.newValue as boolean;
       }
+      if ('showCacheDebug' in changes) {
+        optionChanges.showCacheDebug = changes.showCacheDebug.newValue as boolean;
+      }
 
       if (Object.keys(optionChanges).length > 0) {
         callback(optionChanges);
@@ -108,18 +118,4 @@ export function getDefaultOptions(): WormholeOptions {
 // Get option metadata
 export function getOptionMetadata(): typeof OPTION_CONFIGS {
   return OPTION_CONFIGS;
-}
-
-// Legacy compatibility - backwards compatible wrapper for gradual migration
-export async function loadOptions(): Promise<WormholeOptions> {
-  const result = await getOptions();
-  return result.match(
-    (options) => options,
-    () => DEFAULT_OPTIONS,
-  );
-}
-
-// Clear any legacy cache (no-op now since we don't cache)
-export function clearOptionsCache(): void {
-  // No-op for compatibility
 }

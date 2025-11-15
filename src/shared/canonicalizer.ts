@@ -3,7 +3,7 @@ import { NSID_SHORTCUTS } from './constants';
 import type { TransformInfo } from './types';
 import type { WormholeError } from './errors';
 import { validationError } from './errors';
-import { logError } from './debug';
+import { logError } from './logging';
 
 /**
  * Canonicalizes an input fragment into a standard info object.

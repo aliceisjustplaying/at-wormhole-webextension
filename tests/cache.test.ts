@@ -174,7 +174,7 @@ describe('DidHandleCache', () => {
   let mockStorage: MockStorage;
 
   beforeEach(() => {
-    cache = new DidHandleCache();
+    cache = new DidHandleCache({ persistDebounceMs: 0 });
 
     mockStorage = {
       local: {
@@ -290,8 +290,6 @@ describe('DidHandleCache', () => {
         },
       );
 
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
       cache.getHandle('did:plc:123');
 
       expect(mockStorage.local.set).toHaveBeenCalledTimes(2);
@@ -372,7 +370,7 @@ describe('DidHandleCache', () => {
   describe('LRU eviction', () => {
     test('should handle size limits gracefully', async () => {
       const maxSize = 1000;
-      cache = new DidHandleCache(maxSize);
+      cache = new DidHandleCache({ maxStorageSize: maxSize, persistDebounceMs: 0 });
 
       await cache.set('did:plc:test1', 'test1.bsky.social').match(
         () => {
@@ -406,7 +404,7 @@ describe('DidHandleCache', () => {
 
     test('should evict entries when manually triggered', async () => {
       const maxSize = 100;
-      cache = new DidHandleCache(maxSize);
+      cache = new DidHandleCache({ maxStorageSize: maxSize, persistDebounceMs: 0 });
 
       await cache.set('did:plc:test1', 'test1.bsky.social').match(
         () => {

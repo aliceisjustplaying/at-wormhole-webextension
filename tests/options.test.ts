@@ -8,8 +8,6 @@ import {
   removeOptionsChangeListener,
   getDefaultOptions,
   getOptionMetadata,
-  loadOptions,
-  clearOptionsCache,
 } from '../src/shared/options';
 import type { WormholeOptions } from '../src/shared/options';
 
@@ -80,6 +78,7 @@ describe('Options Module', () => {
         expect(result.value).toEqual({
           showEmojis: true,
           strictMode: false,
+          showCacheDebug: false,
         });
       }
     });
@@ -87,6 +86,7 @@ describe('Options Module', () => {
     test('should return stored options', async () => {
       mockStorageData.showEmojis = false;
       mockStorageData.strictMode = true;
+      mockStorageData.showCacheDebug = true;
 
       const result = await getOptions();
       expect(result.isOk()).toBe(true);
@@ -94,6 +94,7 @@ describe('Options Module', () => {
         expect(result.value).toEqual({
           showEmojis: false,
           strictMode: true,
+          showCacheDebug: true,
         });
       }
     });
@@ -108,6 +109,7 @@ describe('Options Module', () => {
         expect(result.value).toEqual({
           showEmojis: false,
           strictMode: false, // default
+          showCacheDebug: false,
         });
       }
     });
@@ -117,6 +119,7 @@ describe('Options Module', () => {
     test('should return specific option value', async () => {
       mockStorageData.showEmojis = false;
       mockStorageData.strictMode = true;
+      mockStorageData.showCacheDebug = true;
 
       const result = await getOption('showEmojis');
       expect(result.isOk()).toBe(true);
@@ -132,6 +135,14 @@ describe('Options Module', () => {
         expect(result.value).toBe(false);
       }
     });
+
+    test('should return showCacheDebug default value', async () => {
+      const result = await getOption('showCacheDebug');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(false);
+      }
+    });
   });
 
   describe('setOptions', () => {
@@ -139,12 +150,14 @@ describe('Options Module', () => {
       const options: WormholeOptions = {
         showEmojis: false,
         strictMode: true,
+        showCacheDebug: true,
       };
 
       const result = await setOptions(options);
       expect(result.isOk()).toBe(true);
       expect(mockStorageData.showEmojis).toBe(false);
       expect(mockStorageData.strictMode).toBe(true);
+      expect(mockStorageData.showCacheDebug).toBe(true);
     });
 
     test('should set partial options', async () => {
@@ -152,14 +165,15 @@ describe('Options Module', () => {
       expect(result.isOk()).toBe(true);
       expect(mockStorageData.showEmojis).toBe(false);
       expect(mockStorageData.strictMode).toBeUndefined();
+      expect(mockStorageData.showCacheDebug).toBeUndefined();
     });
   });
 
   describe('setOption', () => {
     test('should set single option', async () => {
-      const result = await setOption('showEmojis', false);
+      const result = await setOption('showCacheDebug', true);
       expect(result.isOk()).toBe(true);
-      expect(mockStorageData.showEmojis).toBe(false);
+      expect(mockStorageData.showCacheDebug).toBe(true);
     });
   });
 
@@ -239,6 +253,7 @@ describe('Options Module', () => {
       expect(defaults).toEqual({
         showEmojis: true,
         strictMode: false,
+        showCacheDebug: false,
       });
     });
 
@@ -263,37 +278,11 @@ describe('Options Module', () => {
         defaultValue: false,
         description: 'Only show services that support the current content type',
       });
-    });
-  });
-
-  describe('loadOptions (legacy)', () => {
-    test('should return options on success', async () => {
-      mockStorageData.showEmojis = false;
-      const options = await loadOptions();
-      expect(options).toEqual({
-        showEmojis: false,
-        strictMode: false,
+      expect(metadata.showCacheDebug).toEqual({
+        key: 'showCacheDebug',
+        defaultValue: false,
+        description: 'Display cache hit/miss info in the popup UI',
       });
-    });
-
-    test('should return defaults on error', async () => {
-      // Simulate storage error
-      mockChrome.storage.sync.get.mockImplementationOnce(() => {
-        return Promise.reject(new Error('Storage error'));
-      });
-
-      const options = await loadOptions();
-      expect(options).toEqual({
-        showEmojis: true,
-        strictMode: false,
-      });
-    });
-  });
-
-  describe('clearOptionsCache', () => {
-    test('should be a no-op', () => {
-      // Should not throw
-      expect(() => clearOptionsCache()).not.toThrow();
     });
   });
 });

@@ -57,7 +57,10 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "wormhole@aliceisjustplaying"
+      "id": "wormhole@aliceisjustplaying",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   }
 }

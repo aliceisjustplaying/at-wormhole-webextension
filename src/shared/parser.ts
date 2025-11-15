@@ -2,9 +2,9 @@ import { Result, ok, err } from 'neverthrow';
 import type { TransformInfo } from './types';
 import type { WormholeError } from './errors';
 import { parseError } from './errors';
-import { parseUrlFromServices } from './services';
+import { SERVICES } from './services';
 import { canonicalize } from './canonicalizer';
-import { logError } from './debug';
+import { logError } from './logging';
 
 /**
  * Parses a raw input string (URL, DID, handle) and returns canonical info.
@@ -71,4 +71,55 @@ export function parseInput(raw: string): Result<TransformInfo | null, WormholeEr
         return err(error);
       });
   });
+}
+
+function parseUrlFromServices(url: URL): string | null {
+  for (const service of Object.values(SERVICES)) {
+    if (!service.parsing) continue;
+
+    const hostnames = Array.isArray(service.parsing.hostname) ? service.parsing.hostname : [service.parsing.hostname];
+    if (!hostnames.includes(url.hostname)) continue;
+
+    const patterns = service.parsing.patterns;
+    if (!patterns) continue;
+
+    if (patterns.customParser) {
+      const result = patterns.customParser(url);
+      if (result) return result;
+    }
+
+    if (patterns.queryParam) {
+      const param = url.searchParams.get(patterns.queryParam);
+      if (param && (param.startsWith('did:') || param.includes('.'))) {
+        return param;
+      }
+    }
+
+    if (patterns.profileIdentifier) {
+      const match = url.pathname.match(patterns.profileIdentifier);
+      if (match) {
+        const identifier = match[1];
+        const restPath = url.pathname.slice(match[0].length);
+        return restPath ? `${identifier}${restPath}` : identifier;
+      }
+    }
+
+    if (patterns.profileHandle) {
+      const match = url.pathname.match(patterns.profileHandle);
+      if (match) {
+        const handle = match[1];
+        const restPath = url.pathname.slice(match[0].length);
+        return restPath ? `${handle}${restPath}` : handle;
+      }
+    }
+
+    if (patterns.profileDid) {
+      const match = url.pathname.match(patterns.profileDid);
+      if (match) {
+        return match[1];
+      }
+    }
+  }
+
+  return null;
 }

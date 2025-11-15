@@ -1,127 +1,51 @@
 import { parseInput } from '../shared/parser';
 import { buildDestinations } from '../shared/services';
-import { loadOptions } from '../shared/options';
-import Debug from '../shared/debug';
-import type { BrowserWithTheme, DebugConfig, Destination, WindowWithDebug } from '../shared/types';
+import { getOptions, getDefaultOptions } from '../shared/options';
+import type { BrowserWithTheme, Destination } from '../shared/types';
 import { ResultAsync } from 'neverthrow';
 import { runtimeError, type RuntimeError } from '../shared/errors';
+import { debugLog } from '../shared/logging';
 
-/**
- * Applies Firefox theme colors to the popup if available, falls back to CSS media query
- */
-async function applyTheme(): Promise<void> {
-  Debug.theme('Theme detection starting...');
-
-  // Only attempt theme detection in Firefox
+async function applyFirefoxTheme(): Promise<void> {
   const browserWithTheme = chrome as BrowserWithTheme;
   if (!browserWithTheme.theme?.getCurrent) {
-    Debug.theme('Theme API not available (likely Chrome or older Firefox)');
     return;
   }
 
-  Debug.theme('Theme API available, getting current theme...');
-
   try {
     const theme = await browserWithTheme.theme.getCurrent();
-    Debug.theme('Raw theme object:', theme);
-
-    if (!theme.colors) {
-      Debug.warn('theme', 'No colors in theme, using CSS fallback');
-      return;
-    }
-
     const colors = theme.colors;
-    Debug.theme('Theme colors found:', colors);
+    if (!colors) return;
 
-    const style = document.createElement('style');
-    style.id = 'firefox-theme-override';
+    const cssVars: string[] = [];
+    const pick = (...values: (string | undefined)[]) => values.find((value) => typeof value === 'string');
 
-    // Build CSS custom properties from theme colors
-    const cssVars = [];
+    const bg = pick(colors.popup, colors.toolbar);
+    const text = pick(colors.popup_text, colors.toolbar_text);
+    const border = pick(colors.popup_border, colors.toolbar_field_border);
+    const buttonBg = pick(colors.popup_highlight, colors.toolbar_field);
+    const buttonText = pick(colors.popup_highlight_text, colors.toolbar_field_text);
+    const buttonHover = colors.button_background_hover;
 
-    // Use popup colors first (most appropriate for our popup)
-    if (colors.popup) {
-      cssVars.push(`--theme-bg: ${colors.popup}`);
-      Debug.theme(`Background: ${colors.popup}`);
-    } else if (colors.toolbar) {
-      cssVars.push(`--theme-bg: ${colors.toolbar}`);
-      Debug.theme(`Background (toolbar fallback): ${colors.toolbar}`);
-    }
+    if (bg) cssVars.push(`--theme-bg: ${bg}`);
+    if (text) cssVars.push(`--theme-text: ${text}`);
+    if (border) cssVars.push(`--theme-border: ${border}`);
+    if (buttonBg) cssVars.push(`--theme-button-bg: ${buttonBg}`);
+    if (buttonText) cssVars.push(`--theme-button-text: ${buttonText}`);
+    if (buttonHover) cssVars.push(`--theme-button-hover: ${buttonHover}`);
 
-    if (colors.popup_text) {
-      cssVars.push(`--theme-text: ${colors.popup_text}`);
-      Debug.theme(`Text: ${colors.popup_text}`);
-    } else if (colors.toolbar_text) {
-      cssVars.push(`--theme-text: ${colors.toolbar_text}`);
-      Debug.theme(`Text (toolbar fallback): ${colors.toolbar_text}`);
-    }
+    if (!cssVars.length) return;
 
-    if (colors.popup_border) {
-      cssVars.push(`--theme-border: ${colors.popup_border}`);
-      Debug.theme(`Border: ${colors.popup_border}`);
-    } else if (colors.toolbar_field_border) {
-      cssVars.push(`--theme-border: ${colors.toolbar_field_border}`);
-      Debug.theme(`Border (field fallback): ${colors.toolbar_field_border}`);
-    }
-
-    // For buttons, use popup_highlight or toolbar_field colors
-    if (colors.popup_highlight) {
-      cssVars.push(`--theme-button-bg: ${colors.popup_highlight}`);
-      Debug.theme(`Button bg: ${colors.popup_highlight}`);
-    } else if (colors.toolbar_field) {
-      cssVars.push(`--theme-button-bg: ${colors.toolbar_field}`);
-      Debug.theme(`Button bg (field fallback): ${colors.toolbar_field}`);
-    }
-
-    if (colors.popup_highlight_text) {
-      cssVars.push(`--theme-button-text: ${colors.popup_highlight_text}`);
-      Debug.theme(`Button text: ${colors.popup_highlight_text}`);
-    } else if (colors.toolbar_field_text) {
-      cssVars.push(`--theme-button-text: ${colors.toolbar_field_text}`);
-      Debug.theme(`Button text (field fallback): ${colors.toolbar_field_text}`);
-    }
-
-    // Hover effects
-    if (colors.button_background_hover) {
-      cssVars.push(`--theme-button-hover: ${colors.button_background_hover}`);
-      Debug.theme(`Button hover: ${colors.button_background_hover}`);
-    }
-
-    Debug.theme(`Total CSS vars created: ${cssVars.length}`);
-
-    // Only apply if we have meaningful theme colors
-    if (cssVars.length > 0) {
-      style.textContent = `
-        :root { ${cssVars.join('; ')}; }
-        body.firefox-theme {
-          background: var(--theme-bg, var(--fallback-bg)) !important;
-          color: var(--theme-text, var(--fallback-text)) !important;
-        }
-        body.firefox-theme button,
-        body.firefox-theme ul#dest a {
-          background: var(--theme-button-bg, var(--fallback-button-bg)) !important;
-          color: var(--theme-button-text, var(--fallback-button-text)) !important;
-          border-color: var(--theme-border, var(--fallback-border)) !important;
-        }
-        body.firefox-theme button:hover,
-        body.firefox-theme ul#dest a:hover {
-          background: var(--theme-button-hover, var(--theme-button-bg, var(--fallback-hover-bg))) !important;
-          filter: brightness(1.1);
-        }
-        body.firefox-theme hr {
-          background-color: var(--theme-border, var(--fallback-border)) !important;
-        }
-      `;
-
+    let style = document.getElementById('firefox-theme-vars') as HTMLStyleElement | null;
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'firefox-theme-vars';
       document.head.appendChild(style);
-      document.body.classList.add('firefox-theme');
-      Debug.theme('Firefox theme applied successfully!');
-      Debug.theme('CSS applied:', style.textContent);
-    } else {
-      Debug.warn('theme', 'No usable theme colors found, using CSS fallback');
     }
+    style.textContent = `:root { ${cssVars.join('; ')}; }`;
+    document.body.classList.add('firefox-theme');
   } catch (error) {
-    Debug.error('theme', 'Theme detection failed:', error);
+    debugLog('popup', 'Firefox theme detection failed', error);
   }
 }
 
@@ -150,17 +74,13 @@ function sendRuntimeMessage<T>(message: unknown): ResultAsync<T, RuntimeError> {
  */
 const domContentLoadedHandler = () => {
   void (async () => {
-    // Load debug configuration and options
-    // We don't need to handle errors here - debug config is optional
-    await Debug.loadRuntimeConfig().unwrapOr(undefined);
-    const options = await loadOptions();
-    Debug.popup('Popup initialized');
+    await applyFirefoxTheme();
+    const optionsResult = await getOptions();
+    const options = optionsResult.unwrapOr(getDefaultOptions());
+    debugLog('popup', 'Popup initialized');
 
-    // Apply Firefox theme if available
-    await applyTheme();
     const list = document.getElementById('dest') as HTMLUListElement;
     const emptyBtn = document.getElementById('emptyCacheBtn') as HTMLButtonElement;
-    const debugInfo = document.getElementById('debugInfo') as HTMLDivElement;
 
     // Close popup when a destination link is clicked (Firefox MV3 does not auto-close)
     list.addEventListener('click', (e: MouseEvent) => {
@@ -173,20 +93,59 @@ const domContentLoadedHandler = () => {
       }
     });
 
-    const showStatus = (msg: string): void => {
-      Debug.popup('Showing status:', msg);
-      list.innerHTML = `<li>${msg}</li>`;
+    const createStatusItem = (msg: string): HTMLLIElement => {
+      const item = document.createElement('li');
+      item.textContent = msg;
+      return item;
     };
-    const createItem = ({ url, label }: Destination): string => `
-    <li>
-      <a href="${url}" target="_blank" rel="noopener noreferrer">
-        ${label}
-      </a>
-    </li>`;
+
+    const createDestinationItem = ({ url, label }: Destination): HTMLLIElement => {
+      const item = document.createElement('li');
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.target = '_blank';
+      anchor.rel = 'noopener noreferrer';
+      anchor.textContent = label;
+      item.appendChild(anchor);
+      return item;
+    };
+
+    const debugInfo = document.getElementById('debugInfo') as HTMLDivElement | null;
+
+    const setDebugInfo = (msg: string): void => {
+      if (!debugInfo) return;
+      if (!options.showCacheDebug) {
+        debugInfo.hidden = true;
+        debugInfo.textContent = '';
+        return;
+      }
+      debugInfo.hidden = false;
+      debugInfo.textContent = msg;
+    };
+
+    if (debugInfo) {
+      if (options.showCacheDebug) {
+        debugInfo.hidden = false;
+        debugInfo.textContent = 'Cache debug enabled';
+      } else {
+        debugInfo.hidden = true;
+        debugInfo.textContent = '';
+      }
+    }
+
+    const showStatus = (msg: string): void => {
+      debugLog('popup', 'Showing status:', msg);
+      list.replaceChildren(createStatusItem(msg));
+    };
+
     const render = (ds: Destination[]): void => {
-      Debug.popup('Rendering destinations:', ds.length);
+      debugLog('popup', 'Rendering destinations:', ds.length);
       if (ds.length) {
-        list.innerHTML = ds.map(createItem).join('');
+        const fragment = document.createDocumentFragment();
+        ds.forEach((destination) => {
+          fragment.appendChild(createDestinationItem(destination));
+        });
+        list.replaceChildren(fragment);
       } else {
         showStatus('No actions available');
       }
@@ -197,7 +156,7 @@ const domContentLoadedHandler = () => {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     const activeUrl = tabs[0]?.url ?? '';
     const raw: string = payload ?? activeUrl;
-    Debug.parsing('Processing input:', raw);
+    debugLog('parsing', 'Processing input:', raw);
     if (!raw) {
       showStatus('No URL or payload provided');
       return;
@@ -206,7 +165,7 @@ const domContentLoadedHandler = () => {
     const parseResult = parseInput(raw);
     void parseResult.match(
       async (info) => {
-        Debug.parsing('Parse result:', info);
+        debugLog('parsing', 'Parse result:', info);
         if (!info || (!info.did && !info.handle && !info.atUri)) {
           showStatus('No DID or at:// URI found in current tab.');
           return;
@@ -229,8 +188,12 @@ const domContentLoadedHandler = () => {
             (response) => {
               const handle = response.handle;
               if (handle && import.meta.env.MODE === 'development') {
-                debugInfo.textContent =
-                  response.fromCache ? 'handle was fetched from cache' : 'was forced to resolve handle';
+                debugLog('popup', response.fromCache ? 'handle cache hit' : 'handle resolved');
+              }
+              if (handle) {
+                setDebugInfo(response.fromCache ? 'DID cache hit' : 'DID cache miss');
+              } else {
+                setDebugInfo('DID cache unresolved');
               }
               return { handleToUse: handle, errorStatusWasSet: false };
             },
@@ -266,7 +229,12 @@ const domContentLoadedHandler = () => {
             (response) => {
               const did = response.did;
               if (did && import.meta.env.MODE === 'development') {
-                debugInfo.textContent = response.fromCache ? 'did was fetched from cache' : 'was forced to resolve did';
+                debugLog('popup', response.fromCache ? 'did cache hit' : 'did resolved');
+              }
+              if (did) {
+                setDebugInfo(response.fromCache ? 'Handle cache hit' : 'Handle cache miss');
+              } else {
+                setDebugInfo('Handle cache unresolved');
               }
               return { didToUse: did, errorStatusWasSet: false };
             },
@@ -334,34 +302,3 @@ const domContentLoadedHandler = () => {
 };
 
 document.addEventListener('DOMContentLoaded', domContentLoadedHandler);
-
-// Expose debug controls to browser console for development
-// Usage: window.wormholeDebug.theme(true) or window.wormholeDebug.getConfig()
-
-(window as unknown as WindowWithDebug).wormholeDebug = {
-  theme: (enabled: boolean) => {
-    Debug.setCategory('theme', enabled);
-  },
-  cache: (enabled: boolean) => {
-    Debug.setCategory('cache', enabled);
-  },
-  parsing: (enabled: boolean) => {
-    Debug.setCategory('parsing', enabled);
-  },
-  popup: (enabled: boolean) => {
-    Debug.setCategory('popup', enabled);
-  },
-  serviceWorker: (enabled: boolean) => {
-    Debug.setCategory('serviceWorker', enabled);
-  },
-  transform: (enabled: boolean) => {
-    Debug.setCategory('transform', enabled);
-  },
-  getConfig: () => Debug.getConfig(),
-  all: (enabled: boolean) => {
-    const categories: (keyof DebugConfig)[] = ['theme', 'cache', 'parsing', 'popup', 'serviceWorker', 'transform'];
-    categories.forEach((category) => {
-      Debug.setCategory(category, enabled);
-    });
-  },
-};
