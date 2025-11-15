@@ -147,11 +147,11 @@ export const SERVICES: Record<string, ServiceConfig> = {
     parsing: {
       hostname: 'clearsky.app',
       patterns: {
-        // Clearsky URLs contain DIDs: /did:plc:xyz/blocked-by
+        // Clearsky URLs contain DIDs: /did:plc:xyz/blocking/blocked-by
         profileDid: /^\/(did:[^/]+)/,
       },
     },
-    buildUrl: (info) => `https://clearsky.app/${info.did}/blocked-by`,
+    buildUrl: (info) => `https://clearsky.app/${info.did}/blocking/blocked-by`,
   },
 
   SKYTHREAD: {

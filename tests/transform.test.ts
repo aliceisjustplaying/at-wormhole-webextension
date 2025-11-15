@@ -333,7 +333,7 @@ describe('buildDestinations', () => {
     expect(destMap['atp.tools']).toBe(
       'https://atp.tools/at:/did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
     );
-    expect(destMap.clearsky).toBe('https://clearsky.app/did:plc:kkkcb7sys7623hcf7oefcffg/blocked-by');
+    expect(destMap.clearsky).toBe('https://clearsky.app/did:plc:kkkcb7sys7623hcf7oefcffg/blocking/blocked-by');
     expect(destMap.skythread).toBe(
       'https://blue.mackuba.eu/skythread/?author=did:plc:kkkcb7sys7623hcf7oefcffg&post=3lqcw7n4gly2u',
     );
