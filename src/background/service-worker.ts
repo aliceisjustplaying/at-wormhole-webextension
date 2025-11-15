@@ -183,6 +183,11 @@ async function handleProbeRequest(tabId: number, tabUrl?: string, force = false)
       }
       return { info: fresh.info, atUri: fresh.atUri, source: fresh.source, cached: false };
     }
+
+    // We intentionally do not cache negative results (no metadata) so that
+    // future popup opens can re-check the page. This trades a tiny bit of
+    // extra scripting work for avoiding stale "no metadata" responses when
+    // the page content changes without a navigation event.
   }
 
   return { info: null, atUri: null, source: null, cached: false };
