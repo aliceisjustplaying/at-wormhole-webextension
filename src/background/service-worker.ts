@@ -18,6 +18,7 @@ interface ProbeCacheEntry {
   atUri: string | null;
   source: ProbeSource | null;
   detectedAt: number;
+  url: string;
 }
 
 async function initializeCache(): Promise<void> {
@@ -89,7 +90,7 @@ function shouldSkipProbe(url?: string): boolean {
   return !(url.startsWith('http://') || url.startsWith('https://'));
 }
 
-async function runRelAlternateProbe(tabId: number): Promise<ProbeCacheEntry | null> {
+async function runRelAlternateProbe(tabId: number, tabUrl?: string): Promise<ProbeCacheEntry | null> {
   try {
     const injectionResults = (await chrome.scripting.executeScript({
       target: { tabId },
@@ -118,6 +119,7 @@ async function runRelAlternateProbe(tabId: number): Promise<ProbeCacheEntry | nu
       atUri: match?.atUri ?? null,
       source: match ? 'rel-alternate' : null,
       detectedAt: Date.now(),
+      url: tabUrl ?? '',
     };
   } catch (error) {
     logError('serviceWorker', error);
@@ -134,18 +136,21 @@ async function handleProbeRequest(tabId: number, tabUrl?: string, force = false)
     try {
       const cached = await getProbeCache(tabId);
       if (cached && Date.now() - cached.detectedAt < PROBE_CACHE_TTL_MS) {
-        if (cached.info && cached.atUri) {
+        if (tabUrl && (!cached.url || cached.url !== tabUrl)) {
+          await clearProbeCache(tabId);
+        } else if (cached.info && cached.atUri) {
           return { info: cached.info, atUri: cached.atUri, source: cached.source, cached: true };
+        } else {
+          // Cached miss - fall through to rerun probe so we don't stick with stale nulls
+          await clearProbeCache(tabId);
         }
-        // Cached miss - fall through to rerun probe so we don't stick with stale nulls
-        await clearProbeCache(tabId);
       }
     } catch (error) {
       logError('serviceWorker', error);
     }
   }
 
-  const fresh = await runRelAlternateProbe(tabId);
+  const fresh = await runRelAlternateProbe(tabId, tabUrl);
   if (fresh?.atUri && fresh.info) {
     try {
       await setProbeCache(tabId, fresh);

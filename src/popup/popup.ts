@@ -84,7 +84,7 @@ function mergeTransformInfo(primary: TransformInfo | null, secondary: TransformI
     handle: primary.handle ?? secondary.handle,
     rkey: primary.rkey ?? secondary.rkey,
     nsid: primary.nsid ?? secondary.nsid,
-    bskyAppPath: primary.bskyAppPath || secondary.bskyAppPath,
+    bskyAppPath: primary.bskyAppPath,
   };
 }
 
