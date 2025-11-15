@@ -21,7 +21,7 @@
 body {
   font-family: -apple-system, sans-serif;
   margin: 0;
-  padding: 10px 10px 10px 10px;
+  padding: 8px;
   width: 280px;
 }
 ul {
@@ -30,12 +30,12 @@ ul {
   margin: 0;
 }
 li {
-  margin: 4px 0;
+  margin: 3px 0;
 }
 button {
   width: 100%;
   text-align: left;
-  padding: 6px 8px;
+  padding: 5px 8px;
   border: 1px solid #ccc;
   border-radius: 6px;
   background: #fafafa;
@@ -49,7 +49,7 @@ ul#dest a {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 6px 8px;
+  padding: 5px 8px;
   border: 1px solid #ccc;
   border-radius: 6px;
   background: #fafafa;
@@ -64,15 +64,17 @@ ul#dest a:hover {
   text-decoration: none;
 }
 
-hr {
+.divider {
   border: 0;
   height: 1px;
   background-color: #ccc;
+  margin: 6px 0;
 }
 
 #emptyCacheBtn {
   width: auto;
   text-align: center;
+  font-size: 12px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -137,4 +139,8 @@ body.firefox-theme hr {
   .debug-info {
     color: #aaa;
   }
+}
+#controls {
+  text-align: center;
+  margin-top: 6px;
 }
