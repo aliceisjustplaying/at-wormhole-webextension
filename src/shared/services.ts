@@ -4,270 +4,283 @@ export interface ServiceConfig {
   emoji: string;
   name: string;
   contentSupport: 'only-profiles' | 'only-posts' | 'profiles-and-posts' | 'full';
-
-  // Input parsing configuration
   parsing?: {
-    hostname: string | string[]; // Support multiple hostnames
+    hostname: string | string[];
     patterns?: {
-      // For services accepting handle OR DID (e.g., bsky.app/profile/X)
       profileIdentifier?: RegExp;
-
-      // For handle-only services (e.g., cred.blue/alice)
       profileHandle?: RegExp;
-
-      // For DID-only services (e.g., clearsky.app/did:plc:xyz)
       profileDid?: RegExp;
-
-      // For query parameter extraction (e.g., ?q=did:plc:xyz)
       queryParam?: string;
-
-      // For complex cases (e.g., skythread's multi-param format)
       customParser?: (url: URL) => string | null;
     };
   };
-
-  // Output building configuration
   buildUrl: (info: TransformInfo) => string | null;
   requiredFields?: {
     handle?: boolean;
     rkey?: boolean;
-    plcOnly?: boolean; // Only for did:plc, not did:web
+    plcOnly?: boolean;
   };
 }
 
-export const SERVICES: Record<string, ServiceConfig> = {
-  DEER_SOCIAL: {
-    emoji: '🦌',
-    name: 'deer.social',
-    contentSupport: 'full',
-    parsing: {
-      hostname: 'deer.social',
-      patterns: {
-        // Matches /profile/IDENTIFIER where IDENTIFIER can be handle or DID
-        profileIdentifier: /^\/profile\/([^/]+)/,
-      },
-    },
-    buildUrl: (info) => `https://deer.social${info.bskyAppPath}`,
-  },
-
-  BSKY_APP: {
-    emoji: '🦋',
-    name: 'bsky.app',
-    contentSupport: 'full',
-    parsing: {
-      hostname: 'bsky.app',
-      patterns: {
-        // Matches /profile/IDENTIFIER where IDENTIFIER can be handle or DID
-        profileIdentifier: /^\/profile\/([^/]+)/,
-      },
-    },
-    buildUrl: (info) => `https://bsky.app${info.bskyAppPath}`,
-  },
-
-  ATP_TOOLS: {
-    emoji: '🛠️',
-    name: 'atp.tools',
-    contentSupport: 'full',
-    parsing: {
-      hostname: 'atp.tools',
-      patterns: {
-        customParser: (url) => {
-          // ATP Tools uses at:/ instead of at:// in URLs
-          const atMatch = /at:\/[\w:.\-/]+/.exec(url.pathname);
-          if (atMatch) {
-            // Convert at:/ to at:// for canonicalization
-            return atMatch[0].replace('at:/', 'at://');
-          }
-          return null;
+const SERVICE_LIST: [string, ServiceConfig][] = [
+  [
+    'BSKY_APP',
+    {
+      emoji: '🦋',
+      name: 'bsky.app',
+      contentSupport: 'full',
+      parsing: {
+        hostname: 'bsky.app',
+        patterns: {
+          profileIdentifier: /^\/profile\/([^/]+)/,
         },
       },
+      buildUrl: (info) => `https://bsky.app${info.bskyAppPath}`,
     },
-    buildUrl: (info) => (info.atUri ? `https://atp.tools/${info.atUri.replace('at://', 'at:/')}` : ''),
-  },
-
-  PDSLS_DEV: {
-    emoji: '⚙️',
-    name: 'pdsls.dev',
-    contentSupport: 'full',
-    parsing: {
-      hostname: 'pdsls.dev',
-      patterns: {
-        customParser: (url) => {
-          // Extract AT URI from pathname: /at://did:plc:xyz/app.bsky.feed.post/abc
-          const atMatch = /at:\/\/[\w:.\-/]+/.exec(url.pathname);
-          return atMatch ? atMatch[0] : null;
+  ],
+  [
+    'DEER_SOCIAL',
+    {
+      emoji: '🦌',
+      name: 'deer.social',
+      contentSupport: 'full',
+      parsing: {
+        hostname: 'deer.social',
+        patterns: {
+          profileIdentifier: /^\/profile\/([^/]+)/,
         },
       },
+      buildUrl: (info) => `https://deer.social${info.bskyAppPath}`,
     },
-    buildUrl: (info) => `https://pdsls.dev/${info.atUri}`,
-  },
-
-  REPOVIEW: {
-    emoji: '📁',
-    name: 'repoview.edavis.dev',
-    contentSupport: 'full',
-    parsing: {
-      hostname: 'repoview.edavis.dev',
-      patterns: {
-        customParser: (url) => {
-          // Extract AT URI from pathname: /at://did:plc:xyz/app.bsky.feed.post/abc
-          const atMatch = /at:\/\/[\w:.\-/]+/.exec(url.pathname);
-          return atMatch ? atMatch[0] : null;
+  ],
+  [
+    'WEAVER',
+    {
+      emoji: '🧵',
+      name: 'alpha.weaver.sh',
+      contentSupport: 'full',
+      buildUrl: (info) => (info.atUri ? `https://alpha.weaver.sh/record/${info.atUri}` : null),
+    },
+  ],
+  [
+    'ATP_TOOLS',
+    {
+      emoji: '🛠️',
+      name: 'atp.tools',
+      contentSupport: 'full',
+      parsing: {
+        hostname: 'atp.tools',
+        patterns: {
+          customParser: (url) => {
+            const atMatch = /at:\/[\w:.\-/]+/.exec(url.pathname);
+            return atMatch ? atMatch[0].replace('at:/', 'at://') : null;
+          },
         },
       },
+      buildUrl: (info) => (info.atUri ? `https://atp.tools/${info.atUri.replace('at://', 'at:/')}` : ''),
     },
-    buildUrl: (info) => `https://repoview.edavis.dev/${info.atUri}`,
-  },
-
-  ASTROLABE: {
-    emoji: '🔭',
-    name: 'astrolabe.at',
-    contentSupport: 'full',
-    parsing: {
-      hostname: 'astrolabe.at',
-      patterns: {
-        customParser: (url) => {
-          // astrolabe uses at/ instead of at:// in URLs
-          const atMatch = /at\/[\w:.\-/]+/.exec(url.pathname);
-          if (atMatch) {
-            // Convert at/ to at:// for canonicalization
-            return atMatch[0].replace('at/', 'at://');
-          }
-          return null;
+  ],
+  [
+    'PDSLS_DEV',
+    {
+      emoji: '⚙️',
+      name: 'pdsls.dev',
+      contentSupport: 'full',
+      parsing: {
+        hostname: 'pdsls.dev',
+        patterns: {
+          customParser: (url) => {
+            const atMatch = /at:\/\/[\w:.\-/]+/.exec(url.pathname);
+            return atMatch ? atMatch[0] : null;
+          },
         },
       },
+      buildUrl: (info) => `https://pdsls.dev/${info.atUri}`,
     },
-    buildUrl: (info) => (info.atUri ? `https://astrolabe.at/${info.atUri.replace('at://', 'at/')}` : ''),
-  },
-
-  CLEARSKY: {
-    emoji: '☀️',
-    name: 'clearsky',
-    contentSupport: 'only-profiles',
-    parsing: {
-      hostname: 'clearsky.app',
-      patterns: {
-        // Clearsky URLs contain DIDs: /did:plc:xyz/blocked-by
-        profileDid: /^\/(did:[^/]+)/,
+  ],
+  [
+    'REPOVIEW',
+    {
+      emoji: '📁',
+      name: 'repoview.edavis.dev',
+      contentSupport: 'full',
+      parsing: {
+        hostname: 'repoview.edavis.dev',
+        patterns: {
+          customParser: (url) => {
+            const atMatch = /at:\/\/[\w:.\-/]+/.exec(url.pathname);
+            return atMatch ? atMatch[0] : null;
+          },
+        },
       },
+      buildUrl: (info) => `https://repoview.edavis.dev/${info.atUri}`,
     },
-    buildUrl: (info) => `https://clearsky.app/${info.did}/blocked-by`,
-  },
-
-  SKYTHREAD: {
-    emoji: '☁️',
-    name: 'skythread',
-    contentSupport: 'only-posts',
-    parsing: {
-      hostname: 'blue.mackuba.eu',
-      patterns: {
-        customParser: (url) => {
-          if (url.pathname.startsWith('/skythread')) {
-            const author = url.searchParams.get('author');
-            const post = url.searchParams.get('post');
-            if (author?.startsWith('did:') && post) {
-              // Return in a format that canonicalize can handle
-              return `${author}/app.bsky.feed.post/${post}`;
+  ],
+  [
+    'ASTROLABE',
+    {
+      emoji: '🔭',
+      name: 'astrolabe.at',
+      contentSupport: 'full',
+      parsing: {
+        hostname: 'astrolabe.at',
+        patterns: {
+          customParser: (url) => {
+            const atMatch = /at\/[\w:.\-/]+/.exec(url.pathname);
+            return atMatch ? atMatch[0].replace('at/', 'at://') : null;
+          },
+        },
+      },
+      buildUrl: (info) => (info.atUri ? `https://astrolabe.at/${info.atUri.replace('at://', 'at/')}` : ''),
+    },
+  ],
+  [
+    'CLEARSKY',
+    {
+      emoji: '☀️',
+      name: 'clearsky',
+      contentSupport: 'only-profiles',
+      parsing: {
+        hostname: 'clearsky.app',
+        patterns: {
+          profileDid: /^\/(did:[^/]+)/,
+        },
+      },
+      buildUrl: (info) => (info.handle ? `https://clearsky.app/${info.handle}/blocking/blocked-by` : null),
+      requiredFields: { handle: true },
+    },
+  ],
+  [
+    'SKYTHREAD',
+    {
+      emoji: '☁️',
+      name: 'skythread',
+      contentSupport: 'only-posts',
+      parsing: {
+        hostname: 'blue.mackuba.eu',
+        patterns: {
+          customParser: (url) => {
+            if (url.pathname.startsWith('/skythread')) {
+              const author = url.searchParams.get('author');
+              const post = url.searchParams.get('post');
+              if (author?.startsWith('did:') && post) {
+                return `${author}/app.bsky.feed.post/${post}`;
+              }
             }
-          }
-          return null;
+            return null;
+          },
         },
       },
+      buildUrl: (info) =>
+        info.rkey ? `https://blue.mackuba.eu/skythread/?author=${info.did}&post=${info.rkey}` : null,
+      requiredFields: { rkey: true },
     },
-    buildUrl: (info) => (info.rkey ? `https://blue.mackuba.eu/skythread/?author=${info.did}&post=${info.rkey}` : null),
-    requiredFields: { rkey: true },
-  },
-
-  CRED_BLUE: {
-    emoji: '🍥',
-    name: 'cred.blue',
-    contentSupport: 'only-profiles',
-    parsing: {
-      hostname: 'cred.blue',
-      patterns: {
-        // cred.blue/handle (no @ prefix)
-        profileHandle: /^\/([^/]+)$/,
+  ],
+  [
+    'CRED_BLUE',
+    {
+      emoji: '🍥',
+      name: 'cred.blue',
+      contentSupport: 'only-profiles',
+      parsing: {
+        hostname: 'cred.blue',
+        patterns: {
+          profileHandle: /^\/([^/]+)$/,
+        },
       },
+      buildUrl: (info) => (info.handle ? `https://cred.blue/${info.handle}` : null),
+      requiredFields: { handle: true },
     },
-    buildUrl: (info) => (info.handle ? `https://cred.blue/${info.handle}` : null),
-    requiredFields: { handle: true },
-  },
-
-  TANGLED_SH: {
-    emoji: '🪢',
-    name: 'tangled.sh',
-    contentSupport: 'only-profiles',
-    parsing: {
-      hostname: 'tangled.sh',
-      patterns: {
-        // tangled.sh/handle or tangled.sh/@handle
-        profileHandle: /^\/@?([^/]+)$/,
+  ],
+  [
+    'TANGLED_SH',
+    {
+      emoji: '🪢',
+      name: 'tangled.sh',
+      contentSupport: 'only-profiles',
+      parsing: {
+        hostname: 'tangled.sh',
+        patterns: {
+          profileHandle: /^\/@?([^/]+)$/,
+        },
       },
+      buildUrl: (info) => (info.handle ? `https://tangled.sh/@${info.handle}` : null),
+      requiredFields: { handle: true },
     },
-    buildUrl: (info) => (info.handle ? `https://tangled.sh/@${info.handle}` : null),
-    requiredFields: { handle: true },
-  },
-
-  FRONTPAGE_FYI: {
-    emoji: '📰',
-    name: 'frontpage.fyi',
-    contentSupport: 'only-profiles',
-    parsing: {
-      hostname: 'frontpage.fyi',
-      patterns: {
-        // frontpage.fyi/profile/handle
-        profileHandle: /^\/profile\/([^/]+)$/,
+  ],
+  [
+    'FRONTPAGE_FYI',
+    {
+      emoji: '📰',
+      name: 'frontpage.fyi',
+      contentSupport: 'only-profiles',
+      parsing: {
+        hostname: 'frontpage.fyi',
+        patterns: {
+          profileHandle: /^\/profile\/([^/]+)$/,
+        },
       },
+      buildUrl: (info) => (info.handle ? `https://frontpage.fyi/profile/${info.handle}` : null),
+      requiredFields: { handle: true, plcOnly: true },
     },
-    buildUrl: (info) => (info.handle ? `https://frontpage.fyi/profile/${info.handle}` : null),
-    requiredFields: { handle: true, plcOnly: true },
-  },
-
-  BOAT_KELINCI: {
-    emoji: '⛵',
-    name: 'boat.kelinci',
-    contentSupport: 'only-profiles',
-    parsing: {
-      hostname: 'boat.kelinci.net',
-      patterns: {
-        // Extract DID from query parameter ?q=did:plc:xyz
-        queryParam: 'q',
+  ],
+  [
+    'BOAT_KELINCI',
+    {
+      emoji: '⛵',
+      name: 'boat.kelinci',
+      contentSupport: 'only-profiles',
+      parsing: {
+        hostname: 'boat.kelinci.net',
+        patterns: {
+          queryParam: 'q',
+        },
       },
+      buildUrl: (info) => `https://boat.kelinci.net/plc-oplogs?q=${info.did}`,
+      requiredFields: { plcOnly: true },
     },
-    buildUrl: (info) => `https://boat.kelinci.net/plc-oplogs?q=${info.did}`,
-    requiredFields: { plcOnly: true },
-  },
-
-  PLC_DIRECTORY: {
-    emoji: '🪪',
-    name: 'plc.directory',
-    contentSupport: 'only-profiles',
-    parsing: {
-      hostname: 'plc.directory',
-      patterns: {
-        // plc.directory/did:plc:xyz
-        profileDid: /^\/(did:plc:[^/]+)/,
+  ],
+  [
+    'PLC_DIRECTORY',
+    {
+      emoji: '🪪',
+      name: 'plc.directory',
+      contentSupport: 'only-profiles',
+      parsing: {
+        hostname: 'plc.directory',
+        patterns: {
+          profileDid: /^\/(did:plc:[^/]+)/,
+        },
       },
+      buildUrl: (info) => `https://plc.directory/${info.did}`,
+      requiredFields: { plcOnly: true },
     },
-    buildUrl: (info) => `https://plc.directory/${info.did}`,
-    requiredFields: { plcOnly: true },
-  },
-
-  TOOLIFY_BLUE: {
-    emoji: '🔧',
-    name: 'toolify.blue',
-    contentSupport: 'profiles-and-posts',
-    parsing: {
-      hostname: 'toolify.blue',
-      patterns: {
-        // Matches /profile/IDENTIFIER where IDENTIFIER can be handle or DID
-        profileIdentifier: /^\/profile\/([^/]+)/,
+  ],
+  [
+    'TOOLIFY_BLUE',
+    {
+      emoji: '🔧',
+      name: 'toolify.blue',
+      contentSupport: 'profiles-and-posts',
+      parsing: {
+        hostname: 'toolify.blue',
+        patterns: {
+          profileIdentifier: /^\/profile\/([^/]+)/,
+        },
       },
+      buildUrl: (info) => `https://toolify.blue${info.bskyAppPath}`,
+      requiredFields: { plcOnly: true },
     },
-    buildUrl: (info) => `https://toolify.blue${info.bskyAppPath}`,
-    requiredFields: { plcOnly: true },
+  ],
+];
+
+export const SERVICES: Record<string, ServiceConfig> = SERVICE_LIST.reduce<Record<string, ServiceConfig>>(
+  (acc, [key, config]) => {
+    acc[key] = config;
+    return acc;
   },
-};
+  {},
+);
 
 /**
  * Builds a list of destination link objects from canonical info using service configuration.
@@ -281,23 +294,18 @@ export function buildDestinations(
   const destinations: { label: string; url: string }[] = [];
 
   for (const service of Object.values(SERVICES)) {
-    // Check required fields
     if (service.requiredFields) {
       if (service.requiredFields.handle && !info.handle) continue;
       if (service.requiredFields.rkey && !info.rkey) continue;
       if (service.requiredFields.plcOnly && isDidWeb) continue;
     }
 
-    // Strict mode filtering
     if (strictMode && info.rkey) {
-      // When viewing content (posts/feeds/lists), apply strict filtering
       if (info.nsid === 'app.bsky.feed.post') {
-        // For posts: include only-posts, profiles-and-posts, and full
         if (!['only-posts', 'profiles-and-posts', 'full'].includes(service.contentSupport)) {
           continue;
         }
       } else if (info.nsid === 'app.bsky.feed.generator' || info.nsid === 'app.bsky.graph.list') {
-        // For feeds/lists: include only full support services
         if (service.contentSupport !== 'full') {
           continue;
         }

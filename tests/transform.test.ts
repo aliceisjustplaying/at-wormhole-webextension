@@ -313,6 +313,7 @@ describe('buildDestinations', () => {
       else if (dest.label.includes('bsky.app')) acc['bsky.app'] = dest.url;
       else if (dest.label.includes('pdsls.dev')) acc['pdsls.dev'] = dest.url;
       else if (dest.label.includes('atp.tools')) acc['atp.tools'] = dest.url;
+      else if (dest.label.includes('alpha.weaver.sh')) acc['alpha.weaver.sh'] = dest.url;
       else if (dest.label.includes('clearsky')) acc.clearsky = dest.url;
       else if (dest.label.includes('skythread')) acc.skythread = dest.url;
       else if (dest.label.includes('cred.blue')) acc['cred.blue'] = dest.url;
@@ -330,10 +331,13 @@ describe('buildDestinations', () => {
     expect(destMap['pdsls.dev']).toBe(
       'https://pdsls.dev/at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
     );
+    expect(destMap['alpha.weaver.sh']).toBe(
+      'https://alpha.weaver.sh/record/at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
+    );
     expect(destMap['atp.tools']).toBe(
       'https://atp.tools/at:/did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
     );
-    expect(destMap.clearsky).toBe('https://clearsky.app/did:plc:kkkcb7sys7623hcf7oefcffg/blocked-by');
+    expect(destMap.clearsky).toBe('https://clearsky.app/now.alice.mosphere.at/blocking/blocked-by');
     expect(destMap.skythread).toBe(
       'https://blue.mackuba.eu/skythread/?author=did:plc:kkkcb7sys7623hcf7oefcffg&post=3lqcw7n4gly2u',
     );

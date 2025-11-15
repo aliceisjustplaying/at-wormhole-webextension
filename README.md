@@ -6,10 +6,11 @@ This is a browser extension that provides "wormhole" navigation between differen
 
 ## Supported services
 
-- [deer.social](https://deer.social)
 - [bsky.app](https://bsky.app)
 - [atp.tools](https://atp.tools)
+- [alpha.weaver.sh](https://alpha.weaver.sh)
 - [pdsls.dev](https://pdsls.dev)
+- [deer.social](https://deer.social)
 - [repoview.edavis.dev](https://repoview.edavis.dev)
 - [astrolabe.at](https://astrolabe.at)
 - [clearsky.app](https://clearsky.app)
