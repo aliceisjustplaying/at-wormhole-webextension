@@ -16,7 +16,17 @@ export type SWMessage =
   | { type: 'UPDATE_CACHE'; did: string; handle: string }
   | { type: 'GET_HANDLE'; did: string }
   | { type: 'GET_DID'; handle: string }
-  | { type: 'CLEAR_CACHE' };
+  | { type: 'CLEAR_CACHE' }
+  | { type: 'PROBE_PAGE_FOR_AT_URI'; tabId: number; tabUrl?: string; force?: boolean };
+
+export type ProbeSource = 'rel-alternate';
+
+export interface PageProbeResponse {
+  info: TransformInfo | null;
+  atUri: string | null;
+  source: ProbeSource | null;
+  cached: boolean;
+}
 
 export interface Destination {
   url: string;

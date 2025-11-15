@@ -16,7 +16,7 @@
     "512": "images/icon_512.png"
   },
 
-  "permissions": ["activeTab", "storage", "theme"],
+  "permissions": ["activeTab", "storage", "theme", "scripting"],
   "host_permissions": [
     "https://public.api.bsky.app/*",
     "https://plc.directory/*",
