@@ -134,7 +134,11 @@ async function handleProbeRequest(tabId: number, tabUrl?: string, force = false)
     try {
       const cached = await getProbeCache(tabId);
       if (cached && Date.now() - cached.detectedAt < PROBE_CACHE_TTL_MS) {
-        return { info: cached.info, atUri: cached.atUri, source: cached.source, cached: true };
+        if (cached.info && cached.atUri) {
+          return { info: cached.info, atUri: cached.atUri, source: cached.source, cached: true };
+        }
+        // Cached miss - fall through to rerun probe so we don't stick with stale nulls
+        await clearProbeCache(tabId);
       }
     } catch (error) {
       logError('serviceWorker', error);
@@ -142,7 +146,7 @@ async function handleProbeRequest(tabId: number, tabUrl?: string, force = false)
   }
 
   const fresh = await runRelAlternateProbe(tabId);
-  if (fresh) {
+  if (fresh?.atUri && fresh.info) {
     try {
       await setProbeCache(tabId, fresh);
     } catch (error) {
@@ -150,7 +154,6 @@ async function handleProbeRequest(tabId: number, tabUrl?: string, force = false)
     }
     return { info: fresh.info, atUri: fresh.atUri, source: fresh.source, cached: false };
   }
-
   return { info: null, atUri: null, source: null, cached: false };
 }
 
