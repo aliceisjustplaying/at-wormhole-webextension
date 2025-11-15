@@ -38,7 +38,9 @@ Run **all** of these before handing work off:
 - `src/shared/resolver.ts` + `src/shared/cache.ts` ➜ handle↔DID resolution with a debounced `DidHandleCache` and inlined retry logic.
 - `src/shared/services.ts` ➜ service registry + destination builders; parsing helpers moved out.
 - `src/shared/options.ts` ➜ minimal options API (`showEmojis`, `strictMode`, `showCacheDebug`) with listener helpers.
+- `src/shared/rel-alternate.ts` ➜ parses `<link rel="alternate" href="at://...">` metadata into canonical `TransformInfo` for Leaflet/WhtWnd-style pages.
 - `src/background/service-worker.ts` ➜ message router plus a lightweight `tabs.onUpdated` listener that precaches DID/handle pairs for any URL `parseInput` understands (all supported services).
+- `src/background/service-worker.ts` also handles `PROBE_PAGE_FOR_AT_URI` (triggered by the popup) by injecting a short DOM scanner via `chrome.scripting`/`activeTab`, caching successful rel-alternate hits in `chrome.storage.session`.
 - `src/popup/*` ➜ DOM-only rendering (no `innerHTML`), Firefox theme via CSS variables, inline cache debug panel.
 - `src/options/*` ➜ simple UI with three toggles; errors revert to the last known good state.
 - Builds via Vite + `@crxjs/vite-plugin`; remember to run all validation commands listed above.
@@ -52,6 +54,8 @@ Update this checklist as items ship; keep it honest.
 - [x] **Options revert bug** (`src/options/options.ts:13-35`): Error handling always reverts to the _initial_ checkbox state, not the last successful save, because the captured `options` object never updates. _Fixed 2025-11-15 by tracking the last persisted values and reverting to those on failures._
 - [ ] **Tooling determinism** (`package.json`): Almost every devDependency is pinned to `"latest"`, which makes CI/CD non-reproducible and has already caused surprise build breaks.
 - [x] **Cache write amplification** (`src/shared/cache.ts:138-205`): Every cache hit triggers a full `chrome.storage.local.set`, risking quota overruns (120 writes/min) and throttled service-worker lifetimes. _Fixed 2025-11-15 by debouncing read-hit persistence while keeping writes synchronous._
+- [x] **Weaver repo limitation** (`src/shared/services.ts`): alpha.weaver.sh only renders single records; profiles with no `rkey` produced dead links. _Fixed 2025-11-15 by requiring `rkey` for Weaver destinations._
+- [x] **Rel-alternate stale cache** (`src/background/service-worker.ts`): Cached “misses” blocked future metadata probes until the tab reloaded. _Fixed 2025-11-15 by skipping cache reuse unless both `info` and `atUri` are present._
 
 _When you clear an item, document the fix (date + PR/commit) here before removing it so future agents see the history._
 
@@ -62,4 +66,5 @@ _When you clear an item, document the fix (date + PR/commit) here before removin
 - Service worker precaches DID/handle pairs again by parsing every completed tab URL and only acting when `parseInput` recognizes a supported service.
 - `retry.ts`, legacy options helpers, and `wormholeDebug` hooks are gone; parser owns service-specific parsing logic.
 - Options include a third “Show cache debug info” toggle; popup shows cache hit/miss status when enabled.
+- Popup now triggers an on-demand rel=alternate probe (via `activeTab` + `chrome.scripting`) so Leaflet-style pages expose AT URIs without needing `<all_urls>` permissions.
 - Remaining backlog: pin dependencies for deterministic builds.
