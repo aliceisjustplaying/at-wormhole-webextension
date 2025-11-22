@@ -257,22 +257,6 @@ const SERVICE_LIST: [string, ServiceConfig][] = [
       requiredFields: { plcOnly: true },
     },
   ],
-  [
-    'TOOLIFY_BLUE',
-    {
-      emoji: '🔧',
-      name: 'toolify.blue',
-      contentSupport: 'profiles-and-posts',
-      parsing: {
-        hostname: 'toolify.blue',
-        patterns: {
-          profileIdentifier: /^\/profile\/([^/]+)/,
-        },
-      },
-      buildUrl: (info) => `https://toolify.blue${info.bskyAppPath}`,
-      requiredFields: { plcOnly: true },
-    },
-  ],
 ];
 
 export const SERVICES: Record<string, ServiceConfig> = SERVICE_LIST.reduce<Record<string, ServiceConfig>>(

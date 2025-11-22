@@ -20,7 +20,6 @@ This is a browser extension that provides "wormhole" navigation between differen
 - [frontpage.fyi](https://frontpage.fyi)
 - [boat.kelinci.net](https://boat.kelinci.net)
 - [plc.directory](https://plc.directory)
-- [toolify.blue](https://toolify.blue)
 
 If you'd like to add support for another service, please open an issue or submit a pull request.
 

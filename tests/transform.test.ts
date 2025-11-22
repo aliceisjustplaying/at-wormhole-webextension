@@ -216,56 +216,6 @@ describe('parseInput', () => {
       });
     });
   });
-
-  describe('toolify.blue URLs', () => {
-    test('should parse profile URL with handle', () => {
-      const result = parseInput('https://toolify.blue/profile/alice.mosphere.at');
-      expect(result._unsafeUnwrap()).toEqual({
-        atUri: 'at://alice.mosphere.at',
-        did: null,
-        handle: 'alice.mosphere.at',
-        rkey: undefined,
-        nsid: undefined,
-        bskyAppPath: '/profile/alice.mosphere.at',
-      });
-    });
-
-    test('should parse post URL with handle', () => {
-      const result = parseInput('https://toolify.blue/profile/alice.mosphere.at/post/3lqeyxrcx6k2p');
-      expect(result._unsafeUnwrap()).toEqual({
-        atUri: 'at://alice.mosphere.at/app.bsky.feed.post/3lqeyxrcx6k2p',
-        did: null,
-        handle: 'alice.mosphere.at',
-        rkey: '3lqeyxrcx6k2p',
-        nsid: 'app.bsky.feed.post',
-        bskyAppPath: '/profile/alice.mosphere.at/post/3lqeyxrcx6k2p',
-      });
-    });
-
-    test('should parse profile URL with DID', () => {
-      const result = parseInput('https://toolify.blue/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf');
-      expect(result._unsafeUnwrap()).toEqual({
-        atUri: 'at://did:plc:by3jhwdqgbtrcc7q4tkkv3cf',
-        did: 'did:plc:by3jhwdqgbtrcc7q4tkkv3cf',
-        handle: null,
-        rkey: undefined,
-        nsid: undefined,
-        bskyAppPath: '/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf',
-      });
-    });
-
-    test('should parse post URL with DID', () => {
-      const result = parseInput('https://toolify.blue/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf/post/3lqeyxrcx6k2p');
-      expect(result._unsafeUnwrap()).toEqual({
-        atUri: 'at://did:plc:by3jhwdqgbtrcc7q4tkkv3cf/app.bsky.feed.post/3lqeyxrcx6k2p',
-        did: 'did:plc:by3jhwdqgbtrcc7q4tkkv3cf',
-        handle: null,
-        rkey: '3lqeyxrcx6k2p',
-        nsid: 'app.bsky.feed.post',
-        bskyAppPath: '/profile/did:plc:by3jhwdqgbtrcc7q4tkkv3cf/post/3lqeyxrcx6k2p',
-      });
-    });
-  });
 });
 
 describe('resolveHandleToDid', () => {
@@ -319,7 +269,6 @@ describe('buildDestinations', () => {
       else if (dest.label.includes('cred.blue')) acc['cred.blue'] = dest.url;
       else if (dest.label.includes('tangled.sh')) acc['tangled.sh'] = dest.url;
       else if (dest.label.includes('frontpage.fyi')) acc['frontpage.fyi'] = dest.url;
-      else if (dest.label.includes('toolify.blue')) acc['toolify.blue'] = dest.url;
       else if (dest.label.includes('boat.kelinci')) acc['boat.kelinci'] = dest.url;
       else if (dest.label.includes('plc.directory')) acc['plc.directory'] = dest.url;
       return acc;
@@ -344,7 +293,6 @@ describe('buildDestinations', () => {
     expect(destMap['cred.blue']).toBe('https://cred.blue/now.alice.mosphere.at');
     expect(destMap['tangled.sh']).toBe('https://tangled.sh/@now.alice.mosphere.at');
     expect(destMap['frontpage.fyi']).toBe('https://frontpage.fyi/profile/now.alice.mosphere.at');
-    expect(destMap['toolify.blue']).toBe('https://toolify.blue/profile/now.alice.mosphere.at/post/3lqcw7n4gly2u');
     expect(destMap['boat.kelinci']).toBe('https://boat.kelinci.net/plc-oplogs?q=did:plc:kkkcb7sys7623hcf7oefcffg');
     expect(destMap['plc.directory']).toBe('https://plc.directory/did:plc:kkkcb7sys7623hcf7oefcffg');
   });
@@ -397,18 +345,6 @@ describe('buildDestinations', () => {
     expect(bskyDestination?.label).toBe('bsky.app');
   });
 
-  test('should include toolify.blue with emoji when showEmojis is true', () => {
-    const destinations = buildDestinations(realPostInfo, true);
-    const toolifyDestination = destinations.find((dest) => dest.url.includes('toolify.blue'));
-    expect(toolifyDestination?.label).toBe('🔧 toolify.blue');
-  });
-
-  test('should include toolify.blue without emoji when showEmojis is false', () => {
-    const destinations = buildDestinations(realPostInfo, false);
-    const toolifyDestination = destinations.find((dest) => dest.url.includes('toolify.blue'));
-    expect(toolifyDestination?.label).toBe('toolify.blue');
-  });
-
   describe('strict mode', () => {
     const postInfo = {
       atUri: 'at://did:plc:kkkcb7sys7623hcf7oefcffg/app.bsky.feed.post/3lqcw7n4gly2u',
@@ -449,7 +385,6 @@ describe('buildDestinations', () => {
 
       // Should include all service types
       expect(destinations.some((d) => d.url.includes('deer.social'))).toBe(true); // full
-      expect(destinations.some((d) => d.url.includes('toolify.blue'))).toBe(true); // profiles-and-posts
       expect(destinations.some((d) => d.url.includes('skythread'))).toBe(true); // only-posts
       expect(destinations.some((d) => d.url.includes('cred.blue'))).toBe(true); // only-profiles (fallback)
     });
@@ -460,7 +395,6 @@ describe('buildDestinations', () => {
       // Should include post-supporting services
       expect(destinations.some((d) => d.url.includes('deer.social'))).toBe(true); // full
       expect(destinations.some((d) => d.url.includes('bsky.app'))).toBe(true); // full
-      expect(destinations.some((d) => d.url.includes('toolify.blue'))).toBe(true); // profiles-and-posts
       expect(destinations.some((d) => d.url.includes('skythread'))).toBe(true); // only-posts
 
       // Should exclude profile-only services
@@ -472,7 +406,7 @@ describe('buildDestinations', () => {
       expect(destinations.some((d) => d.url.includes('plc.directory'))).toBe(false);
     });
 
-    test('should exclude toolify.blue in strict mode for feeds', () => {
+    test('should exclude post-only services in strict mode for feeds', () => {
       const destinations = buildDestinations(feedInfo, true, true);
 
       // Should include full content support services
@@ -481,9 +415,6 @@ describe('buildDestinations', () => {
       expect(destinations.some((d) => d.url.includes('pdsls.dev'))).toBe(true);
       expect(destinations.some((d) => d.url.includes('atp.tools'))).toBe(true);
 
-      // Should exclude toolify.blue (only supports posts, not feeds)
-      expect(destinations.some((d) => d.url.includes('toolify.blue'))).toBe(false);
-
       // Should exclude skythread (only supports posts, not feeds)
       expect(destinations.some((d) => d.url.includes('skythread'))).toBe(false);
 
@@ -491,7 +422,7 @@ describe('buildDestinations', () => {
       expect(destinations.some((d) => d.url.includes('cred.blue'))).toBe(false);
     });
 
-    test('should exclude toolify.blue in strict mode for lists', () => {
+    test('should exclude post-only services in strict mode for lists', () => {
       const destinations = buildDestinations(listInfo, true, true);
 
       // Should include full content support services
@@ -499,9 +430,6 @@ describe('buildDestinations', () => {
       expect(destinations.some((d) => d.url.includes('bsky.app'))).toBe(true);
       expect(destinations.some((d) => d.url.includes('pdsls.dev'))).toBe(true);
       expect(destinations.some((d) => d.url.includes('atp.tools'))).toBe(true);
-
-      // Should exclude toolify.blue (only supports posts, not lists)
-      expect(destinations.some((d) => d.url.includes('toolify.blue'))).toBe(false);
 
       // Should exclude skythread (only supports posts, not lists)
       expect(destinations.some((d) => d.url.includes('skythread'))).toBe(false);
@@ -516,7 +444,6 @@ describe('buildDestinations', () => {
       // Profile viewing should include all services that don't require rkey
       expect(destinations.some((d) => d.url.includes('deer.social'))).toBe(true);
       expect(destinations.some((d) => d.url.includes('bsky.app'))).toBe(true);
-      expect(destinations.some((d) => d.url.includes('toolify.blue'))).toBe(true);
       expect(destinations.some((d) => d.url.includes('cred.blue'))).toBe(true);
       expect(destinations.some((d) => d.url.includes('tangled.sh'))).toBe(true);
       expect(destinations.some((d) => d.url.includes('frontpage.fyi'))).toBe(true);
