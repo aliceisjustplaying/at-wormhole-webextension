@@ -60,6 +60,7 @@ const SERVICE_LIST: [string, ServiceConfig][] = [
       name: 'alpha.weaver.sh',
       contentSupport: 'full',
       buildUrl: (info) => (info.atUri ? `https://alpha.weaver.sh/record/${info.atUri}` : null),
+      requiredFields: { rkey: true },
     },
   ],
   [
@@ -253,22 +254,6 @@ const SERVICE_LIST: [string, ServiceConfig][] = [
         },
       },
       buildUrl: (info) => `https://plc.directory/${info.did}`,
-      requiredFields: { plcOnly: true },
-    },
-  ],
-  [
-    'TOOLIFY_BLUE',
-    {
-      emoji: '🔧',
-      name: 'toolify.blue',
-      contentSupport: 'profiles-and-posts',
-      parsing: {
-        hostname: 'toolify.blue',
-        patterns: {
-          profileIdentifier: /^\/profile\/([^/]+)/,
-        },
-      },
-      buildUrl: (info) => `https://toolify.blue${info.bskyAppPath}`,
       requiredFields: { plcOnly: true },
     },
   ],

@@ -1,7 +1,7 @@
 import { parseInput } from '../shared/parser';
 import { buildDestinations } from '../shared/services';
 import { getOptions, getDefaultOptions } from '../shared/options';
-import type { BrowserWithTheme, Destination } from '../shared/types';
+import type { BrowserWithTheme, Destination, PageProbeResponse, TransformInfo } from '../shared/types';
 import { ResultAsync } from 'neverthrow';
 import { runtimeError, type RuntimeError } from '../shared/errors';
 import { debugLog } from '../shared/logging';
@@ -67,6 +67,43 @@ function sendRuntimeMessage<T>(message: unknown): ResultAsync<T, RuntimeError> {
   );
 }
 
+function mergeTransformInfo(primary: TransformInfo | null, secondary: TransformInfo | null): TransformInfo | null {
+  if (!primary && !secondary) {
+    return null;
+  }
+  if (!secondary) {
+    return primary;
+  }
+  if (!primary) {
+    return secondary;
+  }
+
+  const mergedPath = primary.bskyAppPath !== '' ? primary.bskyAppPath : secondary.bskyAppPath;
+
+  return {
+    atUri: primary.atUri ?? secondary.atUri,
+    did: primary.did ?? secondary.did,
+    handle: primary.handle ?? secondary.handle,
+    rkey: primary.rkey ?? secondary.rkey,
+    nsid: primary.nsid ?? secondary.nsid,
+    bskyAppPath: mergedPath,
+  };
+}
+
+function requestPageProbe(tabId: number, tabUrl?: string): Promise<PageProbeResponse | null> {
+  return sendRuntimeMessage<PageProbeResponse>({
+    type: 'PROBE_PAGE_FOR_AT_URI',
+    tabId,
+    tabUrl,
+  }).match(
+    (response) => response,
+    (error) => {
+      console.error('PROBE_PAGE_FOR_AT_URI error', error);
+      return null;
+    },
+  );
+}
+
 // Local type for list items
 
 /**
@@ -111,6 +148,7 @@ const domContentLoadedHandler = () => {
     };
 
     const debugInfo = document.getElementById('debugInfo') as HTMLDivElement | null;
+    const metadataInfo = document.getElementById('metadataInfo') as HTMLDivElement | null;
 
     const setDebugInfo = (msg: string): void => {
       if (!debugInfo) return;
@@ -122,6 +160,19 @@ const domContentLoadedHandler = () => {
       debugInfo.hidden = false;
       debugInfo.textContent = msg;
     };
+
+    const setMetadataInfo = (msg: string | null): void => {
+      if (!metadataInfo) return;
+      if (!msg) {
+        metadataInfo.hidden = true;
+        metadataInfo.textContent = '';
+        return;
+      }
+      metadataInfo.hidden = false;
+      metadataInfo.textContent = msg;
+    };
+
+    setMetadataInfo(null);
 
     if (debugInfo) {
       if (options.showCacheDebug) {
@@ -154,7 +205,12 @@ const domContentLoadedHandler = () => {
     // Determine input: payload param or active tab URL
     const payload = new URLSearchParams(location.search).get('payload');
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    const activeUrl = tabs[0]?.url ?? '';
+    let activeTab: chrome.tabs.Tab | null = null;
+    if (tabs.length > 0) {
+      activeTab = tabs[0];
+    }
+    const activeUrl = activeTab?.url ?? '';
+    const activeTabId = activeTab && typeof activeTab.id === 'number' ? activeTab.id : null;
     const raw: string = payload ?? activeUrl;
     debugLog('parsing', 'Processing input:', raw);
     if (!raw) {
@@ -166,15 +222,31 @@ const domContentLoadedHandler = () => {
     void parseResult.match(
       async (info) => {
         debugLog('parsing', 'Parse result:', info);
-        if (!info || (!info.did && !info.handle && !info.atUri)) {
+        let currentInfo = info;
+
+        if (activeTabId !== null) {
+          const probeResponse = await requestPageProbe(activeTabId, activeUrl);
+          if (probeResponse?.info) {
+            currentInfo = mergeTransformInfo(probeResponse.info, currentInfo);
+            if (probeResponse.source === 'rel-alternate') {
+              setMetadataInfo('Found rel=alternate at:// metadata on this page.');
+            }
+          } else {
+            setMetadataInfo(null);
+          }
+        } else {
+          setMetadataInfo(null);
+        }
+
+        if (!currentInfo || (!currentInfo.did && !currentInfo.handle && !currentInfo.atUri)) {
           showStatus('No DID or at:// URI found in current tab.');
           return;
         }
 
-        let ds = buildDestinations(info, options.showEmojis, options.strictMode);
+        let ds = buildDestinations(currentInfo, options.showEmojis, options.strictMode);
         render(ds);
 
-        if (info.did && !info.handle) {
+        if (currentInfo.did && !currentInfo.handle) {
           // Ask SW for a handle (from cache or resolved)
           showStatus('Resolving...');
 
@@ -183,7 +255,7 @@ const domContentLoadedHandler = () => {
             fromCache: boolean;
           }>({
             type: 'GET_HANDLE',
-            did: info.did,
+            did: currentInfo.did,
           }).match(
             (response) => {
               const handle = response.handle;
@@ -206,8 +278,8 @@ const domContentLoadedHandler = () => {
 
           // After attempting to get handle from cache or by fetching:
           if (handleToUse) {
-            info.handle = handleToUse;
-            ds = buildDestinations(info, options.showEmojis, options.strictMode); // Re-build destinations with the handle
+            currentInfo.handle = handleToUse;
+            ds = buildDestinations(currentInfo, options.showEmojis, options.strictMode); // Re-build destinations with the handle
             render(ds); // Re-render the list
           } else {
             // Handle was not obtained. An error status might have already been set.
@@ -219,12 +291,12 @@ const domContentLoadedHandler = () => {
         }
 
         // If we have a handle but no did, resolve DID via SW
-        if (info.handle && !info.did) {
+        if (currentInfo.handle && !currentInfo.did) {
           showStatus('Resolving...');
 
           const { didToUse, errorStatusWasSet } = await sendRuntimeMessage<{ did: string | null; fromCache: boolean }>({
             type: 'GET_DID',
-            handle: info.handle,
+            handle: currentInfo.handle,
           }).match(
             (response) => {
               const did = response.did;
@@ -246,8 +318,8 @@ const domContentLoadedHandler = () => {
           );
 
           if (didToUse) {
-            info.did = didToUse;
-            ds = buildDestinations(info, options.showEmojis, options.strictMode);
+            currentInfo.did = didToUse;
+            ds = buildDestinations(currentInfo, options.showEmojis, options.strictMode);
             render(ds);
           } else if (!ds.length && !errorStatusWasSet) {
             showStatus('No actions available');

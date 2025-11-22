@@ -2,12 +2,25 @@ import { parseInput } from '../shared/parser';
 import { resolveDidToHandle, resolveHandleToDid } from '../shared/resolver';
 import { DidHandleCache } from '../shared/cache';
 import { debugLog, logError } from '../shared/logging';
-import type { SWMessage } from '../shared/types';
+import type { PageProbeResponse, ProbeSource, SWMessage, TransformInfo } from '../shared/types';
+import { extractAtUriFromAlternateLinks, type AlternateLinkCandidate } from '../shared/rel-alternate';
 
 const cache = new DidHandleCache();
 
 // Create initialization promise immediately at module level
 const cacheInitialized = initializeCache();
+
+const PROBE_CACHE_PREFIX = 'pageProbe:';
+const PROBE_CACHE_TTL_MS = 60_000;
+const probeInFlight = new Map<string, Promise<ProbeCacheEntry | null>>();
+
+interface ProbeCacheEntry {
+  info: TransformInfo | null;
+  atUri: string | null;
+  source: ProbeSource | null;
+  detectedAt: number;
+  url: string;
+}
 
 async function initializeCache(): Promise<void> {
   try {
@@ -40,12 +53,165 @@ async function initializeCache(): Promise<void> {
   }
 }
 
+function getSessionStorageArea(): chrome.storage.StorageArea | null {
+  if ('session' in chrome.storage) {
+    return chrome.storage.session;
+  }
+  return null;
+}
+
+async function getProbeCache(tabId: number): Promise<ProbeCacheEntry | null> {
+  const session = getSessionStorageArea();
+  if (!session) return null;
+  const key = `${PROBE_CACHE_PREFIX}${tabId}`;
+  const result: Record<string, unknown> = await session.get(key);
+  const entry = result[key];
+  if (!entry) {
+    return null;
+  }
+  return entry as ProbeCacheEntry;
+}
+
+async function setProbeCache(tabId: number, entry: ProbeCacheEntry): Promise<void> {
+  const session = getSessionStorageArea();
+  if (!session) return;
+  const key = `${PROBE_CACHE_PREFIX}${tabId}`;
+  await session.set({ [key]: entry });
+}
+
+async function clearProbeCache(tabId: number): Promise<void> {
+  const session = getSessionStorageArea();
+  if (!session) return;
+  const key = `${PROBE_CACHE_PREFIX}${tabId}`;
+  await session.remove(key);
+}
+
+function shouldSkipProbe(url?: string): boolean {
+  if (!url) return true;
+  return !(url.startsWith('http://') || url.startsWith('https://'));
+}
+
+function getProbeKey(tabId: number, tabUrl?: string): string {
+  return `${tabId}:${tabUrl ?? ''}`;
+}
+
+function getOrCreateProbe(tabId: number, tabUrl?: string): Promise<ProbeCacheEntry | null> {
+  const key = getProbeKey(tabId, tabUrl);
+  const existing = probeInFlight.get(key);
+  if (existing) {
+    return existing;
+  }
+
+  const pending = (async () => {
+    try {
+      return await runRelAlternateProbe(tabId, tabUrl);
+    } finally {
+      probeInFlight.delete(key);
+    }
+  })();
+
+  probeInFlight.set(key, pending);
+  return pending;
+}
+
+async function runRelAlternateProbe(tabId: number, tabUrl?: string): Promise<ProbeCacheEntry | null> {
+  try {
+    const injectionResults = (await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        const head = document.head;
+        const links = Array.from(head.querySelectorAll('link[rel]'));
+        return links.map((link) => ({
+          rel: link.getAttribute('rel'),
+          href: link.getAttribute('href'),
+          type: link.getAttribute('type'),
+          title: link.getAttribute('title'),
+        }));
+      },
+    })) as chrome.scripting.InjectionResult<AlternateLinkCandidate[]>[];
+
+    const candidates: AlternateLinkCandidate[] = [];
+    for (const result of injectionResults) {
+      if (result.result) {
+        candidates.push(...result.result);
+      }
+    }
+
+    const match = extractAtUriFromAlternateLinks(candidates);
+    return {
+      info: match?.info ?? null,
+      atUri: match?.atUri ?? null,
+      source: match ? 'rel-alternate' : null,
+      detectedAt: Date.now(),
+      url: tabUrl ?? '',
+    };
+  } catch (error) {
+    logError('serviceWorker', error);
+    return null;
+  }
+}
+
+async function handleProbeRequest(tabId: number, tabUrl?: string, force = false): Promise<PageProbeResponse> {
+  if (shouldSkipProbe(tabUrl)) {
+    return { info: null, atUri: null, source: null, cached: false };
+  }
+
+  if (!force) {
+    try {
+      const cached = await getProbeCache(tabId);
+      if (cached && Date.now() - cached.detectedAt < PROBE_CACHE_TTL_MS) {
+        if (tabUrl && (!cached.url || cached.url !== tabUrl)) {
+          await clearProbeCache(tabId);
+        } else if (cached.info && cached.atUri) {
+          return { info: cached.info, atUri: cached.atUri, source: cached.source, cached: true };
+        } else {
+          await clearProbeCache(tabId);
+        }
+      }
+    } catch (error) {
+      logError('serviceWorker', error);
+    }
+  }
+
+  const fresh = await getOrCreateProbe(tabId, tabUrl);
+  if (fresh) {
+    if (fresh.info && fresh.atUri) {
+      try {
+        await setProbeCache(tabId, fresh);
+      } catch (error) {
+        logError('serviceWorker', error);
+      }
+      return { info: fresh.info, atUri: fresh.atUri, source: fresh.source, cached: false };
+    }
+
+    // We intentionally do not cache negative results (no metadata) so that
+    // future popup opens can re-check the page. This trades a tiny bit of
+    // extra scripting work for avoiding stale "no metadata" responses when
+    // the page content changes without a navigation event.
+  }
+
+  return { info: null, atUri: null, source: null, cached: false };
+}
+
 // Handle messages from the popup
 const messageListener = (
   request: SWMessage,
   _sender: chrome.runtime.MessageSender,
   sendResponse: (response?: unknown) => void,
 ): boolean => {
+  if (request.type === 'PROBE_PAGE_FOR_AT_URI' && typeof request.tabId === 'number') {
+    void (async () => {
+      try {
+        const response = await handleProbeRequest(request.tabId, request.tabUrl, request.force === true);
+        sendResponse(response);
+      } catch (error) {
+        logError('serviceWorker', error);
+        sendResponse({ info: null, atUri: null, source: null, cached: false });
+      }
+    })();
+    return true;
+  }
+
   // UPDATE_CACHE
   if (request.type === 'UPDATE_CACHE' && typeof request.did === 'string' && typeof request.handle === 'string') {
     void (async () => {
@@ -184,6 +350,10 @@ const tabUpdateListener = (_tabId: number, info: chrome.tabs.TabChangeInfo, tab:
 };
 
 chrome.tabs.onUpdated.addListener(tabUpdateListener);
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  void clearProbeCache(tabId).catch((error: unknown) => logError('serviceWorker', error));
+});
 
 async function precacheFromUrl(rawUrl: string): Promise<void> {
   try {
